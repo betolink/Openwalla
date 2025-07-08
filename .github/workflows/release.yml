@@ -5,36 +5,48 @@ on:
     tags:
       - 'v*'
 
-jobs:
-  build-android:
-    runs-on: ubuntu-latest
+jobs:  
+  build-android:      
+    name: Build Android 
+    runs-on: macos-latest 
+
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Flutter
+        #1 Checkout Repository
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+        #2 Setup Java
+      - name: Set Up Java
+        uses: actions/setup-java@v3.12.0
+        with:
+          distribution: 'oracle'
+          java-version: '21'
+
+        #3 Setup Flutter
+      - name: Set Up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.32.5'
           channel: 'stable'
-      
-      - name: Install dependencies
-        run: flutter pub get
-      
-      - name: Setup Android Keystore
-        run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/luci-mobile.jks
 
+        #4 Install Dependencies
+      - name: Install Dependencies
+        run: flutter pub get
+
+        #5 Setup Keystore
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
+          
+      - name: Create key.properties
+        run: |
           echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" > android/key.properties
           echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/key.properties
           echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/key.properties
-          echo "storeFile=luci-mobile.jks" >> android/key.properties
+          echo "storeFile=keystore.jks" >> android/key.properties
       
       - name: Build APK
         run: flutter build apk --release
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
       
       - name: Upload APK
         uses: actions/upload-artifact@v4
