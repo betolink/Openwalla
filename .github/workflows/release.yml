@@ -22,13 +22,12 @@ jobs:
       
       - name: Setup Android Keystore
         run: |
-          echo ${{ secrets.ANDROID_KEYSTORE_BASE64 }} | base64 -d > android/app/luci-mobile.jks
-          cat > android/key.properties << EOF
-          storeFile=luci-mobile.jks
-          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
-          EOF
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/luci-mobile.jks
+
+          echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" > android/key.properties
+          echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=luci-mobile.jks" >> android/key.properties
       
       - name: Build APK
         run: flutter build apk --release
