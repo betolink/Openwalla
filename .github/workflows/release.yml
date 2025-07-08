@@ -24,7 +24,7 @@ jobs:
         run: |
           echo ${{ secrets.ANDROID_KEYSTORE_BASE64 }} | base64 -d > android/app/luci-mobile.keystore
           cat > android/key.properties << EOF
-          storeFile=app/luci-mobile.keystore
+          storeFile=luci-mobile.keystore
           storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
           keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
