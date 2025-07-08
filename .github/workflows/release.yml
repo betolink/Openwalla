@@ -34,16 +34,19 @@ jobs:
         run: flutter pub get
 
         #5 Setup Keystore
-      - name: Decode Keystore
+      - name: Create Keystore
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
-          
-      - name: Create key.properties
-        run: |
-          echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" > android/key.properties
-          echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/key.properties
-          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/key.properties
-          echo "storeFile=keystore.jks" >> android/key.properties
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > app/keystore.jks
+          echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" > key.properties
+          echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> key.properties
+          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> key.properties
+          echo "storeFile=keystore.jks" >> key.properties
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        working-directory: android
       
       - name: Build APK
         run: flutter build apk --release
