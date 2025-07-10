@@ -246,13 +246,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           Icon(
                             Icons.trending_up,
                             size: 48,
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'Collecting throughput data...',
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
                             ),
                           ),
                         ],
@@ -409,7 +409,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Icon(
               Icons.wifi,
-              color: isEnabled ? primaryColor : Colors.grey,
+              color: isEnabled ? primaryColor : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
               size: 20,
             ),
             const SizedBox(width: 8),
@@ -430,7 +430,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.network_cell, size: 16, color: Colors.grey.shade600),
+                    Icon(Icons.network_cell, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text('$signal dBm', style: textTheme.bodySmall, overflow: TextOverflow.ellipsis),
@@ -479,7 +479,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
           networkCardWidgets.add(
             Card(
-              margin: EdgeInsets.zero,
+              margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
               elevation: 2,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
               child: Padding(
@@ -506,7 +506,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isScrollable = networkCardWidgets.length > 2;
     for (int i = 0; i < networkCardWidgets.length; i++) {
       if (isScrollable) {
-        rowChildren.add(SizedBox(width: 160, child: networkCardWidgets[i]));
+        rowChildren.add(SizedBox(width: 180, child: networkCardWidgets[i]));
       } else {
         rowChildren.add(Expanded(child: networkCardWidgets[i]));
       }
@@ -540,7 +540,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       end: Alignment.centerRight,
                       colors: [
                         Colors.transparent,
-                        Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
+                        Theme.of(context).colorScheme.surface,
                       ],
                     ),
                   ),
@@ -567,7 +567,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       end: Alignment.centerLeft,
                       colors: [
                         Colors.transparent,
-                        Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
+                        Theme.of(context).colorScheme.surface,
                       ],
                     ),
                   ),
@@ -628,7 +628,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       interfaceCardWidgets.add(
         Card(
-          margin: EdgeInsets.zero,
+          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           elevation: 2,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           clipBehavior: Clip.hardEdge,
@@ -686,7 +686,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     for (int i = 0; i < interfaceCardWidgets.length; i++) {
       rowChildren.add(Expanded(child: interfaceCardWidgets[i]));
       if (i < interfaceCardWidgets.length - 1) {
-        rowChildren.add(const SizedBox(width: 12));
+        rowChildren.add(const SizedBox(width: 6));
       }
     }
 
@@ -694,14 +694,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return LayoutBuilder(
         builder: (context, constraints) {
           // 4 cards visible, 3 gaps between them
-          final totalSpacing = 12.0 * 3;
+          final totalSpacing = 6.0 * 3;
           final width = constraints.maxWidth;
           final calculatedCardWidth = (width - totalSpacing) / 4;
           final localRowChildren = <Widget>[];
           for (int i = 0; i < interfaceCardWidgets.length; i++) {
             localRowChildren.add(SizedBox(width: calculatedCardWidth, child: interfaceCardWidgets[i]));
             if (i < interfaceCardWidgets.length - 1) {
-              localRowChildren.add(const SizedBox(width: 12));
+              localRowChildren.add(const SizedBox(width: 6));
             }
           }
           return Stack(
@@ -728,7 +728,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           end: Alignment.centerRight,
                           colors: [
                             Colors.transparent,
-                            Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
+                            Theme.of(context).colorScheme.surface,
                           ],
                         ),
                       ),
@@ -755,7 +755,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           end: Alignment.centerLeft,
                           colors: [
                             Colors.transparent,
-                            Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
+                            Theme.of(context).colorScheme.surface,
                           ],
                         ),
                       ),
@@ -965,17 +965,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
           final content = [
             const SizedBox(height: 16),
             _buildDeviceInfoCard(appState),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             isLandscape
                 ? SizedBox(height: 240, child: _buildRealtimeThroughputCard(appState))
                 : Expanded(child: _buildRealtimeThroughputCard(appState)),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             _buildSystemVitalsCard(appState),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             _buildWirelessNetworksCard(appState),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             _buildInterfaceStatusCards(appState),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
           ];
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),

@@ -135,7 +135,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         const SizedBox(height: 32),
                         Text('LuCI Mobile', style: textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
-                        Text('Connect to your OpenWrt router', style: textTheme.titleMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+                        Text('Connect to your OpenWrt router', style: textTheme.titleMedium?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.8))),
                         const SizedBox(height: 2),
                         Text('Fast. Secure. Open Source.', style: textTheme.bodySmall?.copyWith(color: colorScheme.primary)),
                         const SizedBox(height: 24),
@@ -228,7 +228,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                           const SizedBox(height: 10),
                                           Row(
                                             children: [
-                                              Icon(Icons.security_outlined, color: colorScheme.onSurfaceVariant),
+                                              Icon(Icons.security_outlined, color: colorScheme.onSurface.withValues(alpha: 0.7)),
                                               const SizedBox(width: 12),
                                               Text('Use HTTPS', style: textTheme.titleMedium),
                                               const Spacer(),

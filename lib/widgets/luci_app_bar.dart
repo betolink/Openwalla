@@ -188,7 +188,7 @@ class LuciEmptyState extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.10),
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
               size: 64,
             ),
             const SizedBox(height: 24),

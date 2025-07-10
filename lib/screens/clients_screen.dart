@@ -128,11 +128,12 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
                                 )
                               : null,
                           filled: true,
-                          fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                          fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(24.0),
                             borderSide: BorderSide.none,
                           ),
+                          hintStyle: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
                         ),
                       ),
                     ),
@@ -237,7 +238,7 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
                                                       Text(
                                                         _buildMinimalClientSubtitle(client),
                                                         style: theme.textTheme.bodySmall?.copyWith(
-                                                          color: colorScheme.onSurfaceVariant,
+                                                          color: colorScheme.onSurface.withValues(alpha: 0.8),
                                                           fontSize: 12,
                                                           fontWeight: FontWeight.w400,
                                                           letterSpacing: 0.1,
@@ -247,7 +248,7 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
                                                       if (client.vendor != null && client.vendor!.isNotEmpty)
                                                         Text(
                                                           client.vendor!,
-                                                          style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                                                          style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.7)),
                                                           maxLines: 1,
                                                           overflow: TextOverflow.ellipsis,
                                                           semanticsLabel: 'Vendor: ${client.vendor}',
@@ -259,7 +260,7 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
                                                 const SizedBox(width: 8),
                                                 Icon(
                                                   isExpanded ? Icons.expand_less : Icons.expand_more,
-                                                  color: colorScheme.onSurfaceVariant,
+                                                  color: colorScheme.onSurface.withValues(alpha: 0.7),
                                                   size: 28,
                                                   semanticLabel: isExpanded ? 'Collapse details' : 'Expand details',
                                                 ),
