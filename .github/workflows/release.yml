@@ -52,143 +52,42 @@ jobs:
           name: luci-mobile-apk
           path: build/app/outputs/flutter-apk/app-release.apk
 
-#  build-ios:
-#    runs-on: macos-latest
-#    steps:
-#      - uses: actions/checkout@v4
-#      
-#      - name: Setup Flutter
-#        uses: subosito/flutter-action@v2
-#        with:
-#          flutter-version: '3.32.5'
-#          channel: 'stable'
-#      
-#      - name: Install dependencies
-#        run: flutter pub get
-#      
-#      - name: Setup iOS Code Signing
-#        run: |
-#          # Create keychain
-#          security create-keychain -p "" build.keychain
-#          security default-keychain -s build.keychain
-#          security unlock-keychain -p "" build.keychain
-#          security set-keychain-settings build.keychain
-#          
-#          # Import certificate
-#          echo ${{ secrets.IOS_CERTIFICATE_BASE64 }} | base64 -d > certificate.p12
-#          security import certificate.p12 -k build.keychain -P ${{ secrets.IOS_CERTIFICATE_PASSWORD }} -T /usr/bin/codesign
-#          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
-#          
-#          # Install provisioning profile
-#          echo ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }} | base64 -d > profile.mobileprovision
-#          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-#          cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
-#          
-#          # Set up code signing identity
-#          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier ${{ secrets.IOS_APP_ID }}" ios/Runner/Info.plist
-#      
-#      - name: Build iOS
-#        run: flutter build ios --release
-#      
-#      - name: Upload iOS build
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: luci-mobile-ios
-#          path: build/ios/iphoneos/Runner.app
+      - name: Build appBundle
+        run: flutter build appbundle
 
-  create-release:
-    needs: [build-android]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-  
-      - name: Download APK
-        uses: actions/download-artifact@v4
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v2
         with:
-          name: luci-mobile-apk
-          path: dist/
-      
-#      - name: Download iOS build
-#        uses: actions/download-artifact@v4
-#        with:
-#          name: luci-mobile-ios
-#          path: dist/
-      
-      - name: Generate Changelog
-        id: changelog
+          name: Releases
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+
+      - name: Extract version from pubspec.yaml
+        id: extract_version
         run: |
-          # Get the current tag
-          CURRENT_TAG="${{ github.ref_name }}"
-          
-          # Get the previous tag
-          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
-          
-          if [ -z "$PREVIOUS_TAG" ]; then
-            # If no previous tag, get all commits
-            CHANGELOG=$(git log --oneline --pretty=format:"- %s" --no-merges)
-          else
-            # Get commits between previous and current tag
-            CHANGELOG=$(git log --oneline --pretty=format:"- %s" --no-merges ${PREVIOUS_TAG}..${CURRENT_TAG})
-          fi
-          
-          # Escape newlines for GitHub Actions
-          CHANGELOG="${CHANGELOG//'%'/'%25'}"
-          CHANGELOG="${CHANGELOG//$'\n'/'%0A'}"
-          CHANGELOG="${CHANGELOG//$'\r'/'%0D'}"
-          
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          version=$(grep '^version: ' pubspec.yaml | cut -d ' ' -f 2 | tr -d '\r')
+          echo "VERSION=$version" >> $GITHUB_ENV
 
-      - name: Delete existing release and tag if exists
-        uses: dev-drprasad/delete-tag-and-release@v1.2
-        with:
-          tag_name: ${{ github.ref_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
+      - name: Check if Tag Exists
+        id: check_tag
+        run: |
+          if git rev-parse "v${{ env.VERSION }}" >/dev/null 2>&1; then
+            echo "TAG_EXISTS=true" >> $GITHUB_ENV
+          else
+            echo "TAG_EXISTS=false" >> $GITHUB_ENV
+          fi
+
+      - name: Modify Tag
+        if: env.TAG_EXISTS == 'true'
+        id: modify_tag
+        run: |
+          new_version="${{ env.VERSION }}-build-${{ github.run_number }}"
+          echo "VERSION=$new_version" >> $GITHUB_ENV
+
       - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ github.ref }}
-          release_name: LuCI Mobile ${{ github.ref_name }}
-          body: |
-            ## What's New in ${{ github.ref_name }}
-            
-            ### Changes
-            ${{ steps.changelog.outputs.changelog }}
-            
-            ## Downloads
-            
-            ### Android
-            - APK file attached
-            
-            ## Installation
-            
-            1. Download the APK file
-            2. Enable "Install from unknown sources" on your Android device
-            3. Install the APK
-            4. Configure your router settings
-            
-            ## Requirements
-            
-            - Android 5.0+ (API level 21+)
-            - OpenWrt router with LuCI web interface
-            - Network access to your router
-          
-          draft: false
-          prerelease: false
-      
-      - name: Upload APK
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./dist/app-release.apk
-          asset_name: luci-mobile-v${{ github.ref_name }}.apk
-          asset_content_type: application/vnd.android.package-archive 
+          artifacts: "build/app/outputs/flutter-apk/app-release.apk,build/app/outputs/bundle/release/app-release.aab"
+          tag: v${{ env.VERSION }}
+          token: ${{ secrets.TOKEN }}
