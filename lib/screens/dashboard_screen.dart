@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:luci_mobile/state/app_state.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
-import 'package:luci_mobile/screens/splash_screen.dart';
+import 'package:luci_mobile/models/router.dart' as model;
+
+
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -13,12 +15,76 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  final ScrollController _wirelessScrollController = ScrollController();
+  bool _showWirelessLeftArrow = false;
+  bool _showWirelessRightArrow = false;
+
+  final ScrollController _wanScrollController = ScrollController();
+  bool _showWanLeftArrow = false;
+  bool _showWanRightArrow = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<AppState>(context, listen: false).fetchDashboardData();
+      // Initialize arrows after layout
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _updateWirelessArrows();
+        _updateWanArrows();
+      });
     });
+    _wirelessScrollController.addListener(_updateWirelessArrows);
+    _wanScrollController.addListener(_updateWanArrows);
+  }
+
+  @override
+  void didUpdateWidget(covariant DashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateWirelessArrows();
+      _updateWanArrows();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateWirelessArrows();
+      _updateWanArrows();
+    });
+  }
+
+  void _updateWirelessArrows() {
+    if (!_wirelessScrollController.hasClients) return;
+    final max = _wirelessScrollController.position.maxScrollExtent;
+    final min = _wirelessScrollController.position.minScrollExtent;
+    final offset = _wirelessScrollController.offset;
+    setState(() {
+      _showWirelessLeftArrow = offset > min + 2;
+      _showWirelessRightArrow = offset < max - 2;
+    });
+  }
+
+  void _updateWanArrows() {
+    if (!_wanScrollController.hasClients) return;
+    final max = _wanScrollController.position.maxScrollExtent;
+    final min = _wanScrollController.position.minScrollExtent;
+    final offset = _wanScrollController.offset;
+    setState(() {
+      _showWanLeftArrow = offset > min + 2;
+      _showWanRightArrow = offset < max - 2;
+    });
+  }
+
+  @override
+  void dispose() {
+    _wirelessScrollController.removeListener(_updateWirelessArrows);
+    _wirelessScrollController.dispose();
+    _wanScrollController.removeListener(_updateWanArrows);
+    _wanScrollController.dispose();
+    super.dispose();
   }
 
   String _formatUptime(int seconds) {
@@ -113,6 +179,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildRealtimeThroughputCard(AppState appState) {
+    // Show loading state if we don't have any throughput data yet
+    final hasValidData = appState.rxHistory.isNotEmpty || appState.txHistory.isNotEmpty;
+    
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -132,39 +201,63 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 8),
           Expanded(
-            child: LineChart(
-              LineChartData(
-                gridData: FlGridData(show: false),
-                titlesData: FlTitlesData(show: false),
-                borderData: FlBorderData(show: false),
-                lineTouchData: LineTouchData(
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipColor: (LineBarSpot spot) => Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
-                    tooltipBorderRadius: BorderRadius.circular(8),
-                    tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    getTooltipItems: (List<LineBarSpot> touchedSpots) {
-                      return touchedSpots.map((barSpot) {
-                        final flSpot = barSpot;
-                        final Color color = flSpot.bar.gradient?.colors.first ?? flSpot.bar.color ?? Colors.white;
+            child: Padding(
+              padding: const EdgeInsets.only(top: 16.0), // Add space above the chart
+              child: hasValidData
+                  ? LineChart(
+                      LineChartData(
+                        gridData: FlGridData(show: false),
+                        titlesData: FlTitlesData(show: false),
+                        borderData: FlBorderData(show: false),
+                        lineTouchData: LineTouchData(
+                          touchTooltipData: LineTouchTooltipData(
+                            fitInsideVertically: true,
+                            getTooltipColor: (LineBarSpot spot) => Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+                            tooltipBorderRadius: BorderRadius.circular(8),
+                            tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            getTooltipItems: (List<LineBarSpot> touchedSpots) {
+                              return touchedSpots.map((barSpot) {
+                                final flSpot = barSpot;
+                                final Color color = flSpot.bar.gradient?.colors.first ?? flSpot.bar.color ?? Colors.white;
 
-                        return LineTooltipItem(
-                          _formatSpeed(flSpot.y),
-                          TextStyle(
-                            color: color,
-                            fontWeight: FontWeight.w900,
+                                return LineTooltipItem(
+                                  _formatSpeed(flSpot.y),
+                                  TextStyle(
+                                    color: color,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                  textAlign: TextAlign.left,
+                                );
+                              }).toList();
+                            },
                           ),
-                          textAlign: TextAlign.left,
-                        );
-                      }).toList();
-                    },
-                  ),
-                ),
-                lineBarsData: [
-                  _buildLineChartBarData(appState.rxHistory, [Colors.green.shade700, Colors.green.shade400]),
-                  _buildLineChartBarData(appState.txHistory, [Colors.blue.shade700, Colors.blue.shade400]),
-                ],
-              ),
-              duration: const Duration(milliseconds: 150),
+                        ),
+                        lineBarsData: [
+                          _buildLineChartBarData(appState.rxHistory, [Colors.green.shade700, Colors.green.shade400]),
+                          _buildLineChartBarData(appState.txHistory, [Colors.blue.shade700, Colors.blue.shade400]),
+                        ],
+                      ),
+                      duration: const Duration(milliseconds: 150),
+                    )
+                  : Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.trending_up,
+                            size: 48,
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Collecting throughput data...',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
             ),
           ),
         ],
@@ -173,7 +266,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildSpeedIndicator(IconData icon, Color color, String label, double speed) {
-    final speedText = Text(_formatSpeed(speed), style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold));
+    // Show 0 if we don't have valid throughput data yet
+    final displaySpeed = speed.isNaN || speed.isInfinite || speed < 0 ? 0.0 : speed;
+    final speedText = Text(_formatSpeed(displaySpeed), style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold));
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -195,6 +290,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   LineChartBarData _buildLineChartBarData(List<double> data, List<Color> gradientColors) {
+    // Don't show chart data if we don't have enough data points
+    if (data.isEmpty) {
+      return LineChartBarData(
+        spots: [],
+        isCurved: true,
+        gradient: LinearGradient(colors: gradientColors),
+        barWidth: 3,
+        isStrokeCapRound: true,
+        dotData: FlDotData(show: false),
+        belowBarData: BarAreaData(show: false),
+      );
+    }
+    
     return LineChartBarData(
       spots: data.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value)).toList(),
       isCurved: true,
@@ -212,11 +320,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   String _formatSpeed(double bytesPerSecond) {
-    if (bytesPerSecond < 1024) return '${bytesPerSecond.toStringAsFixed(1)} B/s';
-    if (bytesPerSecond < 1024 * 1024) {
-      return '${(bytesPerSecond / 1024).toStringAsFixed(1)} KB/s';
+    // Handle edge cases
+    if (bytesPerSecond.isNaN || bytesPerSecond.isInfinite || bytesPerSecond < 0) {
+      return '0 bps';
     }
-    return '${(bytesPerSecond / (1024 * 1024)).toStringAsFixed(1)} MB/s';
+    
+    final bitsPerSecond = bytesPerSecond * 8;
+    if (bitsPerSecond < 1_000) return '${bitsPerSecond.toStringAsFixed(0)} bps';
+    if (bitsPerSecond < 1_000_000) {
+      return '${(bitsPerSecond / 1_000).toStringAsFixed(1)} Kbps';
+    }
+    return '${(bitsPerSecond / 1_000_000).toStringAsFixed(2)} Mbps';
   }
 
   // Consistent card builder for all dashboard vitals and summary cards
@@ -402,12 +516,71 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     if (isScrollable) {
-      return SizedBox(
-        height: 110, // or whatever height fits the card
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          children: rowChildren,
-        ),
+      return Stack(
+        children: [
+          SizedBox(
+            height: 110, // or whatever height fits the card
+            child: ListView(
+              controller: _wirelessScrollController,
+              scrollDirection: Axis.horizontal,
+              children: rowChildren,
+            ),
+          ),
+          if (_showWirelessRightArrow)
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              child: IgnorePointer(
+                child: Container(
+                  width: 28,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [
+                        Colors.transparent,
+                        Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
+                      ],
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+                  ),
+                ),
+              ),
+            ),
+          if (_showWirelessLeftArrow)
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: IgnorePointer(
+                child: Container(
+                  width: 28,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerRight,
+                      end: Alignment.centerLeft,
+                      colors: [
+                        Colors.transparent,
+                        Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
+                      ],
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+                  ),
+                ),
+              ),
+            ),
+        ],
       );
     } else {
       return Row(
@@ -460,7 +633,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           clipBehavior: Clip.hardEdge,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 0.0, horizontal: 12.0),
+            padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 12.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -510,16 +683,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     List<Widget> rowChildren = [];
     final isScrollable = interfaceCardWidgets.length >= 5;
-    double? cardWidth;
-    if (isScrollable) {
-      // We'll calculate cardWidth in the LayoutBuilder below
-    }
     for (int i = 0; i < interfaceCardWidgets.length; i++) {
-      if (isScrollable && cardWidth != null) {
-        rowChildren.add(SizedBox(width: cardWidth, child: interfaceCardWidgets[i]));
-      } else {
-        rowChildren.add(Expanded(child: interfaceCardWidgets[i]));
-      }
+      rowChildren.add(Expanded(child: interfaceCardWidgets[i]));
       if (i < interfaceCardWidgets.length - 1) {
         rowChildren.add(const SizedBox(width: 12));
       }
@@ -539,12 +704,71 @@ class _DashboardScreenState extends State<DashboardScreen> {
               localRowChildren.add(const SizedBox(width: 12));
             }
           }
-          return SizedBox(
-            height: 110,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: localRowChildren,
-            ),
+          return Stack(
+            children: [
+              SizedBox(
+                height: 110,
+                child: ListView(
+                  controller: _wanScrollController,
+                  scrollDirection: Axis.horizontal,
+                  children: localRowChildren,
+                ),
+              ),
+              if (_showWanRightArrow)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: IgnorePointer(
+                    child: Container(
+                      width: 28,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                          colors: [
+                            Colors.transparent,
+                            Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
+                          ],
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+                      ),
+                    ),
+                  ),
+                ),
+              if (_showWanLeftArrow)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: IgnorePointer(
+                    child: Container(
+                      width: 28,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.centerRight,
+                          end: Alignment.centerLeft,
+                          colors: [
+                            Colors.transparent,
+                            Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
+                          ],
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           );
         },
       );
@@ -560,9 +784,148 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Consumer<AppState>(
       builder: (context, appState, child) {
-        final hostname = appState.dashboardData?['boardInfo']?['hostname'] ?? 'Loading...';
+        final List<model.Router> routers = appState.routers;
+        final model.Router? selected = appState.selectedRouter;
+        final boardInfo = appState.dashboardData?['boardInfo'] as Map<String, dynamic>?;
+        final hostname = boardInfo?['hostname']?.toString();
+        final headerText = (hostname != null && hostname.isNotEmpty)
+            ? hostname
+            : (selected?.ipAddress ?? 'Loading...');
         return Scaffold(
-          appBar: LuciAppBar(title: hostname.toString()),
+          appBar: LuciAppBar(
+            centerTitle: true,
+            title: routers.length > 1
+                ? null
+                : headerText,
+            titleWidget: routers.length > 1
+                ? Center(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceContainerLowest,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                          width: 1.1,
+                        ),
+                      ),
+                      constraints: const BoxConstraints(minHeight: 36),
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: () async {
+                            final selectedId = await showModalBottomSheet<String>(
+                              context: context,
+                              isScrollControlled: false,
+                              backgroundColor: Theme.of(context).colorScheme.surface,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                              ),
+                              builder: (context) {
+                                return SafeArea(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(top: 12, left: 8, right: 8, bottom: 8),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Center(
+                                          child: Container(
+                                            width: 40,
+                                            height: 4,
+                                            margin: const EdgeInsets.only(bottom: 12),
+                                            decoration: BoxDecoration(
+                                              color: Theme.of(context).colorScheme.outlineVariant,
+                                              borderRadius: BorderRadius.circular(2),
+                                            ),
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4),
+                                          child: Center(
+                                            child: Text(
+                                              'Select Router',
+                                              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                        ),
+                                        const Divider(height: 16),
+                                        ...routers.map((r) {
+                                          final isSelected = r.id == selected?.id;
+                                          String routerTitle;
+                                          bool isStale = false;
+                                          if (isSelected && boardInfo != null) {
+                                            final hostname = boardInfo['hostname']?.toString();
+                                            routerTitle = (hostname != null && hostname.isNotEmpty)
+                                                ? hostname
+                                                : (r.lastKnownHostname ?? r.ipAddress);
+                                          } else if (r.lastKnownHostname != null && r.lastKnownHostname!.isNotEmpty) {
+                                            routerTitle = r.lastKnownHostname!;
+                                            isStale = true;
+                                          } else {
+                                            routerTitle = r.ipAddress;
+                                          }
+                                          return ListTile(
+                                            leading: Icon(Icons.router, color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant),
+                                            title: Tooltip(
+                                              message: isStale ? 'Last known hostname (may be out of date)' : '',
+                                              child: Text(
+                                                routerTitle,
+                                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: isStale
+                                                      ? Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7)
+                                                      : Theme.of(context).colorScheme.onSurface,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            subtitle: Text(r.ipAddress, style: Theme.of(context).textTheme.bodySmall),
+                                            trailing: isSelected
+                                                ? Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary)
+                                                : null,
+                                            selected: isSelected,
+                                            selectedTileColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.07),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                            onTap: () => Navigator.of(context).pop(r.id),
+                                          );
+                                        }),
+                                        const SizedBox(height: 8),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                            if (selectedId != null && selectedId != selected?.id) {
+                              appState.selectRouter(selectedId);
+                            }
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Text(
+                                  headerText,
+                                  style: Theme.of(context).appBarTheme.titleTextStyle ??
+                                         Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).appBarTheme.titleTextStyle?.color),
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                ),
+                                Icon(Icons.arrow_drop_down, size: 22, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                : null,
+          ),
           body: _buildBody(appState),
         );
       },
@@ -570,42 +933,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildBody(AppState appState) {
-    if (appState.isDashboardLoading && appState.dashboardData == null) {
-      return const SplashScreen();
-    }
-
     if (appState.dashboardError != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('Error: ${appState.dashboardError}', textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => appState.fetchDashboardData(),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
+      return LuciErrorDisplay(
+        title: 'Connection Failed',
+        message: 'Unable to connect to the router. Please check your network connection and router settings.',
+        actionLabel: 'Retry Connection',
+        onAction: () => appState.fetchDashboardData(),
+        icon: Icons.wifi_off_rounded,
       );
     }
 
+    if (appState.isDashboardLoading && appState.dashboardData == null) {
+      return const LuciLoadingWidget();
+    }
+
     if (appState.dashboardData == null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('No data available.'),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => appState.fetchDashboardData(),
-              child: const Text('Fetch Data'),
-            ),
-          ],
-        ),
+      return LuciEmptyState(
+        title: 'No Data Available',
+        message: 'Unable to fetch dashboard data. Pull down to refresh or tap the button below.',
+        icon: Icons.dashboard_outlined,
+        actionLabel: 'Fetch Data',
+        onAction: () => appState.fetchDashboardData(),
       );
     }
 

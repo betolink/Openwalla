@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:luci_mobile/services/api_service.dart';
 import 'package:luci_mobile/services/secure_storage_service.dart';
+import 'package:luci_mobile/models/router.dart' as model;
 
 class AppState extends ChangeNotifier {
   final SecureStorageService _secureStorageService = SecureStorageService();
@@ -31,8 +32,15 @@ class AppState extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.dark;
   static const String _themeModeKey = 'themeMode';
 
+  List<model.Router> _routers = [];
+  model.Router? _selectedRouter;
+
+  List<model.Router> get routers => _routers;
+  model.Router? get selectedRouter => _selectedRouter;
+
   AppState() {
     _loadThemeMode();
+    loadRouters(); // Load routers on app start
   }
 
   Future<void> _loadThemeMode() async {
@@ -66,9 +74,76 @@ class AppState extends ChangeNotifier {
   bool get isDashboardLoading => _isDashboardLoading;
   String? get dashboardError => _dashboardError;
 
-  Future<bool> login(String ip, String user, String pass, bool useHttps) async {
+  Future<void> loadRouters() async {
+    _routers = await _secureStorageService.getRouters();
+    if (_routers.isNotEmpty && _selectedRouter == null) {
+      _selectedRouter = _routers.first;
+    }
+    notifyListeners();
+  }
+
+  Future<void> addRouter(model.Router router) async {
+    _routers.add(router);
+    await _secureStorageService.saveRouters(_routers);
+    _selectedRouter ??= router;
+    notifyListeners();
+  }
+
+  Future<void> removeRouter(String id) async {
+    final wasActive = _selectedRouter?.id == id;
+    _routers.removeWhere((r) => r.id == id);
+    await _secureStorageService.saveRouters(_routers);
+    if (wasActive) {
+      if (_routers.isNotEmpty) {
+        await selectRouter(_routers.first.id);
+      } else {
+        _selectedRouter = null;
+        _dashboardData = null;
+        notifyListeners();
+      }
+    } else {
+      notifyListeners();
+    }
+  }
+
+  Future<void> selectRouter(String id) async {
+    if (_routers.isEmpty) return;
+    final found = _routers.firstWhere((r) => r.id == id, orElse: () => _routers.first);
+    _isLoading = true;
+    _dashboardError = null;
+    
+    // Clear throughput data when switching routers to prevent mixing data from different routers
+    _cancelThroughputTimer();
+    
+    notifyListeners();
+    final loginSuccess = await login(found.ipAddress, found.username, found.password, found.useHttps, fromRouter: true);
+    if (loginSuccess) {
+      _selectedRouter = found;
+      await fetchDashboardData();
+    }
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> updateRouter(model.Router router) async {
+    final idx = _routers.indexWhere((r) => r.id == router.id);
+    if (idx != -1) {
+      _routers[idx] = router;
+      if (_selectedRouter?.id == router.id) {
+        _selectedRouter = router;
+      }
+      await _secureStorageService.saveRouters(_routers);
+      notifyListeners();
+    }
+  }
+
+  Future<bool> login(String ip, String user, String pass, bool useHttps, {bool fromRouter = false}) async {
     _isLoading = true;
     _errorMessage = null;
+    
+    // Clear throughput data when logging in to prevent mixing data from different sessions
+    _cancelThroughputTimer();
+    
     notifyListeners();
 
     try {
@@ -77,6 +152,24 @@ class AppState extends ChangeNotifier {
         _sysauth = token;
         _ipAddress = ip;
         _useHttps = useHttps;
+        if (!fromRouter) {
+          // If not from router selection, add or update router
+          final id = '$ip-$user';
+          final router = model.Router(
+            id: id,
+            ipAddress: ip,
+            username: user,
+            password: pass,
+            useHttps: useHttps,
+          );
+          final idx = _routers.indexWhere((r) => r.id == id);
+          if (idx == -1) {
+            await addRouter(router);
+          } else {
+            await updateRouter(router);
+          }
+          _selectedRouter = router;
+        }
         await _secureStorageService.saveCredentials(
           ipAddress: ip,
           username: user,
@@ -110,11 +203,14 @@ class AppState extends ChangeNotifier {
     _dashboardError = null;
     _cancelThroughputTimer();
     _secureStorageService.clearCredentials();
+    // Optionally, do not clear routers or selectedRouter
     notifyListeners();
   }
 
   Future<void> fetchDashboardData() async {
-    if (_isDashboardLoading || _ipAddress == null || _sysauth == null) return;
+    if (_isDashboardLoading || _selectedRouter == null || _sysauth == null) return;
+    final ip = _selectedRouter!.ipAddress;
+    final useHttps = _selectedRouter!.useHttps;
 
     _isDashboardLoading = true;
     _dashboardError = null;
@@ -123,13 +219,13 @@ class AppState extends ChangeNotifier {
     try {
       // Perform all API calls in parallel
       final results = await Future.wait([
-        _apiService.call(_ipAddress!, _sysauth!, _useHttps, object: 'system', method: 'board', params: {}),
-        _apiService.call(_ipAddress!, _sysauth!, _useHttps, object: 'system', method: 'info', params: {}),
-        _apiService.call(_ipAddress!, _sysauth!, _useHttps, object: 'luci-rpc', method: 'getNetworkDevices', params: {}),
-        _apiService.call(_ipAddress!, _sysauth!, _useHttps, object: 'network.interface', method: 'dump', params: {}),
-        _apiService.call(_ipAddress!, _sysauth!, _useHttps, object: 'luci-rpc', method: 'getWirelessDevices', params: {}),
-        _apiService.call(_ipAddress!, _sysauth!, _useHttps, object: 'luci-rpc', method: 'getDHCPLeases', params: {}),
-        _apiService.call(_ipAddress!, _sysauth!, _useHttps, object: 'uci', method: 'get', params: {'config': 'wireless'}),
+        _apiService.call(ip, _sysauth!, useHttps, object: 'system', method: 'board', params: {}),
+        _apiService.call(ip, _sysauth!, useHttps, object: 'system', method: 'info', params: {}),
+        _apiService.call(ip, _sysauth!, useHttps, object: 'luci-rpc', method: 'getNetworkDevices', params: {}),
+        _apiService.call(ip, _sysauth!, useHttps, object: 'network.interface', method: 'dump', params: {}),
+        _apiService.call(ip, _sysauth!, useHttps, object: 'luci-rpc', method: 'getWirelessDevices', params: {}),
+        _apiService.call(ip, _sysauth!, useHttps, object: 'luci-rpc', method: 'getDHCPLeases', params: {}),
+        _apiService.call(ip, _sysauth!, useHttps, object: 'uci', method: 'get', params: {'config': 'wireless'}),
       ]);
 
       // Helper to safely extract data and handle errors from LuCI's [status, data] responses
@@ -175,20 +271,30 @@ class AppState extends ChangeNotifier {
       if (_lastStats != null && _lastTimestamp != null) {
         final elapsedSeconds = now.difference(_lastTimestamp!).inMilliseconds / 1000.0;
 
-        if (elapsedSeconds > 0) {
+        // Only calculate throughput if we have a reasonable time difference (at least 0.1 seconds)
+        // This prevents artificially high rates from very small time differences while being more responsive
+        if (elapsedSeconds >= 0.1) {
           final lastRx = _calculateTotalBytes(_lastStats, 'rx_bytes', wanDeviceNames: wanDeviceNames);
           final lastTx = _calculateTotalBytes(_lastStats, 'tx_bytes', wanDeviceNames: wanDeviceNames);
           final currentRx = _calculateTotalBytes(networkData, 'rx_bytes', wanDeviceNames: wanDeviceNames);
           final currentTx = _calculateTotalBytes(networkData, 'tx_bytes', wanDeviceNames: wanDeviceNames);
 
-          _currentRxRate = max(0, (currentRx - lastRx) / elapsedSeconds);
-          _currentTxRate = max(0, (currentTx - lastTx) / elapsedSeconds);
+          // Calculate rates with a reasonable maximum to prevent spikes
+          final rxRate = max(0, (currentRx - lastRx) / elapsedSeconds);
+          final txRate = max(0, (currentTx - lastTx) / elapsedSeconds);
+          
+          // Cap the rates to prevent unrealistic spikes (e.g., 1 GB/s)
+          const maxRate = 1000.0 * 1024.0 * 1024.0; // 1 GB/s - more realistic for modern connections
+          _currentRxRate = min(rxRate.toDouble(), maxRate);
+          _currentTxRate = min(txRate.toDouble(), maxRate);
 
           _rxHistory.add(_currentRxRate);
           _txHistory.add(_currentTxRate);
           if (_rxHistory.length > 50) _rxHistory.removeAt(0);
           if (_txHistory.length > 50) _txHistory.removeAt(0);
         }
+        // If elapsedSeconds is too small, we skip the calculation but still update the timestamp
+        // to prevent accumulation of small time differences
       }
 
       _lastStats = networkData;
@@ -204,6 +310,17 @@ class AppState extends ChangeNotifier {
         'wan': _extractWanData(interfaceDump),
         'uciWirelessConfig': uciWirelessConfig,
       };
+
+      // Hybrid approach: update lastKnownHostname for the selected router
+      final boardInfo = _dashboardData?['boardInfo'] as Map<String, dynamic>?;
+      final hostname = boardInfo?['hostname']?.toString();
+      if (_selectedRouter != null && hostname != null && hostname.isNotEmpty) {
+        final idx = _routers.indexWhere((r) => r.id == _selectedRouter!.id);
+        if (idx != -1) {
+          _routers[idx] = _routers[idx].copyWith(lastKnownHostname: hostname);
+          await _secureStorageService.saveRouters(_routers);
+        }
+      }
     } catch (e) {
       final errorMessage = e.toString();
       if (errorMessage.contains('Access denied')) {
@@ -211,6 +328,8 @@ class AppState extends ChangeNotifier {
       } else {
         _dashboardError = 'Failed to fetch dashboard data: $e';
       }
+      // Clear dashboard data when there's an error so we don't show stale data
+      _dashboardData = null;
     } finally {
       _isDashboardLoading = false;
       notifyListeners();

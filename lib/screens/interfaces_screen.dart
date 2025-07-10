@@ -18,14 +18,49 @@ class InterfacesScreen extends StatelessWidget {
       appBar: const LuciAppBar(title: 'Interfaces'),
       body: RefreshIndicator(
         onRefresh: () => appState.fetchDashboardData(),
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(child: LuciSectionHeader('Wired')),
-            _buildWiredInterfacesList(),
-            SliverToBoxAdapter(child: LuciSectionHeader('Wireless')),
-            _buildWirelessInterfacesList(),
-            SliverToBoxAdapter(child: Padding(padding: EdgeInsets.only(bottom: 16), child: SizedBox.shrink())),
-          ],
+        child: Selector<AppState, (bool, String?, Map<String, dynamic>?)>(
+          selector: (_, state) => (
+            state.isDashboardLoading,
+            state.dashboardError,
+            state.dashboardData,
+          ),
+          builder: (context, data, _) {
+            final (isLoading, dashboardError, dashboardData) = data;
+
+            if (isLoading && dashboardData == null) {
+              return const LuciLoadingWidget();
+            }
+
+            if (dashboardError != null && dashboardData == null) {
+              return LuciErrorDisplay(
+                title: 'Failed to Load Interfaces',
+                message: 'Could not connect to the router. Please check your network connection and router settings.',
+                actionLabel: 'Retry',
+                onAction: () => appState.fetchDashboardData(),
+                icon: Icons.wifi_off_rounded,
+              );
+            }
+
+            if (dashboardData == null) {
+              return LuciEmptyState(
+                title: 'No Interface Data',
+                message: 'Unable to fetch interface information. Pull down to refresh or tap the button below.',
+                icon: Icons.device_hub_outlined,
+                actionLabel: 'Fetch Data',
+                onAction: () => appState.fetchDashboardData(),
+              );
+            }
+
+            return CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(child: LuciSectionHeader('Wired')),
+                _buildWiredInterfacesList(),
+                SliverToBoxAdapter(child: LuciSectionHeader('Wireless')),
+                _buildWirelessInterfacesList(),
+                SliverToBoxAdapter(child: Padding(padding: EdgeInsets.only(bottom: 16), child: SizedBox.shrink())),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -501,7 +536,7 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard> with SingleTic
                         Container(
                           margin: const EdgeInsets.only(right: 32),
                           child: Divider(
-                            color: colorScheme.surfaceContainerHighest.withOpacity(0.10),
+                            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.10),
                             thickness: 1,
                             height: 8,
                           ),

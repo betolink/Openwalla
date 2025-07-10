@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:luci_mobile/models/client.dart';
 import 'package:luci_mobile/state/app_state.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
-import 'package:luci_mobile/screens/splash_screen.dart';
+
 
 class ClientsScreen extends StatefulWidget {
   const ClientsScreen({super.key});
@@ -57,38 +57,16 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
                 final (isLoading, dashboardError, dhcpData) = data;
 
                 if (isLoading && dhcpData == null) {
-                  return const SplashScreen();
+                  return const LuciLoadingWidget();
                 }
 
                 if (dashboardError != null && dhcpData == null) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.wifi_off, color: colorScheme.error, size: 48),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Failed to Load Clients',
-                            style: theme.textTheme.headlineSmall,
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Could not connect to the router. Please check your network connection and the router\'s IP address.',
-                            style: theme.textTheme.bodyMedium,
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 24),
-                          ElevatedButton.icon(
-                            onPressed: () => appState.fetchDashboardData(),
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Retry'),
-                          ),
-                        ],
-                      ),
-                    ),
+                  return LuciErrorDisplay(
+                    title: 'Failed to Load Clients',
+                    message: 'Could not connect to the router. Please check your network connection and the router\'s IP address.',
+                    actionLabel: 'Retry',
+                    onAction: () => appState.fetchDashboardData(),
+                    icon: Icons.wifi_off_rounded,
                   );
                 }
 
@@ -160,28 +138,12 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
                     ),
                     Expanded(
                       child: filteredClients.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.people_outline, size: 48),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    _searchQuery.isEmpty ? 'No Active Clients Found' : 'No Matching Clients',
-                                    style: theme.textTheme.titleMedium?.copyWith(
-                                          color: colorScheme.surfaceContainerHighest,
-                                        ),
-                                  ),
-                                  if (_searchQuery.isEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 8.0),
-                                      child: Text(
-                                        'Pull down to refresh the list.',
-                                        style: theme.textTheme.bodySmall,
-                                      ),
-                                    ),
-                                ],
-                              ),
+                          ? LuciEmptyState(
+                              title: _searchQuery.isEmpty ? 'No Active Clients Found' : 'No Matching Clients',
+                              message: _searchQuery.isEmpty 
+                                  ? 'No clients are currently connected to the router. Pull down to refresh the list.'
+                                  : 'No clients match your search criteria. Try a different search term.',
+                              icon: Icons.people_outline,
                             )
                           : ListView.separated(
                               padding: const EdgeInsets.only(bottom: 16),
@@ -267,7 +229,7 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
                                                       Container(
                                                         margin: const EdgeInsets.only(right: 32),
                                                         child: Divider(
-                                                          color: colorScheme.surfaceContainerHighest.withOpacity(0.10),
+                                                          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.10),
                                                           thickness: 1,
                                                           height: 8,
                                                         ),
@@ -489,7 +451,7 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
     final v6 = v6s.isNotEmpty ? v6s.first : null;
     String? shown;
     int extra = 0;
-    if (v4 != null && v4 != 'N/A') {
+    if (v4 != 'N/A') {
       shown = v4;
       if (v6 != null) extra++;
     } else if (v6 != null) {

@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:luci_mobile/state/app_state.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:luci_mobile/screens/splash_screen.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:luci_mobile/config/app_config.dart';
 
@@ -61,11 +59,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   Future<void> _connect() async {
     if (_formKey.currentState!.validate()) {
       final appState = Provider.of<AppState>(context, listen: false);
+      final ip = _ipController.text;
+      final user = _usernameController.text;
+      final pass = _passwordController.text;
+      final useHttps = _useHttps;
       final success = await appState.login(
-        _ipController.text,
-        _usernameController.text,
-        _passwordController.text,
-        _useHttps,
+        ip,
+        user,
+        pass,
+        useHttps,
+        fromRouter: false,
       );
 
       if (success && mounted) {
@@ -90,7 +93,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) {
     if (_isCheckingAutoLogin) {
-      return const SplashScreen();
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
     }
 
     final theme = Theme.of(context);

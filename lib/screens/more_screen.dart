@@ -5,9 +5,9 @@ import 'package:luci_mobile/screens/login_screen.dart';
 import 'package:luci_mobile/screens/settings_screen.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:luci_mobile/config/app_config.dart';
+import 'package:luci_mobile/screens/manage_routers_screen.dart';
 
 class LuciSectionHeader extends StatelessWidget {
   final String title;
@@ -214,6 +214,18 @@ class MoreScreen extends StatelessWidget {
           const LuciSectionHeader('Application'),
           _MoreScreenSection(
             tiles: [
+              _buildMoreTile(
+                context,
+                icon: Icons.router,
+                iconColor: Theme.of(context).colorScheme.primary,
+                title: 'Manage Routers',
+                subtitle: 'Edit or remove saved routers',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (context) => const ManageRoutersScreen()),
+                  );
+                },
+              ),
               _buildMoreTile(
                 context,
                 icon: Icons.settings_outlined,
