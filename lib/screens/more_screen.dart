@@ -6,6 +6,7 @@ import 'package:luci_mobile/screens/settings_screen.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 import 'package:luci_mobile/config/app_config.dart';
 
 class LuciSectionHeader extends StatelessWidget {
@@ -144,18 +145,15 @@ class MoreScreen extends StatelessWidget {
               const SizedBox(height: 16),
               InkWell(
                 onTap: () async {
-                  final uri = Uri.parse(AppConfig.githubRepositoryUrl);
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  } else {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('Could not open repository'),
-                          backgroundColor: Theme.of(context).colorScheme.error,
-                        ),
-                      );
-                    }
+                  final url = AppConfig.githubRepositoryUrl;
+                  final success = await launchUrlString(url, mode: LaunchMode.externalApplication);
+                  if (!success && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Could not open repository'),
+                        backgroundColor: Theme.of(context).colorScheme.error,
+                      ),
+                    );
                   }
                 },
                 child: Row(

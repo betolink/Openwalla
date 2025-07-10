@@ -9,6 +9,7 @@ class NetworkInterface {
   final String? gateway;
   final List<String> dnsServers;
   final Map<String, dynamic> stats;
+  final List<String>? ipv6Addresses;
 
   NetworkInterface({
     required this.name,
@@ -21,6 +22,7 @@ class NetworkInterface {
     this.gateway,
     required this.dnsServers,
     required this.stats,
+    this.ipv6Addresses,
   });
 
   factory NetworkInterface.fromJson(Map<String, dynamic> json) {
@@ -58,6 +60,18 @@ class NetworkInterface {
       stats = Map<String, dynamic>.from(statsMap);
     }
 
+    // Defensive parsing for ipv6-address
+    final ipv6List = json['ipv6-address'];
+    List<String>? ipv6Addresses;
+    if (ipv6List is List && ipv6List.isNotEmpty) {
+      ipv6Addresses = ipv6List
+          .whereType<Map>()
+          .map((e) => e['address']?.toString())
+          .where((e) => e != null && e.isNotEmpty)
+          .cast<String>()
+          .toList();
+    }
+
     return NetworkInterface(
       name: json['interface'] ?? 'Unknown',
       isUp: json['up'] ?? false,
@@ -71,6 +85,7 @@ class NetworkInterface {
       gateway: gatewayIp,
       dnsServers: dnsServers,
       stats: stats,
+      ipv6Addresses: ipv6Addresses,
     );
   }
 

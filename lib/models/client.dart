@@ -18,6 +18,7 @@ class Client {
   final int? activeTime; // in seconds
   final int? expiresAt; // timestamp in seconds
   final ConnectionType connectionType;
+  final List<String>? ipv6Addresses;
 
   Client({
     required this.ipAddress,
@@ -31,6 +32,7 @@ class Client {
     this.activeTime,
     this.expiresAt,
     this.connectionType = ConnectionType.unknown,
+    this.ipv6Addresses,
   });
 
   // Helper function to determine connection type from MAC address or other data
@@ -119,6 +121,19 @@ class Client {
       expiresAtTimestamp = (DateTime.now().millisecondsSinceEpoch ~/ 1000) + expires;
     }
 
+    List<String>? ipv6Addresses;
+    if (lease['ipv6addrs'] != null && lease['ipv6addrs'] is List) {
+      ipv6Addresses = (lease['ipv6addrs'] as List).map((e) => e.toString()).toList();
+    } else if (lease['ipv6addr'] != null) {
+      // Some APIs may use a single string or a comma-separated string
+      final v6 = lease['ipv6addr'];
+      if (v6 is String) {
+        ipv6Addresses = v6.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      } else if (v6 is List) {
+        ipv6Addresses = v6.map((e) => e.toString()).toList();
+      }
+    }
+
     return Client(
       ipAddress: toStringValue(lease['ipaddr']) ?? 'N/A',
       macAddress: toStringValue(lease['macaddr']) ?? 'N/A',
@@ -131,12 +146,14 @@ class Client {
       activeTime: activetime,
       expiresAt: expiresAtTimestamp, // Store the calculated absolute timestamp
       connectionType: _determineConnectionType(lease),
+      ipv6Addresses: ipv6Addresses,
     );
   }
   
   // Get formatted lease time (e.g., "2d 4h 30m")
   String get formattedLeaseTime {
-    if (leaseTime == null || leaseTime! <= 0) return 'Expired';
+    if (leaseTime == null || leaseTime == 0) return 'Unlimited';
+    if (leaseTime! < 0) return 'Expired';
     return Client.formatDuration(leaseTime!);
   }
   
@@ -183,6 +200,7 @@ class Client {
     int? activeTime,
     int? expiresAt,
     ConnectionType? connectionType,
+    List<String>? ipv6Addresses,
   }) {
     return Client(
       ipAddress: ipAddress ?? this.ipAddress,
@@ -196,6 +214,7 @@ class Client {
       activeTime: activeTime ?? this.activeTime,
       expiresAt: expiresAt ?? this.expiresAt,
       connectionType: connectionType ?? this.connectionType,
+      ipv6Addresses: ipv6Addresses ?? this.ipv6Addresses,
     );
   }
 }

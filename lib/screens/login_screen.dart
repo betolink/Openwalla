@@ -5,6 +5,7 @@ import 'package:luci_mobile/state/app_state.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:luci_mobile/screens/splash_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 import 'package:luci_mobile/config/app_config.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -74,19 +75,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   }
 
   Future<void> _openGitHubIssues() async {
-    final uri = Uri.parse(AppConfig.githubIssuesUrl);
-    
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Could not open GitHub issues'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
+    final url = AppConfig.githubIssuesUrl;
+    final success = await launchUrlString(url, mode: LaunchMode.externalApplication);
+    if (!success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Could not open GitHub issues'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
     }
   }
 

@@ -73,7 +73,7 @@ class InterfacesScreen extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
                 child: _UnifiedNetworkCard(
                   name: iface.name.toUpperCase(),
-                  subtitle: '${iface.protocol} • ${iface.ipAddress ?? 'No IP'}',
+                  subtitle: _buildMinimalInterfaceSubtitle(iface),
                   isUp: iface.isUp,
                   icon: _getInterfaceIcon(iface.protocol),
                   details: _buildWiredDetails(context, iface),
@@ -198,6 +198,20 @@ class InterfacesScreen extends StatelessWidget {
       children: [
         _buildDetailRow(context, 'Device', interface.device),
         _buildDetailRow(context, 'Uptime', interface.formattedUptime),
+        if (interface.ipAddress != null)
+          _buildDetailRow(
+            context,
+            'IP Address',
+            interface.ipAddress!,
+            onTap: () => _copyToClipboard(context, interface.ipAddress!, 'IP Address'),
+          ),
+        if (interface.ipv6Addresses != null && interface.ipv6Addresses!.isNotEmpty)
+          ...interface.ipv6Addresses!.map((ipv6) => _buildDetailRow(
+                context,
+                'IPv6 Address',
+                ipv6,
+                onTap: () => _copyToClipboard(context, ipv6, 'IPv6 Address'),
+              )),
         if (interface.gateway != null)
           _buildDetailRow(
             context,
@@ -322,6 +336,26 @@ class InterfacesScreen extends StatelessWidget {
         return Icons.device_hub_outlined;
     }
   }
+
+  String _buildMinimalInterfaceSubtitle(NetworkInterface iface) {
+    final v4 = iface.ipAddress;
+    final v6s = iface.ipv6Addresses ?? [];
+    final v6 = v6s.isNotEmpty ? v6s.first : null;
+    String? shown;
+    int extra = 0;
+    if (v4 != null) {
+      shown = v4;
+      if (v6 != null) extra++;
+    } else if (v6 != null) {
+      shown = v6;
+    }
+    if (shown == null) return iface.protocol;
+    if (extra > 0) {
+      return '${iface.protocol} • $shown  +$extra';
+    } else {
+      return '${iface.protocol} • $shown';
+    }
+  }
 }
 
 class LuciSectionHeader extends StatelessWidget {
@@ -402,7 +436,7 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard> with SingleTic
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18.0),
         side: BorderSide(
-          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.15),
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.10),
           width: 1,
         ),
       ),
@@ -413,22 +447,22 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard> with SingleTic
             onTap: _toggleExpand,
             borderRadius: BorderRadius.circular(18.0),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
               child: Row(
                 children: [
                   Stack(
                     alignment: Alignment.topRight,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(10.0),
+                        padding: const EdgeInsets.all(8.0),
                         decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer.withValues(alpha: 0.18),
+                          color: colorScheme.primaryContainer.withValues(alpha: 0.13),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
                           widget.icon,
                           color: widget.isUp ? colorScheme.primary : colorScheme.onSurface,
-                          size: 24,
+                          size: 22,
                           semanticLabel: 'Interface icon',
                         ),
                       ),
@@ -438,19 +472,19 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard> with SingleTic
                         child: Tooltip(
                           message: widget.isUp ? 'Interface is up' : 'Interface is down',
                           child: Container(
-                            width: 14,
-                            height: 14,
+                            width: 10,
+                            height: 10,
                             decoration: BoxDecoration(
                               color: widget.isUp ? Colors.green : colorScheme.error,
                               shape: BoxShape.circle,
-                              border: Border.all(color: colorScheme.surface, width: 2),
+                              border: Border.all(color: colorScheme.surface, width: 1.5),
                             ),
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(width: 20),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -463,10 +497,23 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard> with SingleTic
                           ),
                           semanticsLabel: 'Interface name: ${widget.name}',
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 4),
+                        Container(
+                          margin: const EdgeInsets.only(right: 32),
+                          child: Divider(
+                            color: colorScheme.surfaceContainerHighest.withOpacity(0.10),
+                            thickness: 1,
+                            height: 8,
+                          ),
+                        ),
                         Text(
                           widget.subtitle,
-                          style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            letterSpacing: 0.1,
+                          ),
                           semanticsLabel: 'Interface details: ${widget.subtitle}',
                         ),
                       ],
@@ -487,7 +534,7 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard> with SingleTic
                   Icon(
                     _isExpanded ? Icons.expand_less : Icons.expand_more,
                     color: colorScheme.onSurfaceVariant,
-                    size: 28,
+                    size: 26,
                     semanticLabel: _isExpanded ? 'Collapse details' : 'Expand details',
                   ),
                 ],

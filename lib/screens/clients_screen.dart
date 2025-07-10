@@ -215,7 +215,7 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
                                       child: Column(
                                         children: [
                                           Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+                                            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
                                             child: Row(
                                               children: [
                                                 Stack(
@@ -237,21 +237,21 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
                                                             ? 'Unknown connection type'
                                                             : 'Client is online',
                                                         child: Container(
-                                                          width: 14,
-                                                          height: 14,
+                                                          width: 10,
+                                                          height: 10,
                                                           decoration: BoxDecoration(
                                                             color: client.connectionType == ConnectionType.wireless || client.connectionType == ConnectionType.wired
                                                                 ? Colors.green
                                                                 : Colors.amber,
+                                                            border: Border.all(color: colorScheme.surfaceContainerHighest, width: 1.5),
                                                             shape: BoxShape.circle,
-                                                            border: Border.all(color: colorScheme.surfaceContainerHighest, width: 2),
                                                           ),
                                                         ),
                                                       ),
                                                     ),
                                                   ],
                                                 ),
-                                                const SizedBox(width: 20),
+                                                const SizedBox(width: 16),
                                                 Expanded(
                                                   child: Column(
                                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,14 +260,27 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
                                                         client.hostname,
                                                         style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.onSurface),
                                                         semanticsLabel: 'Client hostname: ${client.hostname}',
-                                                      ),
-                                                      const SizedBox(height: 2),
-                                                      Text(
-                                                        client.ipAddress,
-                                                        style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
                                                         maxLines: 1,
                                                         overflow: TextOverflow.ellipsis,
-                                                        semanticsLabel: 'IP address: ${client.ipAddress}',
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      Container(
+                                                        margin: const EdgeInsets.only(right: 32),
+                                                        child: Divider(
+                                                          color: colorScheme.surfaceContainerHighest.withOpacity(0.10),
+                                                          thickness: 1,
+                                                          height: 8,
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        _buildMinimalClientSubtitle(client),
+                                                        style: theme.textTheme.bodySmall?.copyWith(
+                                                          color: colorScheme.onSurfaceVariant,
+                                                          fontSize: 12,
+                                                          fontWeight: FontWeight.w400,
+                                                          letterSpacing: 0.1,
+                                                        ),
+                                                        semanticsLabel: 'Client details: ${_buildMinimalClientSubtitle(client)}',
                                                       ),
                                                       if (client.vendor != null && client.vendor!.isNotEmpty)
                                                         Text(
@@ -415,17 +428,30 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
       ),
       child: Column(
         children: [
-          detailRow(
-            'IP Address',
-            client.ipAddress,
-            onTap: () {
-              Clipboard.setData(ClipboardData(text: client.ipAddress));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('IP Address copied to clipboard'), duration: Duration(seconds: 2)),
-              );
-            },
-            semanticsLabel: 'IP Address: ${client.ipAddress}',
-          ),
+          if (client.ipAddress != 'N/A' && client.ipAddress.isNotEmpty)
+            detailRow(
+              'IP Address',
+              client.ipAddress,
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: client.ipAddress));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('IP Address copied to clipboard'), duration: Duration(seconds: 2)),
+                );
+              },
+              semanticsLabel: 'IP Address: ${client.ipAddress}',
+            ),
+          if (client.ipv6Addresses != null && client.ipv6Addresses!.isNotEmpty)
+            ...client.ipv6Addresses!.map((ipv6) => detailRow(
+                  'IPv6 Address',
+                  ipv6,
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: ipv6));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('IPv6 Address copied to clipboard'), duration: Duration(seconds: 2)),
+                    );
+                  },
+                  semanticsLabel: 'IPv6 Address: $ipv6',
+                )),
           detailRow(
             'MAC Address',
             client.macAddress,
@@ -456,4 +482,24 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
   }
 
   String normalizeMac(String mac) => mac.toUpperCase().replaceAll('-', ':');
+
+  String _buildMinimalClientSubtitle(Client client) {
+    final v4 = client.ipAddress;
+    final v6s = client.ipv6Addresses ?? [];
+    final v6 = v6s.isNotEmpty ? v6s.first : null;
+    String? shown;
+    int extra = 0;
+    if (v4 != null && v4 != 'N/A') {
+      shown = v4;
+      if (v6 != null) extra++;
+    } else if (v6 != null) {
+      shown = v6;
+    }
+    if (shown == null) return '';
+    if (extra > 0) {
+      return '$shown  +$extra';
+    } else {
+      return shown;
+    }
+  }
 }

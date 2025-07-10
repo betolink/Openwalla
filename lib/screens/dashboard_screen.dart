@@ -389,17 +389,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     List<Widget> rowChildren = [];
+    final isScrollable = networkCardWidgets.length > 2;
     for (int i = 0; i < networkCardWidgets.length; i++) {
-      rowChildren.add(Expanded(child: networkCardWidgets[i]));
+      if (isScrollable) {
+        rowChildren.add(SizedBox(width: 160, child: networkCardWidgets[i]));
+      } else {
+        rowChildren.add(Expanded(child: networkCardWidgets[i]));
+      }
       if (i < networkCardWidgets.length - 1) {
-        rowChildren.add(const SizedBox(width: 8));
+        rowChildren.add(SizedBox(width: isScrollable ? 4 : 8));
       }
     }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: rowChildren,
-    );
+    if (isScrollable) {
+      return SizedBox(
+        height: 110, // or whatever height fits the card
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: rowChildren,
+        ),
+      );
+    } else {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: rowChildren,
+      );
+    }
   }
 
   IconData _getInterfaceIcon(String proto) {
@@ -443,9 +458,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           margin: EdgeInsets.zero,
           elevation: 2,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          clipBehavior: Clip.hardEdge,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+            padding: const EdgeInsets.symmetric(vertical: 0.0, horizontal: 12.0),
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Icon(_getInterfaceIcon(proto), color: Theme.of(context).colorScheme.primary, size: 20),
@@ -462,20 +479,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     color: isUp ? Colors.green.withValues(alpha: 0.15) : Colors.red.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(isUp ? Icons.check_circle : Icons.cancel, size: 14, color: isUp ? Colors.green.shade800 : Colors.red.shade800),
-                      const SizedBox(width: 6),
-                      Text(
-                        isUp ? 'UP' : 'DOWN',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: isUp ? Colors.green.shade900 : Colors.red.shade900,
-                          fontSize: 12,
-                        ),
+                  child: SizedBox(
+                    width: 63,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(isUp ? Icons.check_circle : Icons.cancel, size: 11, color: isUp ? Colors.green.shade800 : Colors.red.shade800),
+                          const SizedBox(width: 1),
+                          Text(
+                            isUp ? 'UP' : 'DOWN',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: isUp ? Colors.green.shade900 : Colors.red.shade900,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ],
@@ -486,17 +509,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     List<Widget> rowChildren = [];
+    final isScrollable = interfaceCardWidgets.length >= 5;
+    double? cardWidth;
+    if (isScrollable) {
+      // We'll calculate cardWidth in the LayoutBuilder below
+    }
     for (int i = 0; i < interfaceCardWidgets.length; i++) {
-      rowChildren.add(Expanded(child: interfaceCardWidgets[i]));
+      if (isScrollable && cardWidth != null) {
+        rowChildren.add(SizedBox(width: cardWidth, child: interfaceCardWidgets[i]));
+      } else {
+        rowChildren.add(Expanded(child: interfaceCardWidgets[i]));
+      }
       if (i < interfaceCardWidgets.length - 1) {
         rowChildren.add(const SizedBox(width: 12));
       }
     }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: rowChildren,
-    );
+    if (isScrollable) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          // 4 cards visible, 3 gaps between them
+          final totalSpacing = 12.0 * 3;
+          final width = constraints.maxWidth;
+          final calculatedCardWidth = (width - totalSpacing) / 4;
+          final localRowChildren = <Widget>[];
+          for (int i = 0; i < interfaceCardWidgets.length; i++) {
+            localRowChildren.add(SizedBox(width: calculatedCardWidth, child: interfaceCardWidgets[i]));
+            if (i < interfaceCardWidgets.length - 1) {
+              localRowChildren.add(const SizedBox(width: 12));
+            }
+          }
+          return SizedBox(
+            height: 110,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: localRowChildren,
+            ),
+          );
+        },
+      );
+    } else {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: rowChildren,
+      );
+    }
   }
 
   @override
@@ -556,26 +613,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onRefresh: () => appState.fetchDashboardData(),
       child: LayoutBuilder(
         builder: (context, constraints) {
+          final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+          final content = [
+            const SizedBox(height: 16),
+            _buildDeviceInfoCard(appState),
+            const SizedBox(height: 16),
+            isLandscape
+                ? SizedBox(height: 240, child: _buildRealtimeThroughputCard(appState))
+                : Expanded(child: _buildRealtimeThroughputCard(appState)),
+            const SizedBox(height: 16),
+            _buildSystemVitalsCard(appState),
+            const SizedBox(height: 16),
+            _buildWirelessNetworksCard(appState),
+            const SizedBox(height: 16),
+            _buildInterfaceStatusCards(appState),
+            const SizedBox(height: 16),
+          ];
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 16),
-                _buildDeviceInfoCard(appState),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: _buildRealtimeThroughputCard(appState),
-                ),
-                const SizedBox(height: 16),
-                _buildSystemVitalsCard(appState),
-                const SizedBox(height: 16),
-                _buildWirelessNetworksCard(appState),
-                const SizedBox(height: 16),
-                _buildInterfaceStatusCards(appState),
-                const SizedBox(height: 16),
-              ],
-            ),
+            child: isLandscape
+                ? SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: content,
+                    ),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: content,
+                  ),
           );
         },
       ),
