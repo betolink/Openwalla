@@ -5,6 +5,7 @@ import 'package:luci_mobile/screens/login_screen.dart';
 import 'package:luci_mobile/screens/main_screen.dart';
 import 'package:luci_mobile/screens/settings_screen.dart';
 import 'package:luci_mobile/screens/splash_screen.dart';
+import 'package:flutter/services.dart';
 
 void main() {
   runApp(const LuCIApp());
@@ -24,6 +25,13 @@ class LuCIApp extends StatelessWidget {
             theme: ThemeData(
               colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
               useMaterial3: true,
+              // Handle edge-to-edge display properly
+              appBarTheme: const AppBarTheme(
+                systemOverlayStyle: SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  statusBarIconBrightness: Brightness.dark,
+                ),
+              ),
             ),
             darkTheme: ThemeData(
               colorScheme: ColorScheme.fromSeed(
@@ -31,6 +39,13 @@ class LuCIApp extends StatelessWidget {
                 brightness: Brightness.dark,
               ),
               useMaterial3: true,
+              // Handle edge-to-edge display properly for dark theme
+              appBarTheme: const AppBarTheme(
+                systemOverlayStyle: SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  statusBarIconBrightness: Brightness.light,
+                ),
+              ),
             ),
             themeMode: appState.themeMode,
             initialRoute: '/splash',
