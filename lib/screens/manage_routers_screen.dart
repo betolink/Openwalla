@@ -15,31 +15,30 @@ class ManageRoutersScreen extends StatelessWidget {
         final String? selectedId = appState.selectedRouter?.id;
         return Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surface,
-          appBar: const LuciAppBar(title: 'Routers'),
-          body: SafeArea(
-            child: Column(
-              children: [
-                Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: () async => appState.loadRouters(),
-                    child: routers.isEmpty
-                        ? ListView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            children: [
-                              SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                              Center(
-                                child: Text(
-                                  'No routers added yet.',
-                                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                                ),
+          appBar: const LuciAppBar(title: 'Routers', showBack: true),
+          body: Column(
+            children: [
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () async => appState.loadRouters(),
+                  child: routers.isEmpty
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                            Center(
+                              child: Text(
+                                'No routers added yet.',
+                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                               ),
-                            ],
-                          )
-                        : ListView.separated(
-                            padding: const EdgeInsets.only(top: 16, bottom: 24),
-                            itemCount: routers.length,
-                            separatorBuilder: (context, index) => const SizedBox(height: 16),
-                            itemBuilder: (context, index) {
+                            ),
+                          ],
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.only(top: 16, bottom: 24),
+                          itemCount: routers.length,
+                          separatorBuilder: (context, index) => const SizedBox(height: 16),
+                          itemBuilder: (context, index) {
                               final model.Router router = routers[index];
                               final bool isSelected = router.id == selectedId;
                               String routerTitle;
@@ -176,172 +175,171 @@ class ManageRoutersScreen extends StatelessWidget {
                               );
                             },
                           ),
-                  ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Divider(height: 24, thickness: 1),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.add, size: 20),
-                          label: const Text('Add Router'),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          onPressed: () async {
-                            final ipController = TextEditingController();
-                            final userController = TextEditingController(text: 'root');
-                            final passController = TextEditingController();
-                            final formKey = GlobalKey<FormState>();
-                            bool useHttps = false;
-                            bool obscureText = true;
-                            String? errorMessage;
-                            await showDialog<Map<String, dynamic>>(
-                              context: context,
-                              builder: (context) {
-                                return StatefulBuilder(
-                                  builder: (context, setState) {
-                                    return AlertDialog(
-                                      title: const Text('Add Router'),
-                                      content: Form(
-                                        key: formKey,
-                                        child: SingleChildScrollView(
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              TextFormField(
-                                                controller: ipController,
-                                                decoration: const InputDecoration(labelText: 'IP Address or Hostname'),
-                                                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                                                autofillHints: const [AutofillHints.url, AutofillHints.username],
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Divider(height: 24, thickness: 1),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.add, size: 20),
+                        label: const Text('Add Router'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () async {
+                          final ipController = TextEditingController();
+                          final userController = TextEditingController(text: 'root');
+                          final passController = TextEditingController();
+                          final formKey = GlobalKey<FormState>();
+                          bool useHttps = false;
+                          bool obscureText = true;
+                          String? errorMessage;
+                          await showDialog<Map<String, dynamic>>(
+                            context: context,
+                            builder: (context) {
+                              return StatefulBuilder(
+                                builder: (context, setState) {
+                                  return AlertDialog(
+                                    title: const Text('Add Router'),
+                                    content: Form(
+                                      key: formKey,
+                                      child: SingleChildScrollView(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            TextFormField(
+                                              controller: ipController,
+                                              decoration: const InputDecoration(labelText: 'IP Address or Hostname'),
+                                              validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                                              autofillHints: const [AutofillHints.url, AutofillHints.username],
+                                            ),
+                                            const SizedBox(height: 8),
+                                            TextFormField(
+                                              controller: userController,
+                                              decoration: const InputDecoration(labelText: 'Username'),
+                                              validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                                              autofillHints: const [AutofillHints.username],
+                                            ),
+                                            const SizedBox(height: 8),
+                                            TextFormField(
+                                              controller: passController,
+                                              decoration: InputDecoration(
+                                                labelText: 'Password',
+                                                suffixIcon: IconButton(
+                                                  icon: Icon(obscureText ? Icons.visibility_off : Icons.visibility),
+                                                  onPressed: () => setState(() => obscureText = !obscureText),
+                                                  tooltip: obscureText ? 'Show password' : 'Hide password',
+                                                ),
                                               ),
-                                              const SizedBox(height: 8),
-                                              TextFormField(
-                                                controller: userController,
-                                                decoration: const InputDecoration(labelText: 'Username'),
-                                                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                                                autofillHints: const [AutofillHints.username],
-                                              ),
-                                              const SizedBox(height: 8),
-                                              TextFormField(
-                                                controller: passController,
-                                                decoration: InputDecoration(
-                                                  labelText: 'Password',
-                                                  suffixIcon: IconButton(
-                                                    icon: Icon(obscureText ? Icons.visibility_off : Icons.visibility),
-                                                    onPressed: () => setState(() => obscureText = !obscureText),
-                                                    tooltip: obscureText ? 'Show password' : 'Hide password',
+                                              obscureText: obscureText,
+                                              autofillHints: const [AutofillHints.password],
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Row(
+                                              children: [
+                                                Checkbox(
+                                                  value: useHttps,
+                                                  onChanged: (v) {
+                                                    setState(() {
+                                                      useHttps = v ?? false;
+                                                    });
+                                                  },
+                                                ),
+                                                const Text('Use HTTPS'),
+                                              ],
+                                            ),
+                                            if (errorMessage != null) ...[
+                                              const SizedBox(height: 12),
+                                              Container(
+                                                padding: const EdgeInsets.all(12),
+                                                decoration: BoxDecoration(
+                                                  color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.1),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  border: Border.all(
+                                                    color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
+                                                    width: 1,
                                                   ),
                                                 ),
-                                                obscureText: obscureText,
-                                                autofillHints: const [AutofillHints.password],
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Row(
-                                                children: [
-                                                  Checkbox(
-                                                    value: useHttps,
-                                                    onChanged: (v) {
-                                                      setState(() {
-                                                        useHttps = v ?? false;
-                                                      });
-                                                    },
-                                                  ),
-                                                  const Text('Use HTTPS'),
-                                                ],
-                                              ),
-                                              if (errorMessage != null) ...[
-                                                const SizedBox(height: 12),
-                                                Container(
-                                                  padding: const EdgeInsets.all(12),
-                                                  decoration: BoxDecoration(
-                                                    color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.1),
-                                                    borderRadius: BorderRadius.circular(8),
-                                                    border: Border.all(
-                                                      color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
-                                                      width: 1,
+                                                child: Row(
+                                                  children: [
+                                                    Icon(
+                                                      Icons.error_outline_rounded,
+                                                      color: Theme.of(context).colorScheme.error,
+                                                      size: 20,
                                                     ),
-                                                  ),
-                                                  child: Row(
-                                                    children: [
-                                                      Icon(
-                                                        Icons.error_outline_rounded,
-                                                        color: Theme.of(context).colorScheme.error,
-                                                        size: 20,
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      Expanded(
-                                                        child: Text(
-                                                          errorMessage!,
-                                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                            color: Theme.of(context).colorScheme.error,
-                                                            fontWeight: FontWeight.w500,
-                                                          ),
+                                                    const SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: Text(
+                                                        errorMessage!,
+                                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                          color: Theme.of(context).colorScheme.error,
+                                                          fontWeight: FontWeight.w500,
                                                         ),
                                                       ),
-                                                    ],
-                                                  ),
+                                                    ),
+                                                  ],
                                                 ),
-                                              ],
+                                              ),
                                             ],
-                                          ),
+                                          ],
                                         ),
                                       ),
-                                      actions: [
-                                        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-                                        TextButton(
-                                          onPressed: () async {
-                                            if (formKey.currentState!.validate()) {
-                                              final ip = ipController.text.trim();
-                                              final user = userController.text.trim();
-                                              final pass = passController.text;
-                                              final id = '$ip-$user';
-                                              if (routers.any((r) => r.id == id)) {
-                                                setState(() {
-                                                  errorMessage = 'Router already exists.';
-                                                });
-                                                return;
-                                              }
-                                              // Always fetch hostname from router after login
-                                              final newRouter = model.Router(
-                                                id: id,
-                                                ipAddress: ip,
-                                                username: user,
-                                                password: pass,
-                                                useHttps: useHttps,
-                                              );
-                                              await appState.addRouter(newRouter);
-                                              if (!context.mounted) return;
-                                              // Automatically select the new router after adding
-                                              await appState.selectRouter(newRouter.id);
-                                              if (!context.mounted) return;
-                                              Navigator.pop(context);
+                                    ),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                                      TextButton(
+                                        onPressed: () async {
+                                          if (formKey.currentState!.validate()) {
+                                            final ip = ipController.text.trim();
+                                            final user = userController.text.trim();
+                                            final pass = passController.text;
+                                            final id = '$ip-$user';
+                                            if (routers.any((r) => r.id == id)) {
+                                              setState(() {
+                                                errorMessage = 'Router already exists.';
+                                              });
+                                              return;
                                             }
-                                          },
-                                          child: const Text('Add'),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                );
-                              },
-                            );
-                            if (!context.mounted) return;
-                          },
-                        ),
+                                            // Always fetch hostname from router after login
+                                            final newRouter = model.Router(
+                                              id: id,
+                                              ipAddress: ip,
+                                              username: user,
+                                              password: pass,
+                                              useHttps: useHttps,
+                                            );
+                                            await appState.addRouter(newRouter);
+                                            if (!context.mounted) return;
+                                            // Automatically select the new router after adding
+                                            await appState.selectRouter(newRouter.id);
+                                            if (!context.mounted) return;
+                                            Navigator.pop(context);
+                                          }
+                                        },
+                                        child: const Text('Add'),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+                          );
+                          if (!context.mounted) return;
+                        },
                       ),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },

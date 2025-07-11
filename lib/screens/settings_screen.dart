@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:luci_mobile/state/app_state.dart';
+import 'package:luci_mobile/widgets/luci_app_bar.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-      ),
+      appBar: const LuciAppBar(title: 'Settings', showBack: true),
       body: ListView(
+        padding: const EdgeInsets.symmetric(vertical: 12.0),
         children: [
           Consumer<AppState>(
             builder: (context, appState, _) {

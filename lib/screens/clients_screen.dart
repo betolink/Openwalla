@@ -17,6 +17,7 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
   String _searchQuery = '';
   int? _expandedClientIndex;
   late AnimationController _controller;
+  late TextEditingController _searchController;
 
   @override
   void initState() {
@@ -25,11 +26,20 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
+    _searchController = TextEditingController();
+    _searchController.addListener(() {
+      if (_searchQuery != _searchController.text) {
+        setState(() {
+          _searchQuery = _searchController.text;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -108,11 +118,9 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
                       child: TextField(
                         autofocus: false,
                         onChanged: (value) {
-                          setState(() {
-                            _searchQuery = value;
-                          });
+                          // No need to setState here, listener handles it
                         },
-                        controller: TextEditingController(text: _searchQuery),
+                        controller: _searchController,
                         decoration: InputDecoration(
                           hintText: 'Search by name, IP, MAC, vendor...',
                           prefixIcon: const Icon(Icons.search),
@@ -121,7 +129,7 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
                                   icon: const Icon(Icons.clear),
                                   onPressed: () {
                                     setState(() {
-                                      _searchQuery = '';
+                                      _searchController.clear();
                                     });
                                   },
                                   tooltip: 'Clear search',
