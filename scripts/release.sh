@@ -85,9 +85,16 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# Update pubspec.yaml (reset build number to 1)
-print_status "Updating pubspec.yaml..."
-sed -i.bak "s/^version: .*/version: $NEW_VERSION+1/" pubspec.yaml
+# Get current build number
+CURRENT_BUILD=$(echo "$CURRENT_VERSION" | awk -F'+' '{print $2}')
+if [ -z "$CURRENT_BUILD" ]; then
+    CURRENT_BUILD=1
+fi
+NEW_BUILD=$((CURRENT_BUILD + 1))
+
+# Update pubspec.yaml with new version and incremented build number
+print_status "Updating pubspec.yaml to version: $NEW_VERSION+$NEW_BUILD"
+sed -i.bak "s/^version: .*/version: $NEW_VERSION+$NEW_BUILD/" pubspec.yaml
 rm pubspec.yaml.bak
 
 # Commit changes
