@@ -4,7 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:luci_mobile/state/app_state.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 import 'package:luci_mobile/models/router.dart' as model;
-
+import 'package:luci_mobile/screens/main_screen.dart'; // Added import for MainScreen
 
 
 class DashboardScreen extends StatefulWidget {
@@ -22,6 +22,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final ScrollController _wanScrollController = ScrollController();
   bool _showWanLeftArrow = false;
   bool _showWanRightArrow = false;
+  
+
 
   @override
   void initState() {
@@ -237,7 +239,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           _buildLineChartBarData(appState.txHistory, [Colors.blue.shade700, Colors.blue.shade400]),
                         ],
                       ),
-                      duration: const Duration(milliseconds: 150),
+                      duration: const Duration(milliseconds: 800),
+                      curve: Curves.easeInOut,
                     )
                   : Center(
                       child: Column(
@@ -268,7 +271,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildSpeedIndicator(IconData icon, Color color, String label, double speed) {
     // Show 0 if we don't have valid throughput data yet
     final displaySpeed = speed.isNaN || speed.isInfinite || speed < 0 ? 0.0 : speed;
-    final speedText = Text(_formatSpeed(displaySpeed), style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold));
+    final speedText = AnimatedSwitcher(
+      duration: const Duration(milliseconds: 400),
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.1),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          ),
+        );
+      },
+      child: Text(
+        _formatSpeed(displaySpeed), 
+        key: ValueKey(displaySpeed),
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+      ),
+    );
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -473,6 +495,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           final ssid = iwinfo['ssid'] ?? config['ssid'] ?? 'N/A';
           if (ssid == 'N/A') continue;
 
+          final deviceName = config['device'] ?? radioName;
           final isEnabled = !(config['disabled'] as bool? ?? false);
           final channel = (iwinfo['channel'] ?? config['channel'] ?? 'N/A').toString();
           final signal = iwinfo['signal'] as int?;
@@ -482,14 +505,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
               margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
               elevation: 2,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: _buildWirelessInfoCardContent(
-                  context,
-                  ssid: ssid,
-                  isEnabled: isEnabled,
-                  signal: signal,
-                  channel: channel,
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onLongPress: () {
+                  // Navigate to interfaces tab with the specific interface name
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => MainScreen(initialTab: 2, interfaceToScroll: deviceName),
+                    ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: _buildWirelessInfoCardContent(
+                    context,
+                    ssid: ssid,
+                    isEnabled: isEnabled,
+                    signal: signal,
+                    channel: channel,
+                  ),
                 ),
               ),
             ),
@@ -631,50 +666,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
           margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           elevation: 2,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          clipBehavior: Clip.hardEdge,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 12.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(_getInterfaceIcon(proto), color: Theme.of(context).colorScheme.primary, size: 20),
-                const SizedBox(height: 4),
-                Text(
-                  name.toUpperCase(),
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                  overflow: TextOverflow.ellipsis,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onLongPress: () {
+              // Navigate to interfaces tab with the specific interface name
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => MainScreen(initialTab: 2, interfaceToScroll: name),
                 ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isUp ? Colors.green.withValues(alpha: 0.15) : Colors.red.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(16),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 12.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(_getInterfaceIcon(proto), color: Theme.of(context).colorScheme.primary, size: 20),
+                  const SizedBox(height: 4),
+                  Text(
+                    name.toUpperCase(),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  child: SizedBox(
-                    width: 63,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(isUp ? Icons.check_circle : Icons.cancel, size: 11, color: isUp ? Colors.green.shade800 : Colors.red.shade800),
-                          const SizedBox(width: 1),
-                          Text(
-                            isUp ? 'UP' : 'DOWN',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: isUp ? Colors.green.shade900 : Colors.red.shade900,
-                              fontSize: 10,
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isUp ? Colors.green.withValues(alpha: 0.15) : Colors.red.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: SizedBox(
+                      width: 63,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(isUp ? Icons.check_circle : Icons.cancel, size: 11, color: isUp ? Colors.green.shade800 : Colors.red.shade800),
+                            const SizedBox(width: 1),
+                            Text(
+                              isUp ? 'UP' : 'DOWN',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: isUp ? Colors.green.shade900 : Colors.red.shade900,
+                                fontSize: 10,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

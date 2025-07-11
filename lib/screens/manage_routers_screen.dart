@@ -35,7 +35,7 @@ class ManageRoutersScreen extends StatelessWidget {
                           ],
                         )
                       : ListView.separated(
-                          padding: const EdgeInsets.only(top: 16, bottom: 24),
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
                           itemCount: routers.length,
                           separatorBuilder: (context, index) => const SizedBox(height: 16),
                           itemBuilder: (context, index) {
@@ -77,9 +77,9 @@ class ManageRoutersScreen extends StatelessWidget {
                                       ),
                                       clipBehavior: Clip.antiAlias,
                                       child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                                         child: ListTile(
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                                           leading: Container(
                                             padding: const EdgeInsets.all(8.0),
                                             decoration: BoxDecoration(
@@ -178,7 +178,7 @@ class ManageRoutersScreen extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [

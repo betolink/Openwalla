@@ -16,7 +16,7 @@ class LuciSectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 28, 16, 8),
       child: Text(
         title,
         style: theme.textTheme.titleMedium?.copyWith(
@@ -38,7 +38,7 @@ class _MoreScreenSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 2,
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
       ),
@@ -196,7 +196,7 @@ class MoreScreen extends StatelessWidget {
     return Scaffold(
       appBar: const LuciAppBar(title: 'More'),
       body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 12.0),
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
         children: [
           const LuciSectionHeader('Device Management'),
           _MoreScreenSection(

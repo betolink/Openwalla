@@ -5,7 +5,10 @@ import 'package:luci_mobile/screens/interfaces_screen.dart';
 import 'package:luci_mobile/screens/more_screen.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  final int? initialTab;
+  final String? interfaceToScroll;
+  
+  const MainScreen({super.key, this.initialTab, this.interfaceToScroll});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -13,12 +16,33 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
+  String? _currentInterfaceToScroll;
 
-  static const List<Widget> _widgetOptions = <Widget>[
-    DashboardScreen(),
-    ClientsScreen(),
-    InterfacesScreen(),
-    MoreScreen(),
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialTab != null) {
+      _selectedIndex = widget.initialTab!;
+    }
+    _currentInterfaceToScroll = widget.interfaceToScroll;
+  }
+
+  void _clearInterfaceToScroll() {
+    if (_currentInterfaceToScroll != null) {
+      setState(() {
+        _currentInterfaceToScroll = null;
+      });
+    }
+  }
+
+  List<Widget> get _widgetOptions => [
+    const DashboardScreen(),
+    const ClientsScreen(),
+    InterfacesScreen(
+      scrollToInterface: _currentInterfaceToScroll,
+      onScrollComplete: _clearInterfaceToScroll,
+    ),
+    const MoreScreen(),
   ];
 
   void _onItemTapped(int index) {

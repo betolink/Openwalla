@@ -114,7 +114,7 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
                 return Column(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                       child: TextField(
                         autofocus: false,
                         onChanged: (value) {
@@ -162,129 +162,22 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
                                 final client = filteredClients[index];
                                 final isExpanded = _expandedClientIndex == index;
 
-                                return AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  curve: Curves.easeInOut,
-                                  margin: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 12.0),
-                                  child: Card(
-                                    elevation: isExpanded ? 6 : 2,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                                    margin: EdgeInsets.zero,
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(18),
-                                      onTap: () {
-                                        setState(() {
-                                          if (isExpanded) {
-                                            _expandedClientIndex = null;
-                                            _controller.reverse();
-                                          } else {
-                                            _expandedClientIndex = index;
-                                            _controller.forward();
-                                          }
-                                        });
-                                      },
-                                      child: Column(
-                                        children: [
-                                          Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-                                            child: Row(
-                                              children: [
-                                                Stack(
-                                                  alignment: Alignment.topRight,
-                                                  children: [
-                                                    Container(
-                                                      padding: const EdgeInsets.all(10.0),
-                                                      decoration: BoxDecoration(
-                                                        color: colorScheme.primaryContainer.withValues(alpha: 0.18),
-                                                        shape: BoxShape.circle,
-                                                      ),
-                                                      child: _buildConnectionTypeIcon(context, client.connectionType),
-                                                    ),
-                                                    Positioned(
-                                                      right: 0,
-                                                      top: 0,
-                                                      child: Tooltip(
-                                                        message: client.connectionType == ConnectionType.unknown
-                                                            ? 'Unknown connection type'
-                                                            : 'Client is online',
-                                                        child: Container(
-                                                          width: 10,
-                                                          height: 10,
-                                                          decoration: BoxDecoration(
-                                                            color: client.connectionType == ConnectionType.wireless || client.connectionType == ConnectionType.wired
-                                                                ? Colors.green
-                                                                : Colors.amber,
-                                                            border: Border.all(color: colorScheme.surfaceContainerHighest, width: 1.5),
-                                                            shape: BoxShape.circle,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                const SizedBox(width: 16),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: [
-                                                      Text(
-                                                        client.hostname,
-                                                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.onSurface),
-                                                        semanticsLabel: 'Client hostname: ${client.hostname}',
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
-                                                      ),
-                                                      const SizedBox(height: 4),
-                                                      Container(
-                                                        margin: const EdgeInsets.only(right: 32),
-                                                        child: Divider(
-                                                          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.10),
-                                                          thickness: 1,
-                                                          height: 8,
-                                                        ),
-                                                      ),
-                                                      Text(
-                                                        _buildMinimalClientSubtitle(client),
-                                                        style: theme.textTheme.bodySmall?.copyWith(
-                                                          color: colorScheme.onSurface.withValues(alpha: 0.8),
-                                                          fontSize: 12,
-                                                          fontWeight: FontWeight.w400,
-                                                          letterSpacing: 0.1,
-                                                        ),
-                                                        semanticsLabel: 'Client details: ${_buildMinimalClientSubtitle(client)}',
-                                                      ),
-                                                      if (client.vendor != null && client.vendor!.isNotEmpty)
-                                                        Text(
-                                                          client.vendor!,
-                                                          style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.7)),
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow.ellipsis,
-                                                          semanticsLabel: 'Vendor: ${client.vendor}',
-                                                        ),
-                                                    ],
-                                                  ),
-                                                ),
-                                                _buildConnectionTypeChip(context, client.connectionType),
-                                                const SizedBox(width: 8),
-                                                Icon(
-                                                  isExpanded ? Icons.expand_less : Icons.expand_more,
-                                                  color: colorScheme.onSurface.withValues(alpha: 0.7),
-                                                  size: 28,
-                                                  semanticLabel: isExpanded ? 'Collapse details' : 'Expand details',
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          if (isExpanded)
-                                            Column(
-                                              children: [
-                                                const Divider(height: 1, indent: 18, endIndent: 18),
-                                                _buildClientDetails(context, client),
-                                              ],
-                                            ),
-                                        ],
-                                      ),
-                                    ),
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                                  child: _UnifiedClientCard(
+                                    client: client,
+                                    isExpanded: isExpanded,
+                                    onTap: () {
+                                      setState(() {
+                                        if (isExpanded) {
+                                          _expandedClientIndex = null;
+                                          _controller.reverse();
+                                        } else {
+                                          _expandedClientIndex = index;
+                                          _controller.forward();
+                                        }
+                                      });
+                                    },
                                   ),
                                 );
                               },
@@ -300,16 +193,196 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildConnectionTypeIcon(BuildContext context, ConnectionType type) {
-    final colorScheme = Theme.of(context).colorScheme;
-    // Use a generic client icon with Interfaces screen style
-    return Container(
-      padding: const EdgeInsets.all(8.0),
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withValues(alpha: 0.18),
-        shape: BoxShape.circle,
+  String normalizeMac(String mac) => mac.toUpperCase().replaceAll('-', ':');
+}
+
+class _UnifiedClientCard extends StatefulWidget {
+  final Client client;
+  final bool isExpanded;
+  final VoidCallback onTap;
+
+  const _UnifiedClientCard({
+    required this.client,
+    required this.isExpanded,
+    required this.onTap,
+  });
+
+  @override
+  State<_UnifiedClientCard> createState() => _UnifiedClientCardState();
+}
+
+class _UnifiedClientCardState extends State<_UnifiedClientCard> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    if (widget.isExpanded) {
+      _controller.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(_UnifiedClientCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isExpanded != oldWidget.isExpanded) {
+      if (widget.isExpanded) {
+        _controller.forward();
+      } else {
+        _controller.reverse();
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
+    return Card(
+      elevation: widget.isExpanded ? 6 : 2,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18.0),
+        side: BorderSide(
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.10),
+          width: 1,
+        ),
       ),
-      child: Icon(Icons.person_outline, size: 24, color: colorScheme.primary),
+      clipBehavior: Clip.antiAlias,
+      child: AnimatedScale(
+        scale: widget.isExpanded ? 1.02 : 1.0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutBack,
+        child: Column(
+          children: [
+            InkWell(
+              onTap: widget.onTap,
+              borderRadius: BorderRadius.circular(18.0),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Row(
+                  children: [
+                    Stack(
+                      alignment: Alignment.topRight,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8.0),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primaryContainer.withValues(alpha: 0.13),
+                            shape: BoxShape.circle,
+                          ),
+                          child: AnimatedScale(
+                            scale: widget.isExpanded ? 1.1 : 1.0,
+                            duration: const Duration(milliseconds: 500),
+                            curve: Curves.elasticOut,
+                            child: Icon(
+                              Icons.person_outline,
+                              color: colorScheme.primary,
+                              size: 22,
+                              semanticLabel: 'Client icon',
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Tooltip(
+                            message: widget.client.connectionType == ConnectionType.unknown
+                                ? 'Unknown connection type'
+                                : 'Client is online',
+                            child: Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: widget.client.connectionType == ConnectionType.wireless || widget.client.connectionType == ConnectionType.wired
+                                    ? Colors.green
+                                    : Colors.amber,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: colorScheme.surface, width: 1.5),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.client.hostname,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                            semanticsLabel: 'Client hostname: ${widget.client.hostname}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            margin: const EdgeInsets.only(right: 32),
+                            child: Divider(
+                              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.10),
+                              thickness: 1,
+                              height: 8,
+                            ),
+                          ),
+                          Text(
+                            _buildMinimalClientSubtitle(widget.client),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: 0.1,
+                            ),
+                            semanticsLabel: 'Client details: ${_buildMinimalClientSubtitle(widget.client)}',
+                          ),
+                          if (widget.client.vendor != null && widget.client.vendor!.isNotEmpty)
+                            Text(
+                              widget.client.vendor!,
+                              style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.7)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              semanticsLabel: 'Vendor: ${widget.client.vendor}',
+                            ),
+                        ],
+                      ),
+                    ),
+                    _buildConnectionTypeChip(context, widget.client.connectionType),
+                    const SizedBox(width: 8),
+                    Icon(
+                      widget.isExpanded ? Icons.expand_less : Icons.expand_more,
+                      color: colorScheme.onSurfaceVariant,
+                      size: 26,
+                      semanticLabel: widget.isExpanded ? 'Collapse details' : 'Expand details',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (widget.isExpanded)
+              Column(
+                children: [
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  _buildClientDetails(context, widget.client),
+                ],
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -361,7 +434,7 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 10.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -399,46 +472,20 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
       ),
       child: Column(
         children: [
-          if (client.ipAddress != 'N/A' && client.ipAddress.isNotEmpty)
-            detailRow(
-              'IP Address',
-              client.ipAddress,
-              onTap: () {
-                Clipboard.setData(ClipboardData(text: client.ipAddress));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('IP Address copied to clipboard'), duration: Duration(seconds: 2)),
-                );
-              },
-              semanticsLabel: 'IP Address: ${client.ipAddress}',
-            ),
+          detailRow('IP Address', client.ipAddress, onTap: () => _copyToClipboard(context, client.ipAddress, 'IP Address'), semanticsLabel: 'IP Address: ${client.ipAddress}'),
           if (client.ipv6Addresses != null && client.ipv6Addresses!.isNotEmpty)
             ...client.ipv6Addresses!.map((ipv6) => detailRow(
                   'IPv6 Address',
                   ipv6,
-                  onTap: () {
-                    Clipboard.setData(ClipboardData(text: ipv6));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('IPv6 Address copied to clipboard'), duration: Duration(seconds: 2)),
-                    );
-                  },
+                  onTap: () => _copyToClipboard(context, ipv6, 'IPv6 Address'),
                   semanticsLabel: 'IPv6 Address: $ipv6',
                 )),
-          detailRow(
-            'MAC Address',
-            client.macAddress,
-            onTap: () {
-              Clipboard.setData(ClipboardData(text: client.macAddress));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('MAC Address copied to clipboard'), duration: Duration(seconds: 2)),
-              );
-            },
-            semanticsLabel: 'MAC Address: ${client.macAddress}',
-          ),
+          detailRow('MAC Address', client.macAddress, onTap: () => _copyToClipboard(context, client.macAddress, 'MAC Address'), semanticsLabel: 'MAC Address: ${client.macAddress}'),
           if (client.vendor != null && client.vendor!.isNotEmpty)
             detailRow('Vendor', client.vendor!, semanticsLabel: 'Vendor: ${client.vendor}'),
           if (client.dnsName != null && client.dnsName!.isNotEmpty)
             detailRow('DNS Name', client.dnsName!, semanticsLabel: 'DNS Name: ${client.dnsName}'),
-          const Divider(height: 1, indent: 18, endIndent: 18),
+          const Divider(height: 1, indent: 16, endIndent: 16),
           const SizedBox(height: 8),
           detailRow(
             'Lease Time Remaining',
@@ -451,8 +498,6 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
       ),
     );
   }
-
-  String normalizeMac(String mac) => mac.toUpperCase().replaceAll('-', ':');
 
   String _buildMinimalClientSubtitle(Client client) {
     final v4 = client.ipAddress;
@@ -472,5 +517,12 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
     } else {
       return shown;
     }
+  }
+
+  void _copyToClipboard(BuildContext context, String text, String label) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$label copied to clipboard'), duration: const Duration(seconds: 2)),
+    );
   }
 }

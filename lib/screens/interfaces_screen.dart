@@ -7,8 +7,297 @@ import 'dart:math';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 
 
-class InterfacesScreen extends StatelessWidget {
-  const InterfacesScreen({super.key});
+class InterfacesScreen extends StatefulWidget {
+  final String? scrollToInterface;
+  final VoidCallback? onScrollComplete;
+  
+  const InterfacesScreen({super.key, this.scrollToInterface, this.onScrollComplete});
+
+  @override
+  State<InterfacesScreen> createState() => _InterfacesScreenState();
+}
+
+class _InterfacesScreenState extends State<InterfacesScreen> {
+  final ScrollController _scrollController = ScrollController();
+  String? _targetInterface;
+
+  @override
+  void initState() {
+    super.initState();
+    _targetInterface = widget.scrollToInterface;
+    if (_targetInterface != null) {
+      // Delay scrolling to allow the widget to build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToInterface(_targetInterface!);
+      });
+    }
+  }
+
+  void _scrollToInterface(String interfaceName) {
+    if (!_scrollController.hasClients) return;
+    
+    // Find the target interface and calculate its position
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        double targetPosition = 0;
+        bool handledFirstWired = false;
+        bool handledFirstWireless = false;
+        
+        // Get the app state to access interface data
+        final appState = Provider.of<AppState>(context, listen: false);
+        final dashboardData = appState.dashboardData;
+        
+        if (dashboardData != null) {
+          // Check wired interfaces first
+          final wiredInterfaces = dashboardData['interfaceDump']?['interface'] as List<dynamic>?;
+          if (wiredInterfaces != null) {
+            for (int i = 0; i < wiredInterfaces.length; i++) {
+              final iface = wiredInterfaces[i] as Map<String, dynamic>;
+              final name = iface['interface'] as String? ?? '';
+              // Use exact matching only
+              if (name.toLowerCase() == interfaceName.toLowerCase()) {
+                // Found in wired interfaces - calculate position
+                // Use more conservative calculation
+                targetPosition = 60 + (i * 120);
+                
+                // For the first interface, scroll to show the full card
+                if (i == 0) {
+                  handledFirstWired = true;
+                  // Scroll to position that shows the first card properly
+                  // Section header: 24px top + text height (~20px) + 8px bottom = ~52px
+                  _scrollController.animateTo(
+                    52.0, // Position after section header
+                    duration: const Duration(milliseconds: 1200),
+                    curve: Curves.elasticOut,
+                                          ).then((_) {
+                          // Clear the target interface after scrolling is complete
+                          Future.delayed(const Duration(milliseconds: 500), () {
+                            if (mounted) {
+                              setState(() {
+                                _targetInterface = null;
+                              });
+                              // Notify parent that scrolling is complete
+                              widget.onScrollComplete?.call();
+                            }
+                          });
+                        });
+                } else {
+                  // --- Begin viewport-aware adjustment for expanded details ---
+                  final maxScroll = _scrollController.position.maxScrollExtent;
+                  final viewportHeight = MediaQuery.of(context).size.height;
+                  final appBarHeight = 56.0; // Approximate app bar height
+                  final availableHeight = viewportHeight - appBarHeight;
+                  final expandedInterfaceHeight = 400.0; // Approximate height of expanded interface
+                  final targetBottomPosition = targetPosition + expandedInterfaceHeight;
+                  if (targetBottomPosition > availableHeight) {
+                    targetPosition = (targetPosition - 100).clamp(0.0, maxScroll);
+                  } else {
+                    targetPosition = (targetPosition - (availableHeight / 2) + (expandedInterfaceHeight / 2)).clamp(0.0, maxScroll);
+                  }
+                  _scrollController.animateTo(
+                    targetPosition,
+                    duration: const Duration(milliseconds: 1200),
+                    curve: Curves.elasticOut,
+                  ).then((_) {
+                    Future.delayed(const Duration(milliseconds: 800), () {
+                      if (_scrollController.hasClients) {
+                        final currentPosition = _scrollController.position.pixels;
+                        final fineTuneScroll = 150.0;
+                        final newPosition = (currentPosition + fineTuneScroll).clamp(0.0, maxScroll);
+                        _scrollController.animateTo(
+                          newPosition,
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.easeInOut,
+                        ).then((_) {
+                          // Clear the target interface after all scrolling is complete
+                          Future.delayed(const Duration(milliseconds: 500), () {
+                            if (mounted) {
+                              setState(() {
+                                _targetInterface = null;
+                              });
+                            }
+                          });
+                        });
+                      }
+                    });
+                  });
+                  // --- End viewport-aware adjustment ---
+                }
+                break;
+              }
+            }
+          }
+          
+          // If not found in wired, check wireless interfaces
+          if (targetPosition == 0) {
+            final wirelessData = dashboardData['wireless'] as Map<String, dynamic>?;
+            if (wirelessData != null) {
+              int wirelessIndex = 0;
+              // Calculate position after wired section
+              double wiredSectionHeight = 0;
+              if (wiredInterfaces != null) {
+                wiredSectionHeight = 60 + (wiredInterfaces.length * 120) + 60; // More conservative calculation
+              }
+              
+              wirelessData.forEach((radioName, radioData) {
+                final interfaces = radioData['interfaces'] as List<dynamic>?;
+                if (interfaces != null) {
+                  for (var interface in interfaces) {
+                    final config = interface['config'] ?? {};
+                    final iwinfo = interface['iwinfo'] ?? {};
+                    final deviceName = config['device'] ?? radioName;
+                    final ssid = iwinfo['ssid'] ?? config['ssid'] ?? '';
+                    
+                    // Check both device name and SSID for wireless interface matching
+                    if (deviceName.toLowerCase() == interfaceName.toLowerCase() ||
+                        ssid.toLowerCase() == interfaceName.toLowerCase()) {
+                                          // Found in wireless interfaces - calculate position
+                    // Use a more conservative calculation to ensure visibility
+                    targetPosition = wiredSectionHeight + 60 + (wirelessIndex * 120);
+                      
+                      // For the first wireless interface, just scroll to wireless section without adjustments
+                      if (wirelessIndex == 0) {
+                        handledFirstWireless = true;
+                        _scrollController.animateTo(
+                          wiredSectionHeight + 60,
+                          duration: const Duration(milliseconds: 1200),
+                          curve: Curves.elasticOut,
+                        ).then((_) {
+                          // Clear the target interface after scrolling is complete
+                          Future.delayed(const Duration(milliseconds: 500), () {
+                            if (mounted) {
+                              setState(() {
+                                _targetInterface = null;
+                              });
+                              // Notify parent that scrolling is complete
+                              widget.onScrollComplete?.call();
+                            }
+                          });
+                        });
+                      } else {
+                        // Apply viewport-aware adjustments for non-first wireless interfaces
+                        final maxScroll = _scrollController.position.maxScrollExtent;
+                        final viewportHeight = MediaQuery.of(context).size.height;
+                        final appBarHeight = 56.0;
+                        final availableHeight = viewportHeight - appBarHeight;
+                        final expandedInterfaceHeight = 400.0;
+                        final targetBottomPosition = targetPosition + expandedInterfaceHeight;
+                        if (targetBottomPosition > availableHeight) {
+                          targetPosition = (targetPosition - 100).clamp(0.0, maxScroll);
+                        } else {
+                          targetPosition = (targetPosition - (availableHeight / 2) + (expandedInterfaceHeight / 2)).clamp(0.0, maxScroll);
+                        }
+                        _scrollController.animateTo(
+                          targetPosition,
+                          duration: const Duration(milliseconds: 1200),
+                          curve: Curves.elasticOut,
+                        ).then((_) {
+                          Future.delayed(const Duration(milliseconds: 800), () {
+                            if (_scrollController.hasClients) {
+                              final currentPosition = _scrollController.position.pixels;
+                              final fineTuneScroll = 150.0;
+                              final newPosition = (currentPosition + fineTuneScroll).clamp(0.0, maxScroll);
+                              _scrollController.animateTo(
+                                newPosition,
+                                duration: const Duration(milliseconds: 400),
+                                curve: Curves.easeInOut,
+                              ).then((_) {
+                                // Clear the target interface after all scrolling is complete
+                                Future.delayed(const Duration(milliseconds: 500), () {
+                                  if (mounted) {
+                                    setState(() {
+                                      _targetInterface = null;
+                                    });
+                                    // Notify parent that scrolling is complete
+                                    widget.onScrollComplete?.call();
+                                  }
+                                });
+                              });
+                            }
+                          });
+                        });
+                      }
+                      break;
+                    }
+                    wirelessIndex++;
+                  }
+                }
+              });
+            }
+          }
+        }
+        
+        // If still not found, use section-based scrolling
+        if (targetPosition == 0) {
+          if (interfaceName.toLowerCase().contains('wifi') || 
+              interfaceName.toLowerCase().contains('wireless') ||
+              interfaceName.toLowerCase().contains('radio')) {
+            targetPosition = 200; // More conservative position for wireless section
+          } else {
+            targetPosition = 80; // More conservative position for wired section
+          }
+        }
+        
+        // Only apply general scrolling logic if we haven't already handled first interfaces
+        if (!handledFirstWired && !handledFirstWireless) {
+          // Ensure we don't scroll beyond the content
+          final maxScroll = _scrollController.position.maxScrollExtent;
+          targetPosition = targetPosition.clamp(0.0, maxScroll);
+          
+          // Add some padding to ensure the interface is fully visible
+          final viewportHeight = MediaQuery.of(context).size.height;
+          final appBarHeight = 56.0; // Approximate app bar height
+          final availableHeight = viewportHeight - appBarHeight;
+          
+          // Calculate the position to show the entire expanded interface
+          // Start with the interface position and add enough space to show the full expansion
+          final expandedInterfaceHeight = 400.0; // Approximate height of expanded interface
+          final targetBottomPosition = targetPosition + expandedInterfaceHeight;
+          
+          // Ensure the expanded interface fits in the viewport
+          if (targetBottomPosition > availableHeight) {
+            // If the expanded interface is taller than the viewport, scroll to show the top
+            targetPosition = (targetPosition - 100).clamp(0.0, maxScroll);
+          } else {
+            // If it fits, center it in the viewport
+            targetPosition = (targetPosition - (availableHeight / 2) + (expandedInterfaceHeight / 2)).clamp(0.0, maxScroll);
+          }
+          
+          // Enhanced animation with bounce effect
+          _scrollController.animateTo(
+            targetPosition,
+            duration: const Duration(milliseconds: 1200),
+            curve: Curves.elasticOut,
+          ).then((_) {
+            // Add a small delay to ensure the interface is expanded and visible
+            Future.delayed(const Duration(milliseconds: 800), () {
+              if (_scrollController.hasClients) {
+                // Fine-tune the position to ensure the expanded interface is fully visible
+                final currentPosition = _scrollController.position.pixels;
+                final fineTuneScroll = 150.0; // Fine-tune scroll to show full expansion
+                final newPosition = (currentPosition + fineTuneScroll).clamp(0.0, maxScroll);
+                
+                _scrollController.animateTo(
+                  newPosition,
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeInOut,
+                ).then((_) {
+                  // Clear the target interface after all scrolling is complete
+                  Future.delayed(const Duration(milliseconds: 500), () {
+                    if (mounted) {
+                      setState(() {
+                        _targetInterface = null;
+                      });
+                    }
+                  });
+                });
+              }
+            });
+          });
+        }
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +341,7 @@ class InterfacesScreen extends StatelessWidget {
             }
 
             return CustomScrollView(
+              controller: _scrollController,
               slivers: [
                 SliverToBoxAdapter(child: LuciSectionHeader('Wired')),
                 _buildWiredInterfacesList(),
@@ -104,14 +394,18 @@ class InterfacesScreen extends StatelessWidget {
           delegate: SliverChildBuilderDelegate(
             (context, index) {
               final iface = interfaces[index];
+              final isTargetInterface = _targetInterface != null && 
+                  iface.name.toLowerCase() == _targetInterface!.toLowerCase();
+              
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                 child: _UnifiedNetworkCard(
                   name: iface.name.toUpperCase(),
                   subtitle: _buildMinimalInterfaceSubtitle(iface),
                   isUp: iface.isUp,
                   icon: _getInterfaceIcon(iface.protocol),
                   details: _buildWiredDetails(context, iface),
+                  initiallyExpanded: isTargetInterface,
                 ),
               );
             },
@@ -210,14 +504,31 @@ class InterfacesScreen extends StatelessWidget {
           delegate: SliverChildBuilderDelegate(
             (context, index) {
               final iface = interfaces[index];
+              // Removed unused variables deviceName, ssid, dn
+              bool isTargetInterface = false;
+              // Only expand the first match (prioritize SSID over device name)
+              if (_targetInterface != null) {
+                // Find the first index that matches SSID or device name
+                int firstMatchIdx = interfaces.indexWhere((iface) {
+                  return (iface['name'] ?? '').toLowerCase() == _targetInterface!.toLowerCase();
+                });
+                if (firstMatchIdx == -1) {
+                  // If no SSID match, try device name
+                  firstMatchIdx = interfaces.indexWhere((iface) {
+                    return (iface['details']['Device'] ?? '').toLowerCase() == _targetInterface!.toLowerCase();
+                  });
+                }
+                isTargetInterface = index == firstMatchIdx && firstMatchIdx != -1;
+              }
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                 child: _UnifiedNetworkCard(
                   name: iface['name'],
                   subtitle: iface['subtitle'],
                   isUp: iface['isEnabled'],
                   icon: Icons.wifi,
                   details: _buildGenericDetails(context, iface['details']),
+                  initiallyExpanded: isTargetInterface,
                 ),
               );
             },
@@ -286,7 +597,7 @@ class InterfacesScreen extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 10.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -419,6 +730,7 @@ class _UnifiedNetworkCard extends StatefulWidget {
   final bool isUp;
   final IconData icon;
   final Widget details;
+  final bool initiallyExpanded;
 
   const _UnifiedNetworkCard({
     required this.name,
@@ -426,6 +738,7 @@ class _UnifiedNetworkCard extends StatefulWidget {
     required this.isUp,
     required this.icon,
     required this.details,
+    this.initiallyExpanded = false,
   });
 
   @override
@@ -438,10 +751,14 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard> with SingleTic
   @override
   void initState() {
     super.initState();
+    _isExpanded = widget.initiallyExpanded;
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 400),
       vsync: this,
     );
+    if (widget.initiallyExpanded) {
+      _controller.forward();
+    }
   }
 
   @override
@@ -471,11 +788,17 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard> with SingleTic
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18.0),
         side: BorderSide(
-          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.10),
-          width: 1,
+          color: widget.initiallyExpanded && _isExpanded 
+              ? colorScheme.primary.withValues(alpha: 0.3)
+              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.10),
+          width: widget.initiallyExpanded && _isExpanded ? 2 : 1,
         ),
       ),
       clipBehavior: Clip.antiAlias,
+      child: AnimatedScale(
+        scale: widget.initiallyExpanded && _isExpanded ? 1.02 : 1.0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutBack,
       child: Column(
         children: [
           InkWell(
@@ -494,11 +817,16 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard> with SingleTic
                           color: colorScheme.primaryContainer.withValues(alpha: 0.13),
                           shape: BoxShape.circle,
                         ),
+                          child: AnimatedScale(
+                            scale: widget.initiallyExpanded && _isExpanded ? 1.1 : 1.0,
+                            duration: const Duration(milliseconds: 500),
+                            curve: Curves.elasticOut,
                         child: Icon(
                           widget.icon,
                           color: widget.isUp ? colorScheme.primary : colorScheme.onSurface,
                           size: 22,
                           semanticLabel: 'Interface icon',
+                            ),
                         ),
                       ),
                       Positioned(
@@ -536,7 +864,7 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard> with SingleTic
                         Container(
                           margin: const EdgeInsets.only(right: 32),
                           child: Divider(
-                            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.10),
+                              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.10),
                             thickness: 1,
                             height: 8,
                           ),
@@ -584,6 +912,7 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard> with SingleTic
               ],
             ),
         ],
+        ),
       ),
     );
 
