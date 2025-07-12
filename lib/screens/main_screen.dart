@@ -27,6 +27,21 @@ class _MainScreenState extends State<MainScreen> {
     _currentInterfaceToScroll = widget.interfaceToScroll;
   }
 
+  @override
+  void didUpdateWidget(MainScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    
+    // Handle parameter changes (important for iOS navigation)
+    if (widget.interfaceToScroll != oldWidget.interfaceToScroll) {
+      _currentInterfaceToScroll = widget.interfaceToScroll;
+    }
+    
+    // Handle initial tab changes
+    if (widget.initialTab != oldWidget.initialTab && widget.initialTab != null) {
+      _selectedIndex = widget.initialTab!;
+    }
+  }
+
   void _clearInterfaceToScroll() {
     if (_currentInterfaceToScroll != null) {
       setState(() {
@@ -49,6 +64,11 @@ class _MainScreenState extends State<MainScreen> {
     setState(() {
       _selectedIndex = index;
     });
+    
+    // Clear interface scroll state when navigating away from Interfaces tab
+    if (_selectedIndex != 2 && _currentInterfaceToScroll != null) {
+      _clearInterfaceToScroll();
+    }
   }
 
   @override

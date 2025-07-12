@@ -20,6 +20,49 @@ class InterfacesScreen extends StatefulWidget {
 class _InterfacesScreenState extends State<InterfacesScreen> {
   final ScrollController _scrollController = ScrollController();
   String? _targetInterface;
+  String? _expandedInterface;
+  final Map<String, GlobalKey> _interfaceKeys = {};
+
+  // Unified key generator for all interfaces
+  String _interfaceKey({String? name, String? ssid, String? deviceName}) {
+    if (ssid != null && ssid.trim().isNotEmpty) {
+      return ssid.trim(); // SSID is case sensitive
+    } else if (deviceName != null && deviceName.trim().isNotEmpty) {
+      return deviceName.trim().toLowerCase();
+    } else if (name != null && name.trim().isNotEmpty) {
+      return name.trim().toLowerCase();
+    }
+    return '';
+  }
+
+  // Unified key generator and matcher for all interfaces
+  String _normalizeInterfaceKey(String? value) {
+    return (value ?? '').trim().toLowerCase();
+  }
+
+  String _interfaceKeyForWireless({String? ssid, String? radioName, String? deviceName, String? name}) {
+    final radio = (radioName ?? '').trim();
+    final ssidTrimmed = (ssid ?? '').trim();
+    
+    // If SSID is empty, we need to ensure uniqueness even with same radio
+    if (ssidTrimmed.isEmpty) {
+      // Use device name as fallback for uniqueness
+      final device = (deviceName ?? '').trim();
+      if (device.isNotEmpty && device != radio) {
+        return '${ssidTrimmed.toLowerCase()}__${device.toLowerCase()}';
+      }
+      // Use interface name as fallback
+      final interfaceName = (name ?? '').trim();
+      if (interfaceName.isNotEmpty && interfaceName != radio) {
+        return '${ssidTrimmed.toLowerCase()}__${interfaceName.toLowerCase()}';
+      }
+      // If all names are the same, add a unique suffix
+      return '${ssidTrimmed.toLowerCase()}__${radio.toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}';
+    }
+    
+    // If SSID is not empty, use SSID + radio
+    return '${ssidTrimmed.toLowerCase()}__${radio.toLowerCase()}';
+  }
 
   @override
   void initState() {
@@ -33,16 +76,40 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
     }
   }
 
+  @override
+  void didUpdateWidget(InterfacesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    
+    // Handle parameter changes (important for iOS navigation)
+    if (widget.scrollToInterface != oldWidget.scrollToInterface) {
+      _targetInterface = widget.scrollToInterface;
+      if (_targetInterface != null) {
+        // Delay scrolling to allow the widget to build
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToInterface(_targetInterface!);
+        });
+      } else {
+        // Clear target interface if no new target is provided
+        setState(() {
+          _targetInterface = null;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    // Clear target interface when widget is disposed
+    _targetInterface = null;
+    super.dispose();
+  }
+
   void _scrollToInterface(String interfaceName) {
     if (!_scrollController.hasClients) return;
     
     // Find the target interface and calculate its position
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
-        double targetPosition = 0;
-        bool handledFirstWired = false;
-        bool handledFirstWireless = false;
-        
         // Get the app state to access interface data
         final appState = Provider.of<AppState>(context, listen: false);
         final dashboardData = appState.dashboardData;
@@ -54,248 +121,171 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
             for (int i = 0; i < wiredInterfaces.length; i++) {
               final iface = wiredInterfaces[i] as Map<String, dynamic>;
               final name = iface['interface'] as String? ?? '';
+              final keyStr = _interfaceKey(name: name);
               // Use exact matching only
-              if (name.toLowerCase() == interfaceName.toLowerCase()) {
-                // Found in wired interfaces - calculate position
-                // Use more conservative calculation
-                targetPosition = 60 + (i * 120);
-                
-                // For the first interface, scroll to show the full card
-                if (i == 0) {
-                  handledFirstWired = true;
-                  // Scroll to position that shows the first card properly
-                  // Section header: 24px top + text height (~20px) + 8px bottom = ~52px
-                  _scrollController.animateTo(
-                    52.0, // Position after section header
-                    duration: const Duration(milliseconds: 1200),
-                    curve: Curves.elasticOut,
-                                          ).then((_) {
-                          // Clear the target interface after scrolling is complete
-                          Future.delayed(const Duration(milliseconds: 500), () {
-                            if (mounted) {
-                              setState(() {
-                                _targetInterface = null;
-                              });
-                              // Notify parent that scrolling is complete
-                              widget.onScrollComplete?.call();
-                            }
-                          });
-                        });
-                } else {
-                  // --- Begin viewport-aware adjustment for expanded details ---
-                  final maxScroll = _scrollController.position.maxScrollExtent;
-                  final viewportHeight = MediaQuery.of(context).size.height;
-                  final appBarHeight = 56.0; // Approximate app bar height
-                  final availableHeight = viewportHeight - appBarHeight;
-                  final expandedInterfaceHeight = 400.0; // Approximate height of expanded interface
-                  final targetBottomPosition = targetPosition + expandedInterfaceHeight;
-                  if (targetBottomPosition > availableHeight) {
-                    targetPosition = (targetPosition - 100).clamp(0.0, maxScroll);
-                  } else {
-                    targetPosition = (targetPosition - (availableHeight / 2) + (expandedInterfaceHeight / 2)).clamp(0.0, maxScroll);
-                  }
-                  _scrollController.animateTo(
-                    targetPosition,
-                    duration: const Duration(milliseconds: 1200),
-                    curve: Curves.elasticOut,
-                  ).then((_) {
-                    Future.delayed(const Duration(milliseconds: 800), () {
-                      if (_scrollController.hasClients) {
-                        final currentPosition = _scrollController.position.pixels;
-                        final fineTuneScroll = 150.0;
-                        final newPosition = (currentPosition + fineTuneScroll).clamp(0.0, maxScroll);
-                        _scrollController.animateTo(
-                          newPosition,
-                          duration: const Duration(milliseconds: 400),
-                          curve: Curves.easeInOut,
-                        ).then((_) {
-                          // Clear the target interface after all scrolling is complete
-                          Future.delayed(const Duration(milliseconds: 500), () {
-                            if (mounted) {
-                              setState(() {
-                                _targetInterface = null;
-                              });
-                            }
-                          });
-                        });
-                      }
-                    });
-                  });
-                  // --- End viewport-aware adjustment ---
-                }
-                break;
+              if (keyStr == interfaceName.toLowerCase()) {
+                _scrollToExpandedCard(keyStr);
+                return;
               }
             }
           }
           
           // If not found in wired, check wireless interfaces
-          if (targetPosition == 0) {
-            final wirelessData = dashboardData['wireless'] as Map<String, dynamic>?;
-            if (wirelessData != null) {
-              int wirelessIndex = 0;
-              // Calculate position after wired section
-              double wiredSectionHeight = 0;
-              if (wiredInterfaces != null) {
-                wiredSectionHeight = 60 + (wiredInterfaces.length * 120) + 60; // More conservative calculation
-              }
-              
-              wirelessData.forEach((radioName, radioData) {
-                final interfaces = radioData['interfaces'] as List<dynamic>?;
-                if (interfaces != null) {
-                  for (var interface in interfaces) {
-                    final config = interface['config'] ?? {};
-                    final iwinfo = interface['iwinfo'] ?? {};
-                    final deviceName = config['device'] ?? radioName;
-                    final ssid = iwinfo['ssid'] ?? config['ssid'] ?? '';
-                    
-                    // Check both device name and SSID for wireless interface matching
-                    if (deviceName.toLowerCase() == interfaceName.toLowerCase() ||
-                        ssid.toLowerCase() == interfaceName.toLowerCase()) {
-                                          // Found in wireless interfaces - calculate position
-                    // Use a more conservative calculation to ensure visibility
-                    targetPosition = wiredSectionHeight + 60 + (wirelessIndex * 120);
-                      
-                      // For the first wireless interface, just scroll to wireless section without adjustments
-                      if (wirelessIndex == 0) {
-                        handledFirstWireless = true;
-                        _scrollController.animateTo(
-                          wiredSectionHeight + 60,
-                          duration: const Duration(milliseconds: 1200),
-                          curve: Curves.elasticOut,
-                        ).then((_) {
-                          // Clear the target interface after scrolling is complete
-                          Future.delayed(const Duration(milliseconds: 500), () {
-                            if (mounted) {
-                              setState(() {
-                                _targetInterface = null;
-                              });
-                              // Notify parent that scrolling is complete
-                              widget.onScrollComplete?.call();
-                            }
-                          });
-                        });
-                      } else {
-                        // Apply viewport-aware adjustments for non-first wireless interfaces
-                        final maxScroll = _scrollController.position.maxScrollExtent;
-                        final viewportHeight = MediaQuery.of(context).size.height;
-                        final appBarHeight = 56.0;
-                        final availableHeight = viewportHeight - appBarHeight;
-                        final expandedInterfaceHeight = 400.0;
-                        final targetBottomPosition = targetPosition + expandedInterfaceHeight;
-                        if (targetBottomPosition > availableHeight) {
-                          targetPosition = (targetPosition - 100).clamp(0.0, maxScroll);
-                        } else {
-                          targetPosition = (targetPosition - (availableHeight / 2) + (expandedInterfaceHeight / 2)).clamp(0.0, maxScroll);
-                        }
-                        _scrollController.animateTo(
-                          targetPosition,
-                          duration: const Duration(milliseconds: 1200),
-                          curve: Curves.elasticOut,
-                        ).then((_) {
-                          Future.delayed(const Duration(milliseconds: 800), () {
-                            if (_scrollController.hasClients) {
-                              final currentPosition = _scrollController.position.pixels;
-                              final fineTuneScroll = 150.0;
-                              final newPosition = (currentPosition + fineTuneScroll).clamp(0.0, maxScroll);
-                              _scrollController.animateTo(
-                                newPosition,
-                                duration: const Duration(milliseconds: 400),
-                                curve: Curves.easeInOut,
-                              ).then((_) {
-                                // Clear the target interface after all scrolling is complete
-                                Future.delayed(const Duration(milliseconds: 500), () {
-                                  if (mounted) {
-                                    setState(() {
-                                      _targetInterface = null;
-                                    });
-                                    // Notify parent that scrolling is complete
-                                    widget.onScrollComplete?.call();
-                                  }
-                                });
-                              });
-                            }
-                          });
-                        });
-                      }
-                      break;
-                    }
-                    wirelessIndex++;
+          final wirelessData = dashboardData['wireless'] as Map<String, dynamic>?;
+          if (wirelessData != null) {
+            final normalizedTarget = _normalizeInterfaceKey(interfaceName);
+            wirelessData.forEach((radioName, radioData) {
+              final interfaces = radioData['interfaces'] as List<dynamic>?;
+              if (interfaces != null) {
+                for (var i = 0; i < interfaces.length; i++) {
+                  final interface = interfaces[i];
+                  final config = interface['config'] ?? {};
+                  final iwinfo = interface['iwinfo'] ?? {};
+                  final deviceName = config['device'] ?? radioName;
+                  final ssid = iwinfo['ssid'] ?? config['ssid'] ?? '';
+                  final name = interface['name'] ?? '';
+                  final keyStr = _interfaceKeyForWireless(ssid: ssid, radioName: radioName, deviceName: deviceName, name: name);
+                  // Generate all possible normalized keys for matching
+                  final ssidKey = _normalizeInterfaceKey(ssid);
+                  final deviceKey = _normalizeInterfaceKey(deviceName);
+                  final nameKey = _normalizeInterfaceKey(name);
+                  // Match against all possible keys
+                  if (normalizedTarget == ssidKey || normalizedTarget == deviceKey || normalizedTarget == nameKey) {
+                    _scrollToExpandedCard(keyStr);
+                    return;
                   }
                 }
-              });
-            }
-          }
-        }
-        
-        // If still not found, use section-based scrolling
-        if (targetPosition == 0) {
-          if (interfaceName.toLowerCase().contains('wifi') || 
-              interfaceName.toLowerCase().contains('wireless') ||
-              interfaceName.toLowerCase().contains('radio')) {
-            targetPosition = 200; // More conservative position for wireless section
-          } else {
-            targetPosition = 80; // More conservative position for wired section
-          }
-        }
-        
-        // Only apply general scrolling logic if we haven't already handled first interfaces
-        if (!handledFirstWired && !handledFirstWireless) {
-          // Ensure we don't scroll beyond the content
-          final maxScroll = _scrollController.position.maxScrollExtent;
-          targetPosition = targetPosition.clamp(0.0, maxScroll);
-          
-          // Add some padding to ensure the interface is fully visible
-          final viewportHeight = MediaQuery.of(context).size.height;
-          final appBarHeight = 56.0; // Approximate app bar height
-          final availableHeight = viewportHeight - appBarHeight;
-          
-          // Calculate the position to show the entire expanded interface
-          // Start with the interface position and add enough space to show the full expansion
-          final expandedInterfaceHeight = 400.0; // Approximate height of expanded interface
-          final targetBottomPosition = targetPosition + expandedInterfaceHeight;
-          
-          // Ensure the expanded interface fits in the viewport
-          if (targetBottomPosition > availableHeight) {
-            // If the expanded interface is taller than the viewport, scroll to show the top
-            targetPosition = (targetPosition - 100).clamp(0.0, maxScroll);
-          } else {
-            // If it fits, center it in the viewport
-            targetPosition = (targetPosition - (availableHeight / 2) + (expandedInterfaceHeight / 2)).clamp(0.0, maxScroll);
-          }
-          
-          // Enhanced animation with bounce effect
-          _scrollController.animateTo(
-            targetPosition,
-            duration: const Duration(milliseconds: 1200),
-            curve: Curves.elasticOut,
-          ).then((_) {
-            // Add a small delay to ensure the interface is expanded and visible
-            Future.delayed(const Duration(milliseconds: 800), () {
-              if (_scrollController.hasClients) {
-                // Fine-tune the position to ensure the expanded interface is fully visible
-                final currentPosition = _scrollController.position.pixels;
-                final fineTuneScroll = 150.0; // Fine-tune scroll to show full expansion
-                final newPosition = (currentPosition + fineTuneScroll).clamp(0.0, maxScroll);
-                
-                _scrollController.animateTo(
-                  newPosition,
-                  duration: const Duration(milliseconds: 400),
-                  curve: Curves.easeInOut,
-                ).then((_) {
-                  // Clear the target interface after all scrolling is complete
-                  Future.delayed(const Duration(milliseconds: 500), () {
-                    if (mounted) {
-                      setState(() {
-                        _targetInterface = null;
-                      });
-                    }
-                  });
-                });
               }
             });
-          });
+          }
+        }
+        
+        // If not found, use section-based scrolling
+        if (interfaceName.toLowerCase().contains('wifi') || 
+            interfaceName.toLowerCase().contains('wireless') ||
+            interfaceName.toLowerCase().contains('radio')) {
+          _scrollToSection(200); // Wireless section
+        } else {
+          _scrollToSection(80); // Wired section
         }
       }
+    });
+  }
+
+  double _headerOffset(BuildContext context) {
+    // App bar (56) + section header (60)
+    return 116.0;
+  }
+
+  void _scrollToExpandedCard(String keyStr, {int retry = 0}) {
+    if (_expandedInterface != keyStr) {
+      setState(() {
+        _expandedInterface = keyStr;
+      });
+    }
+
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      final key = _interfaceKeys[keyStr];
+      final ctx = key?.currentContext;
+      if (ctx == null) {
+        if (retry < 5) {
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (mounted) _scrollToExpandedCard(keyStr, retry: retry + 1);
+          });
+        }
+        return;
+      }
+
+      final headerOffset = _headerOffset(context);
+      final renderBox = ctx.findRenderObject() as RenderBox?;
+      if (renderBox == null) {
+        if (retry < 5) {
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (mounted) _scrollToExpandedCard(keyStr, retry: retry + 1);
+          });
+        }
+        return;
+      }
+      final cardOffset = renderBox.localToGlobal(Offset.zero).dy;
+      final cardHeight = renderBox.size.height;
+      final scrollableBox = _scrollController.position.context.storageContext.findRenderObject() as RenderBox?;
+      final scrollableTop = scrollableBox?.localToGlobal(Offset.zero).dy ?? 0.0;
+      final visibleTop = scrollableTop + headerOffset;
+      final visibleBottom = MediaQuery.of(context).size.height;
+      final cardBottom = cardOffset + cardHeight;
+      final needsScroll = cardOffset < visibleTop || cardBottom > visibleBottom;
+
+      // Dynamic alignment: if card is first (very close to top), use 0.0, else 0.15
+      double alignment = cardOffset - scrollableTop < 10.0 ? 0.0 : 0.15;
+
+      if (needsScroll) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.fastOutSlowIn,
+          alignment: alignment,
+        ).then((_) {
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (mounted && _scrollController.hasClients) {
+              // Only apply header offset if card is under the header
+              final newCardOffset = renderBox.localToGlobal(Offset.zero).dy;
+              if (newCardOffset < visibleTop) {
+                final currentOffset = _scrollController.offset;
+                final newOffset = (currentOffset - (visibleTop - newCardOffset)).clamp(0.0, _scrollController.position.maxScrollExtent);
+                _scrollController.animateTo(
+                  newOffset,
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.fastOutSlowIn,
+                ).then((_) {
+                  if (mounted) {
+                    setState(() {
+                      _targetInterface = null;
+                    });
+                    widget.onScrollComplete?.call();
+                  }
+                });
+              } else {
+                if (mounted) {
+                  setState(() {
+                    _targetInterface = null;
+                  });
+                  widget.onScrollComplete?.call();
+                }
+              }
+            }
+          });
+        });
+      } else {
+        if (mounted) {
+          setState(() {
+            _targetInterface = null;
+          });
+          widget.onScrollComplete?.call();
+        }
+      }
+    });
+  }
+
+  void _scrollToSection(double targetPosition) {
+    if (!_scrollController.hasClients) return;
+    
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final clampedPosition = targetPosition.clamp(0.0, maxScroll);
+    
+    _scrollController.animateTo(
+      clampedPosition,
+      duration: const Duration(milliseconds: 800),
+      curve: Curves.easeInOut,
+    ).then((_) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          setState(() {
+            _targetInterface = null;
+          });
+          widget.onScrollComplete?.call();
+        }
+      });
     });
   }
 
@@ -305,7 +295,10 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
 
     return Scaffold(
       appBar: const LuciAppBar(title: 'Interfaces'),
-      body: RefreshIndicator(
+      body: SafeArea(
+        top: true,
+        bottom: false,
+        child: RefreshIndicator(
         onRefresh: () => appState.fetchDashboardData(),
         child: Selector<AppState, (bool, String?, Map<String, dynamic>?)>(
           selector: (_, state) => (
@@ -341,7 +334,7 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
             }
 
             return CustomScrollView(
-              controller: _scrollController,
+                controller: _scrollController,
               slivers: [
                 SliverToBoxAdapter(child: LuciSectionHeader('Wired')),
                 _buildWiredInterfacesList(),
@@ -351,6 +344,7 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
               ],
             );
           },
+          ),
         ),
       ),
     );
@@ -397,15 +391,18 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
               final isTargetInterface = _targetInterface != null && 
                   iface.name.toLowerCase() == _targetInterface!.toLowerCase();
               
+              final keyStr = _interfaceKey(name: iface.name);
+              final key = _interfaceKeys.putIfAbsent(keyStr, () => GlobalKey());
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                 child: _UnifiedNetworkCard(
+                  key: isTargetInterface ? key : null,
                   name: iface.name.toUpperCase(),
                   subtitle: _buildMinimalInterfaceSubtitle(iface),
                   isUp: iface.isUp,
                   icon: _getInterfaceIcon(iface.protocol),
                   details: _buildWiredDetails(context, iface),
-                  initiallyExpanded: isTargetInterface,
+                  initiallyExpanded: _expandedInterface == keyStr,
                 ),
               );
             },
@@ -456,10 +453,19 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
                 final isIfaceEnabled = config['disabled'] != '1';
                 final isEnabled = isRadioEnabled && isIfaceEnabled;
 
+                final name = iface['name'] ?? '';
+                final ssid = iwinfo['ssid'] ?? config['ssid'] ?? '';
+                final deviceName = config['device'] ?? radioName;
+                final keyStr = _interfaceKeyForWireless(ssid: ssid, radioName: radioName, deviceName: deviceName, name: name);
+
                 interfacesList.add({
                   'name': config['ssid'] ?? iwinfo['ssid'] ?? 'Unnamed',
                   'subtitle': '${config['mode']?.toUpperCase() ?? iwinfo['mode']?.toUpperCase() ?? 'N/A'} • Ch. ${iwinfo['channel']?.toString() ?? config['channel']?.toString() ?? 'N/A'}',
                   'isEnabled': isEnabled,
+                  'deviceName': deviceName,
+                  'radioName': radioName,
+                  'ssid': ssid,
+                  'interfaceName': name,
                   'details': {
                     'Device': config['device'] ?? radioName,
                     'Mode': config['mode'] ?? iwinfo['mode'] ?? 'N/A',
@@ -480,10 +486,17 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
             final isIfaceEnabled = config['disabled'] != '1';
             final isEnabled = isRadioEnabled && isIfaceEnabled;
 
+            final name = config['ssid'] ?? 'Unnamed';
+                            final keyStr = _interfaceKeyForWireless(ssid: name, radioName: radioName, deviceName: radioName, name: name);
+
             interfacesList.add({
               'name': config['ssid'] ?? 'Unnamed',
               'subtitle': '${config['mode']?.toUpperCase() ?? 'N/A'} • Disabled',
               'isEnabled': isEnabled,
+              'deviceName': radioName,
+              'radioName': radioName,
+              'ssid': name,
+              'interfaceName': name,
               'details': {
                 'Device': radioName,
                 'Mode': config['mode'] ?? 'N/A',
@@ -504,31 +517,25 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
           delegate: SliverChildBuilderDelegate(
             (context, index) {
               final iface = interfaces[index];
-              // Removed unused variables deviceName, ssid, dn
-              bool isTargetInterface = false;
-              // Only expand the first match (prioritize SSID over device name)
-              if (_targetInterface != null) {
-                // Find the first index that matches SSID or device name
-                int firstMatchIdx = interfaces.indexWhere((iface) {
-                  return (iface['name'] ?? '').toLowerCase() == _targetInterface!.toLowerCase();
-                });
-                if (firstMatchIdx == -1) {
-                  // If no SSID match, try device name
-                  firstMatchIdx = interfaces.indexWhere((iface) {
-                    return (iface['details']['Device'] ?? '').toLowerCase() == _targetInterface!.toLowerCase();
-                  });
-                }
-                isTargetInterface = index == firstMatchIdx && firstMatchIdx != -1;
-              }
+              final deviceName = iface['deviceName'] ?? '';
+              final radioName = iface['radioName'] ?? '';
+              final ssid = iface['ssid'] ?? '';
+              final name = iface['interfaceName'] ?? '';
+              // Use the stored values for key generation
+              final keyStr = _interfaceKeyForWireless(ssid: ssid, radioName: radioName, deviceName: deviceName, name: name);
+              final key = _interfaceKeys.putIfAbsent(keyStr, () => GlobalKey());
+              final displayName = ssid.toString().isNotEmpty ? ssid.toString() : deviceName.toString();
+              final shouldExpand = _expandedInterface == keyStr;
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                 child: _UnifiedNetworkCard(
-                  name: iface['name'],
+                  key: key,
+                  name: displayName,
                   subtitle: iface['subtitle'],
                   isUp: iface['isEnabled'],
                   icon: Icons.wifi,
                   details: _buildGenericDetails(context, iface['details']),
-                  initiallyExpanded: isTargetInterface,
+                  initiallyExpanded: shouldExpand,
                 ),
               );
             },
@@ -731,6 +738,7 @@ class _UnifiedNetworkCard extends StatefulWidget {
   final IconData icon;
   final Widget details;
   final bool initiallyExpanded;
+  final GlobalKey? key;
 
   const _UnifiedNetworkCard({
     required this.name,
@@ -739,6 +747,7 @@ class _UnifiedNetworkCard extends StatefulWidget {
     required this.icon,
     required this.details,
     this.initiallyExpanded = false,
+    this.key,
   });
 
   @override
@@ -758,6 +767,21 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard> with SingleTic
     );
     if (widget.initiallyExpanded) {
       _controller.forward();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _UnifiedNetworkCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initiallyExpanded != oldWidget.initiallyExpanded) {
+      setState(() {
+        _isExpanded = widget.initiallyExpanded;
+        if (_isExpanded) {
+          _controller.forward();
+        } else {
+          _controller.reverse();
+        }
+      });
     }
   }
 
