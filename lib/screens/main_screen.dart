@@ -3,11 +3,13 @@ import 'package:luci_mobile/screens/dashboard_screen.dart';
 import 'package:luci_mobile/screens/clients_screen.dart';
 import 'package:luci_mobile/screens/interfaces_screen.dart';
 import 'package:luci_mobile/screens/more_screen.dart';
+import 'package:luci_mobile/state/app_state.dart';
+import 'package:provider/provider.dart';
 
 class MainScreen extends StatefulWidget {
   final int? initialTab;
   final String? interfaceToScroll;
-  
+
   const MainScreen({super.key, this.initialTab, this.interfaceToScroll});
 
   @override
@@ -73,35 +75,79 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Listen for requestedTab in AppState
+    final appState = Provider.of<AppState>(context);
+    if (appState.requestedTab != null && appState.requestedTab != _selectedIndex) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        setState(() {
+          _selectedIndex = appState.requestedTab!;
+        });
+        appState.requestedTab = null;
+      });
+    }
     return Scaffold(
       body: Center(
         child: _widgetOptions.elementAt(_selectedIndex),
       ),
-      bottomNavigationBar: NavigationBar(
-        onDestinationSelected: _onItemTapped,
-        selectedIndex: _selectedIndex,
-        destinations: const <NavigationDestination>[
-          NavigationDestination(
-            selectedIcon: Icon(Icons.dashboard),
-            icon: Icon(Icons.dashboard_outlined),
-            label: 'Dashboard',
-          ),
-          NavigationDestination(
-            selectedIcon: Icon(Icons.people),
-            icon: Icon(Icons.people_outline),
-            label: 'Clients',
-          ),
-          NavigationDestination(
-            selectedIcon: Icon(Icons.lan),
-            icon: Icon(Icons.lan_outlined),
-            label: 'Interfaces',
-          ),
-          NavigationDestination(
-            selectedIcon: Icon(Icons.more_horiz),
-            icon: Icon(Icons.more_horiz_outlined),
-            label: 'More',
-          ),
-        ],
+      bottomNavigationBar: Selector<AppState, bool>(
+        selector: (_, state) => state.isRebooting,
+        builder: (context, isRebooting, _) {
+          Color? getTabColor(int index) => (isRebooting && index != 3) ? Colors.grey.withOpacity(0.5) : null;
+          double getTabOpacity(int index) => (isRebooting && index != 3) ? 0.5 : 1.0;
+          return NavigationBar(
+            onDestinationSelected: (index) {
+              if (isRebooting && index != 3) return; // Only allow 'More' tab
+              _onItemTapped(index);
+            },
+            selectedIndex: _selectedIndex,
+            destinations: [
+              NavigationDestination(
+                selectedIcon: Opacity(
+                  opacity: getTabOpacity(0),
+                  child: Icon(Icons.dashboard, color: getTabColor(0)),
+                ),
+                icon: Opacity(
+                  opacity: getTabOpacity(0),
+                  child: Icon(Icons.dashboard_outlined, color: getTabColor(0)),
+                ),
+                label: 'Dashboard',
+              ),
+              NavigationDestination(
+                selectedIcon: Opacity(
+                  opacity: getTabOpacity(1),
+                  child: Icon(Icons.people, color: getTabColor(1)),
+                ),
+                icon: Opacity(
+                  opacity: getTabOpacity(1),
+                  child: Icon(Icons.people_outline, color: getTabColor(1)),
+                ),
+                label: 'Clients',
+              ),
+              NavigationDestination(
+                selectedIcon: Opacity(
+                  opacity: getTabOpacity(2),
+                  child: Icon(Icons.lan, color: getTabColor(2)),
+                ),
+                icon: Opacity(
+                  opacity: getTabOpacity(2),
+                  child: Icon(Icons.lan_outlined, color: getTabColor(2)),
+                ),
+                label: 'Interfaces',
+              ),
+              NavigationDestination(
+                selectedIcon: Opacity(
+                  opacity: getTabOpacity(3),
+                  child: Icon(Icons.more_horiz),
+                ),
+                icon: Opacity(
+                  opacity: getTabOpacity(3),
+                  child: Icon(Icons.more_horiz_outlined),
+                ),
+                label: 'More',
+              ),
+            ],
+          );
+        },
       ),
     );
   }

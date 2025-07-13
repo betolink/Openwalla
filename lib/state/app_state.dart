@@ -28,6 +28,10 @@ class AppState extends ChangeNotifier {
   Map<String, dynamic>? _lastStats;
   DateTime? _lastTimestamp;
 
+  // Add rebooting state
+  bool _isRebooting = false;
+  bool get isRebooting => _isRebooting;
+
   // Theme mode state
   ThemeMode _themeMode = ThemeMode.dark;
   static const String _themeModeKey = 'themeMode';
@@ -37,6 +41,15 @@ class AppState extends ChangeNotifier {
 
   List<model.Router> get routers => _routers;
   model.Router? get selectedRouter => _selectedRouter;
+
+  VoidCallback? onRouterBackOnline;
+
+  // Add requestedTab for programmatic tab switching
+  int? requestedTab;
+  void requestTab(int index) {
+    requestedTab = index;
+    notifyListeners();
+  }
 
   AppState() {
     _loadThemeMode();
@@ -310,6 +323,10 @@ class AppState extends ChangeNotifier {
       }
 
       final now = DateTime.now();
+      if (_lastStats == null || _lastTimestamp == null) {
+        _lastStats = networkData;
+        _lastTimestamp = now;
+      } else {
       if (_lastStats != null && _lastTimestamp != null) {
         final elapsedSeconds = now.difference(_lastTimestamp!).inMilliseconds / 1000.0;
 
@@ -337,6 +354,7 @@ class AppState extends ChangeNotifier {
         }
         // If elapsedSeconds is too small, we skip the calculation but still update the timestamp
         // to prevent accumulation of small time differences
+      }
       }
 
       _lastStats = networkData;
@@ -437,8 +455,63 @@ class AppState extends ChangeNotifier {
   Future<bool> reboot() async {
     if (_sysauth == null || _ipAddress == null) return false;
 
+    _isRebooting = true;
+    notifyListeners();
+
     try {
-      return await _apiService.reboot(_ipAddress!, _sysauth!, _useHttps);
+      final result = await _apiService.reboot(_ipAddress!, _sysauth!, _useHttps);
+      // Wait 15 seconds before starting to poll for router availability
+      Future.delayed(const Duration(seconds: 15), () {
+        _pollRouterAvailability();
+      });
+      return result;
+    } catch (e) {
+      _isRebooting = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  void _pollRouterAvailability() {
+    // Poll every 3 seconds until router is available, then force relogin
+    Timer.periodic(const Duration(seconds: 3), (timer) async {
+      final available = await _pingRouter();
+      if (available) {
+        timer.cancel();
+        _isRebooting = false;
+        notifyListeners();
+        // Notify UI that router is back online
+        if (onRouterBackOnline != null) {
+          onRouterBackOnline!();
+        }
+        // Force relogin
+        if (_selectedRouter != null) {
+          await login(_selectedRouter!.ipAddress, _selectedRouter!.username, _selectedRouter!.password, _selectedRouter!.useHttps);
+        }
+      }
+    });
+  }
+
+  Future<bool> _pingRouter() async {
+    if (_ipAddress == null) return false;
+    try {
+      // Try a simple HTTP GET to the router's root URL
+      final scheme = _useHttps ? 'https' : 'http';
+      final uri = Uri.parse('$scheme://$_ipAddress/');
+      final client = _apiService.createHttpClient(_useHttps);
+      final response = await client.get(uri).timeout(const Duration(seconds: 2));
+      return response.statusCode == 200 || response.statusCode == 401 || response.statusCode == 403;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> checkRouterAvailability() async {
+    if (_ipAddress == null) return false;
+    try {
+      // Use a lightweight API call to check if router is up (e.g., system.board)
+      final result = await _apiService.call(_ipAddress!, '', _useHttps, object: 'system', method: 'board', params: {});
+      return result != null;
     } catch (e) {
       return false;
     }

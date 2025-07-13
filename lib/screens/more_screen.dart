@@ -52,8 +52,64 @@ class _MoreScreenSection extends StatelessWidget {
   }
 }
 
-class MoreScreen extends StatelessWidget {
+class MoreScreen extends StatefulWidget {
   const MoreScreen({super.key});
+
+  @override
+  State<MoreScreen> createState() => _MoreScreenState();
+}
+
+class _MoreScreenState extends State<MoreScreen> {
+  AppState? _appState;
+
+  @override
+  void initState() {
+    super.initState();
+    // Do not use context here
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _appState = Provider.of<AppState>(context, listen: false);
+    _appState?.onRouterBackOnline = _showRouterBackOnlineMessage;
+  }
+
+  @override
+  void dispose() {
+    _appState?.onRouterBackOnline = null;
+    super.dispose();
+  }
+
+  void _showRouterBackOnlineMessage() {
+    if (mounted) {
+      final theme = Theme.of(context);
+      final colorScheme = theme.colorScheme;
+      // Dismiss the warning snackbar
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: colorScheme.onPrimary, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Router is back online, reconnecting…',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onPrimary),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: colorScheme.primary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
 
   Future<void> _showLogoutDialog(BuildContext context, AppState appState) async {
     return showDialog<void>(
@@ -103,6 +159,30 @@ class MoreScreen extends StatelessWidget {
               child: const Text('Reboot'),
               onPressed: () async {
                 Navigator.of(context).pop();
+                // Show persistent warning snackbar
+                final theme = Theme.of(context);
+                final colorScheme = theme.colorScheme;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, color: colorScheme.onPrimary, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Rebooting… Connection will be interrupted.',
+                            style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onPrimary),
+                          ),
+                        ),
+                      ],
+                    ),
+                    backgroundColor: colorScheme.primary,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    duration: const Duration(days: 1), // effectively indefinite
+                  ),
+                );
                 final success = await appState.reboot();
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -199,17 +279,24 @@ class MoreScreen extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 8.0),
         children: [
           const LuciSectionHeader('Device Management'),
-          _MoreScreenSection(
-            tiles: [
-              _buildMoreTile(
-                context,
-                icon: Icons.restart_alt,
-                iconColor: Theme.of(context).colorScheme.primary,
-                title: 'Reboot Router',
-                subtitle: 'Perform a system restart',
-                onTap: () => _showRebootDialog(context, appState),
-              ),
-            ],
+          Selector<AppState, bool>(
+            selector: (_, state) => state.isRebooting,
+            builder: (context, isRebooting, _) {
+              return _MoreScreenSection(
+                tiles: [
+                  _buildMoreTile(
+                    context,
+                    icon: Icons.restart_alt,
+                    iconColor: Theme.of(context).colorScheme.primary,
+                    title: 'Reboot Router',
+                    subtitle: 'Perform a system restart',
+                    onTap: isRebooting ? null : () => _showRebootDialog(context, appState),
+                    enabled: !isRebooting,
+                    showSpinner: isRebooting,
+                  ),
+                ],
+              );
+            },
           ),
           const LuciSectionHeader('Application'),
           _MoreScreenSection(
@@ -273,41 +360,87 @@ class MoreScreen extends StatelessWidget {
     bool enabled = true,
     Color? titleColor,
     Color? subtitleColor,
+    bool showSpinner = false,
   }) {
     final theme = Theme.of(context);
-    return ListTile(
-      leading: Container(
-        decoration: BoxDecoration(
-          color: iconColor.withValues(alpha: 0.12),
-          shape: BoxShape.circle,
+    // Persistent spinning icon using AnimationController
+    Widget spinningIconWidget = Icon(icon, color: iconColor, size: 24, semanticLabel: title);
+    if (showSpinner) {
+      spinningIconWidget = _SpinningIcon(icon: icon, color: iconColor, label: title);
+    }
+    return Opacity(
+      opacity: enabled ? 1.0 : 0.5,
+      child: ListTile(
+        leading: Container(
+          decoration: BoxDecoration(
+            color: iconColor.withValues(alpha: 0.12),
+            shape: BoxShape.circle,
+          ),
+          padding: const EdgeInsets.all(10),
+          child: spinningIconWidget,
         ),
-        padding: const EdgeInsets.all(10),
-        child: Icon(icon, color: iconColor, size: 24, semanticLabel: title),
-      ),
-      title: Text(
-        title,
-        style: theme.textTheme.titleMedium?.copyWith(
-          color: titleColor ?? theme.colorScheme.onSurface,
-          fontWeight: FontWeight.bold,
+        title: Text(
+          title,
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: titleColor ?? theme.colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+          ),
+          semanticsLabel: title,
         ),
-        semanticsLabel: title,
-      ),
-      subtitle: Text(
-        subtitle,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: subtitleColor ?? theme.colorScheme.onSurfaceVariant,
+        subtitle: Text(
+          subtitle,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: subtitleColor ?? theme.colorScheme.onSurfaceVariant,
+          ),
+          semanticsLabel: subtitle,
         ),
-        semanticsLabel: subtitle,
+        enabled: enabled,
+        onTap: enabled ? onTap : null,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        hoverColor: theme.colorScheme.primary.withValues(alpha: 0.04),
+        splashColor: theme.colorScheme.primary.withValues(alpha: 0.08),
+        minVerticalPadding: 16,
+        minLeadingWidth: 0,
+        visualDensity: VisualDensity.standard,
       ),
-      enabled: enabled,
-      onTap: enabled ? onTap : null,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      hoverColor: theme.colorScheme.primary.withValues(alpha: 0.04),
-      splashColor: theme.colorScheme.primary.withValues(alpha: 0.08),
-      minVerticalPadding: 16,
-      minLeadingWidth: 0,
-      visualDensity: VisualDensity.standard,
+    );
+  }
+}
+
+// Persistent spinning icon widget
+class _SpinningIcon extends StatefulWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+  const _SpinningIcon({required this.icon, required this.color, required this.label});
+  @override
+  State<_SpinningIcon> createState() => _SpinningIconState();
+}
+
+class _SpinningIconState extends State<_SpinningIcon> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 1));
+    _controller.repeat();
+  }
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Transform.rotate(
+          angle: _controller.value * 6.28319, // 2 * pi
+          child: Icon(widget.icon, color: widget.color, size: 24, semanticLabel: widget.label),
+        );
+      },
     );
   }
 }

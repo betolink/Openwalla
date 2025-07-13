@@ -3,9 +3,17 @@ import 'package:provider/provider.dart';
 import 'package:luci_mobile/state/app_state.dart';
 import 'package:luci_mobile/models/router.dart' as model;
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
+import 'package:luci_mobile/screens/main_screen.dart';
 
-class ManageRoutersScreen extends StatelessWidget {
+class ManageRoutersScreen extends StatefulWidget {
   const ManageRoutersScreen({super.key});
+
+  @override
+  State<ManageRoutersScreen> createState() => _ManageRoutersScreenState();
+}
+
+class _ManageRoutersScreenState extends State<ManageRoutersScreen> {
+  String? _switchingRouterId;
 
   @override
   Widget build(BuildContext context) {
@@ -41,6 +49,7 @@ class ManageRoutersScreen extends StatelessWidget {
                           itemBuilder: (context, index) {
                               final model.Router router = routers[index];
                               final bool isSelected = router.id == selectedId;
+                              final bool isSwitching = router.id == _switchingRouterId;
                               String routerTitle;
                               bool isStale = false;
                               if (isSelected && appState.dashboardData != null) {
@@ -62,8 +71,31 @@ class ManageRoutersScreen extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(18.0),
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(18.0),
-                                    onTap: () {
-                                      if (!isSelected) appState.selectRouter(router.id);
+                                    onTap: () async {
+                                      if (!isSelected && !isSwitching) {
+                                        setState(() {
+                                          _switchingRouterId = router.id;
+                                        });
+                                        
+                                        try {
+                                          await appState.selectRouter(router.id);
+                                          // Fetch dashboard data before navigating
+                                          await appState.fetchDashboardData();
+                                          if (!context.mounted) return;
+                                          // Pop all the way back to MainScreen
+                                          Navigator.of(context).popUntil((route) => route.isFirst);
+                                          // Set Dashboard tab as active
+                                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                                            Provider.of<AppState>(context, listen: false).requestTab(0);
+                                          });
+                                        } finally {
+                                          if (mounted) {
+                                            setState(() {
+                                              _switchingRouterId = null;
+                                            });
+                                          }
+                                        }
+                                      }
                                     },
                                     child: Card(
                                       elevation: isSelected ? 6 : 2,
@@ -123,7 +155,7 @@ class ManageRoutersScreen extends StatelessWidget {
                                           trailing: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              if (isSelected)
+                                              if (isSelected && !isSwitching)
                                                 Padding(
                                                   padding: const EdgeInsets.only(right: 8.0),
                                                   child: Chip(
@@ -132,6 +164,20 @@ class ManageRoutersScreen extends StatelessWidget {
                                                     backgroundColor: Theme.of(context).colorScheme.primary,
                                                     visualDensity: VisualDensity.compact,
                                                     padding: EdgeInsets.zero,
+                                                  ),
+                                                ),
+                                              if (isSwitching)
+                                                Padding(
+                                                  padding: const EdgeInsets.only(right: 8.0),
+                                                  child: SizedBox(
+                                                    width: 16,
+                                                    height: 16,
+                                                    child: CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                                        Theme.of(context).colorScheme.primary,
+                                                      ),
+                                                    ),
                                                   ),
                                                 ),
                                               IconButton(
@@ -318,9 +364,23 @@ class ManageRoutersScreen extends StatelessWidget {
                                             await appState.addRouter(newRouter);
                                             if (!context.mounted) return;
                                             // Automatically select the new router after adding
-                                            await appState.selectRouter(newRouter.id);
-                                            if (!context.mounted) return;
-                                            Navigator.pop(context);
+                                            setState(() {
+                                              _switchingRouterId = newRouter.id;
+                                            });
+                                            
+                                            try {
+                                              await appState.selectRouter(newRouter.id);
+                                              // Fetch dashboard data before navigating
+                                              await appState.fetchDashboardData();
+                                              if (!context.mounted) return;
+                                              Navigator.pop(context);
+                                            } finally {
+                                              if (mounted) {
+                                                setState(() {
+                                                  _switchingRouterId = null;
+                                                });
+                                              }
+                                            }
                                           }
                                         },
                                         child: const Text('Add'),

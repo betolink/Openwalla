@@ -9,7 +9,7 @@ Uri _buildUrl(String ipAddress, bool useHttps, String path) {
 }
 
 class ApiService {
-  http.Client _createHttpClient(bool allowSelfSigned) {
+  http.Client createHttpClient(bool allowSelfSigned) {
     if (allowSelfSigned) {
       final ioc = HttpClient();
       ioc.badCertificateCallback =
@@ -73,7 +73,7 @@ class ApiService {
     Map<String, dynamic>? params,
   }) async {
     final url = _buildUrl(ipAddress, useHttps, '/cgi-bin/luci/admin/ubus');
-    final client = _createHttpClient(useHttps);
+    final client = createHttpClient(useHttps);
 
     final rpcPayload = {
       'jsonrpc': '2.0',
