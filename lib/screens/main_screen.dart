@@ -32,14 +32,15 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void didUpdateWidget(MainScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     // Handle parameter changes (important for iOS navigation)
     if (widget.interfaceToScroll != oldWidget.interfaceToScroll) {
       _currentInterfaceToScroll = widget.interfaceToScroll;
     }
-    
+
     // Handle initial tab changes
-    if (widget.initialTab != oldWidget.initialTab && widget.initialTab != null) {
+    if (widget.initialTab != oldWidget.initialTab &&
+        widget.initialTab != null) {
       _selectedIndex = widget.initialTab!;
     }
   }
@@ -66,7 +67,7 @@ class _MainScreenState extends State<MainScreen> {
     setState(() {
       _selectedIndex = index;
     });
-    
+
     // Clear interface scroll state when navigating away from Interfaces tab
     if (_selectedIndex != 2 && _currentInterfaceToScroll != null) {
       _clearInterfaceToScroll();
@@ -77,23 +78,33 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     // Listen for requestedTab in AppState
     final appState = Provider.of<AppState>(context);
-    if (appState.requestedTab != null && appState.requestedTab != _selectedIndex) {
+    if (appState.requestedTab != null &&
+        appState.requestedTab != _selectedIndex) {
+      // Store the values before the callback to avoid null reference issues
+      final requestedTab = appState.requestedTab!;
+      final requestedInterface = appState.requestedInterfaceToScroll;
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         setState(() {
-          _selectedIndex = appState.requestedTab!;
+          _selectedIndex = requestedTab;
+          // Update interface to scroll if provided
+          if (requestedInterface != null) {
+            _currentInterfaceToScroll = requestedInterface;
+          }
         });
         appState.requestedTab = null;
+        appState.requestedInterfaceToScroll = null;
       });
     }
     return Scaffold(
-      body: Center(
-        child: _widgetOptions.elementAt(_selectedIndex),
-      ),
+      body: Center(child: _widgetOptions.elementAt(_selectedIndex)),
       bottomNavigationBar: Selector<AppState, bool>(
         selector: (_, state) => state.isRebooting,
         builder: (context, isRebooting, _) {
-          Color? getTabColor(int index) => (isRebooting && index != 3) ? Colors.grey.withOpacity(0.5) : null;
-          double getTabOpacity(int index) => (isRebooting && index != 3) ? 0.5 : 1.0;
+          Color? getTabColor(int index) =>
+              (isRebooting && index != 3) ? Colors.grey.withAlpha(128) : null;
+          double getTabOpacity(int index) =>
+              (isRebooting && index != 3) ? 0.5 : 1.0;
           return NavigationBar(
             onDestinationSelected: (index) {
               if (isRebooting && index != 3) return; // Only allow 'More' tab

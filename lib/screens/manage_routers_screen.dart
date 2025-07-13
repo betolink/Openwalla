@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:luci_mobile/state/app_state.dart';
 import 'package:luci_mobile/models/router.dart' as model;
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
-import 'package:luci_mobile/screens/main_screen.dart';
 
 class ManageRoutersScreen extends StatefulWidget {
   const ManageRoutersScreen({super.key});
@@ -22,10 +21,11 @@ class _ManageRoutersScreenState extends State<ManageRoutersScreen> {
         final List<model.Router> routers = appState.routers;
         final String? selectedId = appState.selectedRouter?.id;
         return Scaffold(
-          backgroundColor: Theme.of(context).colorScheme.surface,
           appBar: const LuciAppBar(title: 'Routers', showBack: true),
+          backgroundColor: Theme.of(context).colorScheme.surface,
           body: Column(
             children: [
+              const SizedBox(height: 16),
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: () async => appState.loadRouters(),
@@ -42,16 +42,14 @@ class _ManageRoutersScreenState extends State<ManageRoutersScreen> {
                             ),
                           ],
                         )
-                      : ListView.separated(
+                      : ListView(
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          itemCount: routers.length,
-                          separatorBuilder: (context, index) => const SizedBox(height: 16),
-                          itemBuilder: (context, index) {
+                          children: [
+                            ...List.generate(routers.length, (index) {
                               final model.Router router = routers[index];
                               final bool isSelected = router.id == selectedId;
                               final bool isSwitching = router.id == _switchingRouterId;
                               String routerTitle;
-                              bool isStale = false;
                               if (isSelected && appState.dashboardData != null) {
                                 final boardInfo = appState.dashboardData?['boardInfo'] as Map<String, dynamic>?;
                                 final hostname = boardInfo?['hostname']?.toString();
@@ -60,349 +58,429 @@ class _ManageRoutersScreenState extends State<ManageRoutersScreen> {
                                     : (router.lastKnownHostname ?? router.ipAddress);
                               } else if (router.lastKnownHostname != null && router.lastKnownHostname!.isNotEmpty) {
                                 routerTitle = router.lastKnownHostname!;
-                                isStale = true;
                               } else {
                                 routerTitle = router.ipAddress;
                               }
                               return Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                                child: Material(
-                                  color: Colors.transparent,
-                                  borderRadius: BorderRadius.circular(18.0),
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(18.0),
-                                    onTap: () async {
-                                      if (!isSelected && !isSwitching) {
-                                        setState(() {
-                                          _switchingRouterId = router.id;
+                                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                                child: _UnifiedRouterCard(
+                                  routerTitle: routerTitle,
+                                  subtitle: '${router.ipAddress} (${router.username})',
+                                  isSelected: isSelected,
+                                  isSwitching: isSwitching,
+                                  onTap: () async {
+                                    if (!isSelected && !isSwitching) {
+                                      setState(() {
+                                        _switchingRouterId = router.id;
+                                      });
+                                      
+                                      try {
+                                        await appState.selectRouter(router.id);
+                                        // Fetch dashboard data before navigating
+                                        await appState.fetchDashboardData();
+                                        if (!context.mounted) return;
+                                        // Pop all the way back to MainScreen
+                                        Navigator.of(context).popUntil((route) => route.isFirst);
+                                        // Set Dashboard tab as active
+                                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                                          Provider.of<AppState>(context, listen: false).requestTab(0);
                                         });
-                                        
-                                        try {
-                                          await appState.selectRouter(router.id);
-                                          // Fetch dashboard data before navigating
-                                          await appState.fetchDashboardData();
-                                          if (!context.mounted) return;
-                                          // Pop all the way back to MainScreen
-                                          Navigator.of(context).popUntil((route) => route.isFirst);
-                                          // Set Dashboard tab as active
-                                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                                            Provider.of<AppState>(context, listen: false).requestTab(0);
+                                      } finally {
+                                        if (mounted) {
+                                          setState(() {
+                                            _switchingRouterId = null;
                                           });
-                                        } finally {
-                                          if (mounted) {
-                                            setState(() {
-                                              _switchingRouterId = null;
-                                            });
-                                          }
                                         }
                                       }
-                                    },
-                                    child: Card(
-                                      elevation: isSelected ? 6 : 2,
-                                      margin: EdgeInsets.zero,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(18.0),
-                                        side: BorderSide(
-                                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.10),
-                                          width: 1,
-                                        ),
+                                    }
+                                  },
+                                  onDelete: () async {
+                                    String routerLabel;
+                                    if (isSelected && appState.dashboardData != null) {
+                                      final boardInfo = appState.dashboardData?['boardInfo'] as Map<String, dynamic>?;
+                                      final hostname = boardInfo?['hostname']?.toString();
+                                      routerLabel = (hostname != null && hostname.isNotEmpty)
+                                          ? hostname
+                                          : router.ipAddress;
+                                    } else {
+                                      routerLabel = router.ipAddress;
+                                    }
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        title: const Text('Remove Router'),
+                                        content: Text('Are you sure you want to remove $routerLabel?'),
+                                        actions: [
+                                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                                          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Remove')),
+                                        ],
                                       ),
-                                      clipBehavior: Clip.antiAlias,
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                                        child: ListTile(
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                                          leading: Container(
-                                            padding: const EdgeInsets.all(8.0),
-                                            decoration: BoxDecoration(
-                                              color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.13),
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: Icon(
-                                              Icons.router,
-                                              color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
-                                              size: 22,
-                                              semanticLabel: 'Router icon',
-                                            ),
-                                          ),
-                                          title: Align(
-                                            alignment: Alignment.centerLeft,
-                                            child: ConstrainedBox(
-                                              constraints: const BoxConstraints(maxWidth: 180),
-                                              child: Tooltip(
-                                                message: isStale ? 'Last known hostname (may be out of date)' : '',
-                                                child: Text(
-                                                  routerTitle,
-                                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                                    fontWeight: FontWeight.bold,
-                                                    color: isStale
-                                                        ? Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7)
-                                                        : Theme.of(context).colorScheme.onSurface,
-                                                  ),
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          subtitle: Padding(
-                                            padding: const EdgeInsets.only(top: 4.0),
-                                            child: Text(
-                                              '${router.ipAddress} (${router.username})',
-                                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          trailing: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              if (isSelected && !isSwitching)
-                                                Padding(
-                                                  padding: const EdgeInsets.only(right: 8.0),
-                                                  child: Chip(
-                                                    label: const Text('Active'),
-                                                    labelStyle: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onPrimary),
-                                                    backgroundColor: Theme.of(context).colorScheme.primary,
-                                                    visualDensity: VisualDensity.compact,
-                                                    padding: EdgeInsets.zero,
-                                                  ),
-                                                ),
-                                              if (isSwitching)
-                                                Padding(
-                                                  padding: const EdgeInsets.only(right: 8.0),
-                                                  child: SizedBox(
-                                                    width: 16,
-                                                    height: 16,
-                                                    child: CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                                        Theme.of(context).colorScheme.primary,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              IconButton(
-                                                icon: const Icon(Icons.delete_outline),
-                                                tooltip: 'Remove',
-                                                onPressed: () async {
-                                                  String routerLabel;
-                                                  if (isSelected && appState.dashboardData != null) {
-                                                    final boardInfo = appState.dashboardData?['boardInfo'] as Map<String, dynamic>?;
-                                                    final hostname = boardInfo?['hostname']?.toString();
-                                                    routerLabel = (hostname != null && hostname.isNotEmpty)
-                                                        ? hostname
-                                                        : router.ipAddress;
-                                                  } else {
-                                                    routerLabel = router.ipAddress;
-                                                  }
-                                                  final confirm = await showDialog<bool>(
-                                                    context: context,
-                                                    builder: (context) => AlertDialog(
-                                                      title: const Text('Remove Router'),
-                                                      content: Text('Are you sure you want to remove $routerLabel?'),
-                                                      actions: [
-                                                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                                                        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Remove')),
-                                                      ],
-                                                    ),
-                                                  );
-                                                  if (!context.mounted) return;
-                                                  if (confirm == true) {
-                                                    appState.removeRouter(router.id);
-                                                  }
-                                                },
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
+                                    );
+                                    if (!context.mounted) return;
+                                    if (confirm == true) {
+                                      appState.removeRouter(router.id);
+                                    }
+                                  },
                                 ),
                               );
-                            },
-                          ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Divider(height: 24, thickness: 1),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.add, size: 20),
-                        label: const Text('Add Router'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        onPressed: () async {
-                          final ipController = TextEditingController();
-                          final userController = TextEditingController(text: 'root');
-                          final passController = TextEditingController();
-                          final formKey = GlobalKey<FormState>();
-                          bool useHttps = false;
-                          bool obscureText = true;
-                          String? errorMessage;
-                          await showDialog<Map<String, dynamic>>(
-                            context: context,
-                            builder: (context) {
-                              return StatefulBuilder(
-                                builder: (context, setState) {
-                                  return AlertDialog(
-                                    title: const Text('Add Router'),
-                                    content: Form(
-                                      key: formKey,
-                                      child: SingleChildScrollView(
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            TextFormField(
-                                              controller: ipController,
-                                              decoration: const InputDecoration(labelText: 'IP Address or Hostname'),
-                                              validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                                              autofillHints: const [AutofillHints.url, AutofillHints.username],
-                                            ),
-                                            const SizedBox(height: 8),
-                                            TextFormField(
-                                              controller: userController,
-                                              decoration: const InputDecoration(labelText: 'Username'),
-                                              validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                                              autofillHints: const [AutofillHints.username],
-                                            ),
-                                            const SizedBox(height: 8),
-                                            TextFormField(
-                                              controller: passController,
-                                              decoration: InputDecoration(
-                                                labelText: 'Password',
-                                                suffixIcon: IconButton(
-                                                  icon: Icon(obscureText ? Icons.visibility_off : Icons.visibility),
-                                                  onPressed: () => setState(() => obscureText = !obscureText),
-                                                  tooltip: obscureText ? 'Show password' : 'Hide password',
-                                                ),
-                                              ),
-                                              obscureText: obscureText,
-                                              autofillHints: const [AutofillHints.password],
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Row(
-                                              children: [
-                                                Checkbox(
-                                                  value: useHttps,
-                                                  onChanged: (v) {
-                                                    setState(() {
-                                                      useHttps = v ?? false;
-                                                    });
-                                                  },
-                                                ),
-                                                const Text('Use HTTPS'),
-                                              ],
-                                            ),
-                                            if (errorMessage != null) ...[
-                                              const SizedBox(height: 12),
-                                              Container(
-                                                padding: const EdgeInsets.all(12),
-                                                decoration: BoxDecoration(
-                                                  color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.1),
-                                                  borderRadius: BorderRadius.circular(8),
-                                                  border: Border.all(
-                                                    color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
-                                                    width: 1,
-                                                  ),
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    Icon(
-                                                      Icons.error_outline_rounded,
-                                                      color: Theme.of(context).colorScheme.error,
-                                                      size: 20,
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    Expanded(
-                                                      child: Text(
-                                                        errorMessage!,
-                                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                          color: Theme.of(context).colorScheme.error,
-                                                          fontWeight: FontWeight.w500,
-                                                        ),
+                            }),
+                            const SizedBox(height: 24),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  icon: const Icon(Icons.add, size: 20),
+                                  label: const Text('Add Router'),
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                                    textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    backgroundColor: Theme.of(context).colorScheme.primary,
+                                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                                    elevation: 2,
+                                  ),
+                                  onPressed: () async {
+                                    final ipController = TextEditingController();
+                                    final userController = TextEditingController(text: 'root');
+                                    final passController = TextEditingController();
+                                    final formKey = GlobalKey<FormState>();
+                                    bool useHttps = false;
+                                    bool obscureText = true;
+                                    bool isConnecting = false;
+                                    String? errorMessage;
+                                    await showDialog<Map<String, dynamic>>(
+                                      context: context,
+                                      builder: (context) {
+                                        return StatefulBuilder(
+                                          builder: (context, setState) {
+                                            return AlertDialog(
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                              backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
+                                              shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
+                                              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 60), // Make dialog larger
+                                              content: ConstrainedBox(
+                                                constraints: const BoxConstraints(maxWidth: 400, minWidth: 320, minHeight: 420),
+                                                child: Form(
+                                                  key: formKey,
+                                                  child: SingleChildScrollView(
+                                                    child: Padding(
+                                                      padding: const EdgeInsets.only(top: 32),
+                                                      child: Column(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          TextFormField(
+                                                            controller: ipController,
+                                                            decoration: const InputDecoration(
+                                                              labelText: 'IP Address or Hostname',
+                                                              border: OutlineInputBorder(),
+                                                              prefixIcon: Icon(Icons.router_outlined),
+                                                              helperText: 'e.g. 192.168.1.1 or myrouter.local',
+                                                            ),
+                                                            validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                                                            autofillHints: const [AutofillHints.url, AutofillHints.username],
+                                                          ),
+                                                          const SizedBox(height: 20),
+                                                          TextFormField(
+                                                            controller: userController,
+                                                            decoration: const InputDecoration(
+                                                              labelText: 'Username',
+                                                              border: OutlineInputBorder(),
+                                                              prefixIcon: Icon(Icons.person_outline),
+                                                              helperText: 'Default is usually root',
+                                                            ),
+                                                            validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                                                            autofillHints: const [AutofillHints.username],
+                                                          ),
+                                                          const SizedBox(height: 20),
+                                                          TextFormField(
+                                                            controller: passController,
+                                                            decoration: InputDecoration(
+                                                              labelText: 'Password',
+                                                              border: const OutlineInputBorder(),
+                                                              prefixIcon: const Icon(Icons.lock_outline),
+                                                              helperText: 'Your router password',
+                                                              suffixIcon: IconButton(
+                                                                icon: Icon(obscureText ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                                                                onPressed: () => setState(() => obscureText = !obscureText),
+                                                                tooltip: obscureText ? 'Hide password' : 'Show password',
+                                                              ),
+                                                            ),
+                                                            obscureText: obscureText,
+                                                            autofillHints: const [AutofillHints.password],
+                                                          ),
+                                                          const SizedBox(height: 20),
+                                                          Row(
+                                                            children: [
+                                                              Icon(Icons.security_outlined, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
+                                                              const SizedBox(width: 12),
+                                                              Text('Use HTTPS', style: Theme.of(context).textTheme.titleMedium),
+                                                              const Spacer(),
+                                                              Switch(
+                                                                value: useHttps,
+                                                                onChanged: isConnecting ? null : (value) {
+                                                                  setState(() {
+                                                                    useHttps = value;
+                                                                  });
+                                                                },
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          if (errorMessage != null) ...[
+                                                            const SizedBox(height: 16),
+                                                            Container(
+                                                              padding: const EdgeInsets.all(10),
+                                                              decoration: BoxDecoration(
+                                                                color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 1),
+                                                                borderRadius: BorderRadius.circular(8),
+                                                              ),
+                                                              child: Row(
+                                                                children: [
+                                                                  Icon(Icons.error_outline, color: Theme.of(context).colorScheme.onErrorContainer),
+                                                                  const SizedBox(width: 12),
+                                                                  Expanded(
+                                                                    child: Text(
+                                                                      errorMessage!,
+                                                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onErrorContainer),
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          ],
+                                                          const SizedBox(height: 28),
+                                                          SizedBox(
+                                                            width: double.infinity,
+                                                            child: ElevatedButton(
+                                                              onPressed: isConnecting ? null : () async {
+                                                                if (formKey.currentState!.validate()) {
+                                                                  final ip = ipController.text.trim();
+                                                                  final user = userController.text.trim();
+                                                                  final pass = passController.text;
+                                                                  final id = '$ip-$user';
+                                                                  if (routers.any((r) => r.id == id)) {
+                                                                    setState(() {
+                                                                      errorMessage = 'Router already exists.';
+                                                                    });
+                                                                    return;
+                                                                  }
+                                                                  
+                                                                  // Show connecting state
+                                                                  setState(() {
+                                                                    errorMessage = null;
+                                                                    isConnecting = true;
+                                                                  });
+                                                                  
+                                                                  // Always fetch hostname from router after login
+                                                                  try {
+                                                                    // Attempt login with the new router's credentials
+                                                                    final loginSuccess = await appState.login(ip, user, pass, useHttps, fromRouter: false);
+                                                                    if (!loginSuccess) {
+                                                                      setState(() {
+                                                                        errorMessage = appState.errorMessage ?? 'Failed to connect: Invalid credentials or host unreachable.';
+                                                                        isConnecting = false;
+                                                                      });
+                                                                      return;
+                                                                    }
+                                                                    // Do NOT addRouter here; login already adds it if needed
+                                                                    if (!context.mounted) return;
+                                                                    Navigator.pop(context);
+                                                                  } catch (e) {
+                                                                    setState(() {
+                                                                      errorMessage = 'Failed to connect: ${e.toString()}';
+                                                                      isConnecting = false;
+                                                                    });
+                                                                  } finally {
+                                                                    if (mounted) {
+                                                                      setState(() {
+                                                                        _switchingRouterId = null;
+                                                                      });
+                                                                    }
+                                                                  }
+                                                                }
+                                                              },
+                                                              style: ElevatedButton.styleFrom(
+                                                                padding: const EdgeInsets.symmetric(vertical: 18),
+                                                                textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                                                shape: RoundedRectangleBorder(
+                                                                  borderRadius: BorderRadius.circular(14),
+                                                                ),
+                                                                elevation: 4,
+                                                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                                                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                                                              ),
+                                                              child: isConnecting 
+                                                                ? Row(
+                                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                                    mainAxisSize: MainAxisSize.min,
+                                                                    children: [
+                                                                      SizedBox(
+                                                                        width: 22,
+                                                                        height: 22,
+                                                                        child: CircularProgressIndicator(
+                                                                          strokeWidth: 3,
+                                                                          valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.onPrimary),
+                                                                        ),
+                                                                      ),
+                                                                      const SizedBox(width: 12),
+                                                                      const Text('Connecting...'),
+                                                                    ],
+                                                                  )
+                                                                : Row(
+                                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                                    mainAxisSize: MainAxisSize.min,
+                                                                    children: const [
+                                                                      Icon(Icons.add),
+                                                                      SizedBox(width: 12),
+                                                                      Text('Add'),
+                                                                    ],
+                                                                  ),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(height: 8),
+                                                        ],
                                                       ),
                                                     ),
-                                                  ],
+                                                  ),
                                                 ),
                                               ),
-                                            ],
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    actions: [
-                                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-                                      TextButton(
-                                        onPressed: () async {
-                                          if (formKey.currentState!.validate()) {
-                                            final ip = ipController.text.trim();
-                                            final user = userController.text.trim();
-                                            final pass = passController.text;
-                                            final id = '$ip-$user';
-                                            if (routers.any((r) => r.id == id)) {
-                                              setState(() {
-                                                errorMessage = 'Router already exists.';
-                                              });
-                                              return;
-                                            }
-                                            // Always fetch hostname from router after login
-                                            final newRouter = model.Router(
-                                              id: id,
-                                              ipAddress: ip,
-                                              username: user,
-                                              password: pass,
-                                              useHttps: useHttps,
                                             );
-                                            await appState.addRouter(newRouter);
-                                            if (!context.mounted) return;
-                                            // Automatically select the new router after adding
-                                            setState(() {
-                                              _switchingRouterId = newRouter.id;
-                                            });
-                                            
-                                            try {
-                                              await appState.selectRouter(newRouter.id);
-                                              // Fetch dashboard data before navigating
-                                              await appState.fetchDashboardData();
-                                              if (!context.mounted) return;
-                                              Navigator.pop(context);
-                                            } finally {
-                                              if (mounted) {
-                                                setState(() {
-                                                  _switchingRouterId = null;
-                                                });
-                                              }
-                                            }
-                                          }
-                                        },
-                                        child: const Text('Add'),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              );
-                            },
-                          );
-                          if (!context.mounted) return;
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
+                                          },
+                                        );
+                                      },
+                                    );
+                                    if (!context.mounted) return;
+                                  },
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                          ],
+                        ),
                 ),
               ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _UnifiedRouterCard extends StatelessWidget {
+  final String routerTitle;
+  final String subtitle;
+  final bool isSelected;
+  final bool isSwitching;
+  final VoidCallback? onTap;
+  final VoidCallback? onDelete;
+
+  const _UnifiedRouterCard({
+    required this.routerTitle,
+    required this.subtitle,
+    required this.isSelected,
+    required this.isSwitching,
+    this.onTap,
+    this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Card(
+      elevation: isSelected ? 6 : 2,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18.0),
+        side: BorderSide(
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.10),
+          width: 1,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18.0),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8.0),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer.withValues(alpha: 0.13),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.router,
+                  color: isSelected ? colorScheme.primary : colorScheme.onSurface,
+                  size: 22,
+                  semanticLabel: 'Router icon',
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      routerTitle,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: 0.1,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (isSelected && !isSwitching)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8.0),
+                  child: Chip(
+                    label: const Text('Active'),
+                    labelStyle: theme.textTheme.labelSmall?.copyWith(color: colorScheme.onPrimary),
+                    backgroundColor: colorScheme.primary,
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+              if (isSwitching)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8.0),
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                    ),
+                  ),
+                ),
+              if (onDelete != null)
+                IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: 'Remove',
+                  onPressed: onDelete,
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 } 

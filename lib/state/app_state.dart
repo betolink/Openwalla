@@ -46,8 +46,11 @@ class AppState extends ChangeNotifier {
 
   // Add requestedTab for programmatic tab switching
   int? requestedTab;
-  void requestTab(int index) {
+  String? requestedInterfaceToScroll;
+
+  void requestTab(int index, {String? interfaceToScroll}) {
     requestedTab = index;
+    requestedInterfaceToScroll = interfaceToScroll;
     notifyListeners();
   }
 
@@ -121,15 +124,24 @@ class AppState extends ChangeNotifier {
 
   Future<void> selectRouter(String id) async {
     if (_routers.isEmpty) return;
-    final found = _routers.firstWhere((r) => r.id == id, orElse: () => _routers.first);
+    final found = _routers.firstWhere(
+      (r) => r.id == id,
+      orElse: () => _routers.first,
+    );
     _isLoading = true;
     _dashboardError = null;
-    
+
     // Clear throughput data when switching routers to prevent mixing data from different routers
     _cancelThroughputTimer();
-    
+
     notifyListeners();
-    final loginSuccess = await login(found.ipAddress, found.username, found.password, found.useHttps, fromRouter: true);
+    final loginSuccess = await login(
+      found.ipAddress,
+      found.username,
+      found.password,
+      found.useHttps,
+      fromRouter: true,
+    );
     if (loginSuccess) {
       _selectedRouter = found;
       await fetchDashboardData();
@@ -150,13 +162,19 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<bool> login(String ip, String user, String pass, bool useHttps, {bool fromRouter = false}) async {
+  Future<bool> login(
+    String ip,
+    String user,
+    String pass,
+    bool useHttps, {
+    bool fromRouter = false,
+  }) async {
     _isLoading = true;
     _errorMessage = null;
-    
+
     // Clear throughput data when logging in to prevent mixing data from different sessions
     _cancelThroughputTimer();
-    
+
     notifyListeners();
 
     try {
@@ -195,7 +213,8 @@ class AppState extends ChangeNotifier {
         notifyListeners();
         return true;
       } else {
-        _errorMessage = 'Login Failed: Invalid credentials or host unreachable.';
+        _errorMessage =
+            'Login Failed: Invalid credentials or host unreachable.';
         _isLoading = false;
         notifyListeners();
         return false;
@@ -221,7 +240,9 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> fetchDashboardData() async {
-    if (_isDashboardLoading || _selectedRouter == null || _sysauth == null) return;
+    if (_isDashboardLoading || _selectedRouter == null || _sysauth == null) {
+      return;
+    }
     final ip = _selectedRouter!.ipAddress;
     final useHttps = _selectedRouter!.useHttps;
 
@@ -232,13 +253,62 @@ class AppState extends ChangeNotifier {
     try {
       // Perform all API calls in parallel
       final results = await Future.wait([
-        _apiService.call(ip, _sysauth!, useHttps, object: 'system', method: 'board', params: {}),
-        _apiService.call(ip, _sysauth!, useHttps, object: 'system', method: 'info', params: {}),
-        _apiService.call(ip, _sysauth!, useHttps, object: 'luci-rpc', method: 'getNetworkDevices', params: {}),
-        _apiService.call(ip, _sysauth!, useHttps, object: 'network.interface', method: 'dump', params: {}),
-        _apiService.call(ip, _sysauth!, useHttps, object: 'luci-rpc', method: 'getWirelessDevices', params: {}),
-        _apiService.call(ip, _sysauth!, useHttps, object: 'luci-rpc', method: 'getDHCPLeases', params: {}),
-        _apiService.call(ip, _sysauth!, useHttps, object: 'uci', method: 'get', params: {'config': 'wireless'}),
+        _apiService.call(
+          ip,
+          _sysauth!,
+          useHttps,
+          object: 'system',
+          method: 'board',
+          params: {},
+        ),
+        _apiService.call(
+          ip,
+          _sysauth!,
+          useHttps,
+          object: 'system',
+          method: 'info',
+          params: {},
+        ),
+        _apiService.call(
+          ip,
+          _sysauth!,
+          useHttps,
+          object: 'luci-rpc',
+          method: 'getNetworkDevices',
+          params: {},
+        ),
+        _apiService.call(
+          ip,
+          _sysauth!,
+          useHttps,
+          object: 'network.interface',
+          method: 'dump',
+          params: {},
+        ),
+        _apiService.call(
+          ip,
+          _sysauth!,
+          useHttps,
+          object: 'luci-rpc',
+          method: 'getWirelessDevices',
+          params: {},
+        ),
+        _apiService.call(
+          ip,
+          _sysauth!,
+          useHttps,
+          object: 'luci-rpc',
+          method: 'getDHCPLeases',
+          params: {},
+        ),
+        _apiService.call(
+          ip,
+          _sysauth!,
+          useHttps,
+          object: 'uci',
+          method: 'get',
+          params: {'config': 'wireless'},
+        ),
       ]);
 
       // Helper to safely extract data and handle errors from LuCI's [status, data] responses
@@ -248,7 +318,9 @@ class AppState extends ChangeNotifier {
             return result[1]; // Success
           } else {
             // Throw an exception with the error message from the API
-            final errorMessage = result[1] is String ? result[1] : 'Unknown API Error';
+            final errorMessage = result[1] is String
+                ? result[1]
+                : 'Unknown API Error';
             throw Exception(errorMessage);
           }
         }
@@ -266,7 +338,9 @@ class AppState extends ChangeNotifier {
       final wireguardData = <String, dynamic>{};
       if (interfaceDump != null && interfaceDump['interface'] is List) {
         // Check if there are any WireGuard interfaces
-        final hasWireGuardInterfaces = interfaceDump['interface'].any((interface) {
+        final hasWireGuardInterfaces = interfaceDump['interface'].any((
+          interface,
+        ) {
           if (interface is Map<String, dynamic>) {
             final proto = interface['proto'] as String?;
             return proto == 'wireguard';
@@ -282,7 +356,7 @@ class AppState extends ChangeNotifier {
             useHttps: useHttps,
             interface: '', // Empty string to get all interfaces
           );
-          
+
           if (allWireGuardData != null) {
             // The new endpoint returns data for all interfaces
             // We need to extract data for each WireGuard interface
@@ -293,7 +367,7 @@ class AppState extends ChangeNotifier {
                 if (proto == 'wireguard' && ifname != null) {
                   // Look for this interface in the WireGuard data
                   final interfaceData = allWireGuardData[ifname];
-                  
+
                   if (interfaceData != null) {
                     wireguardData[ifname] = interfaceData;
                   }
@@ -312,7 +386,8 @@ class AppState extends ChangeNotifier {
             final ifname = interface['interface'] as String?;
             final proto = interface['proto'] as String?;
             // Identify WAN interfaces by name convention or protocol
-            if (ifname != null && (ifname.startsWith('wan') || proto == 'pppoe')) {
+            if (ifname != null &&
+                (ifname.startsWith('wan') || proto == 'pppoe')) {
               final device = interface['device'] as String?;
               if (device != null) {
                 wanDeviceNames.add(device);
@@ -327,34 +402,54 @@ class AppState extends ChangeNotifier {
         _lastStats = networkData;
         _lastTimestamp = now;
       } else {
-      if (_lastStats != null && _lastTimestamp != null) {
-        final elapsedSeconds = now.difference(_lastTimestamp!).inMilliseconds / 1000.0;
+        if (_lastStats != null && _lastTimestamp != null) {
+          final elapsedSeconds =
+              now.difference(_lastTimestamp!).inMilliseconds / 1000.0;
 
-        // Only calculate throughput if we have a reasonable time difference (at least 0.1 seconds)
-        // This prevents artificially high rates from very small time differences while being more responsive
-        if (elapsedSeconds >= 0.1) {
-          final lastRx = _calculateTotalBytes(_lastStats, 'rx_bytes', wanDeviceNames: wanDeviceNames);
-          final lastTx = _calculateTotalBytes(_lastStats, 'tx_bytes', wanDeviceNames: wanDeviceNames);
-          final currentRx = _calculateTotalBytes(networkData, 'rx_bytes', wanDeviceNames: wanDeviceNames);
-          final currentTx = _calculateTotalBytes(networkData, 'tx_bytes', wanDeviceNames: wanDeviceNames);
+          // Only calculate throughput if we have a reasonable time difference (at least 0.1 seconds)
+          // This prevents artificially high rates from very small time differences while being more responsive
+          if (elapsedSeconds >= 0.1) {
+            final lastRx = _calculateTotalBytes(
+              _lastStats,
+              'rx_bytes',
+              wanDeviceNames: wanDeviceNames,
+            );
+            final lastTx = _calculateTotalBytes(
+              _lastStats,
+              'tx_bytes',
+              wanDeviceNames: wanDeviceNames,
+            );
+            final currentRx = _calculateTotalBytes(
+              networkData,
+              'rx_bytes',
+              wanDeviceNames: wanDeviceNames,
+            );
+            final currentTx = _calculateTotalBytes(
+              networkData,
+              'tx_bytes',
+              wanDeviceNames: wanDeviceNames,
+            );
 
-          // Calculate rates with a reasonable maximum to prevent spikes
-          final rxRate = max(0, (currentRx - lastRx) / elapsedSeconds);
-          final txRate = max(0, (currentTx - lastTx) / elapsedSeconds);
-          
-          // Cap the rates to prevent unrealistic spikes (e.g., 1 GB/s)
-          const maxRate = 1000.0 * 1024.0 * 1024.0; // 1 GB/s - more realistic for modern connections
-          _currentRxRate = min(rxRate.toDouble(), maxRate);
-          _currentTxRate = min(txRate.toDouble(), maxRate);
+            // Calculate rates with a reasonable maximum to prevent spikes
+            final rxRate = max(0, (currentRx - lastRx) / elapsedSeconds);
+            final txRate = max(0, (currentTx - lastTx) / elapsedSeconds);
 
-          _rxHistory.add(_currentRxRate);
-          _txHistory.add(_currentTxRate);
-          if (_rxHistory.length > 50) _rxHistory.removeAt(0);
-          if (_txHistory.length > 50) _txHistory.removeAt(0);
+            // Cap the rates to prevent unrealistic spikes (e.g., 1 GB/s)
+            const maxRate =
+                1000.0 *
+                1024.0 *
+                1024.0; // 1 GB/s - more realistic for modern connections
+            _currentRxRate = min(rxRate.toDouble(), maxRate);
+            _currentTxRate = min(txRate.toDouble(), maxRate);
+
+            _rxHistory.add(_currentRxRate);
+            _txHistory.add(_currentTxRate);
+            if (_rxHistory.length > 50) _rxHistory.removeAt(0);
+            if (_txHistory.length > 50) _txHistory.removeAt(0);
+          }
+          // If elapsedSeconds is too small, we skip the calculation but still update the timestamp
+          // to prevent accumulation of small time differences
         }
-        // If elapsedSeconds is too small, we skip the calculation but still update the timestamp
-        // to prevent accumulation of small time differences
-      }
       }
 
       _lastStats = networkData;
@@ -398,7 +493,9 @@ class AppState extends ChangeNotifier {
   }
 
   Map<String, dynamic>? _extractWanData(Map<String, dynamic>? interfaceDump) {
-    if (interfaceDump == null || interfaceDump['interface'] == null) return null;
+    if (interfaceDump == null || interfaceDump['interface'] == null) {
+      return null;
+    }
     try {
       for (var interface in interfaceDump['interface']) {
         if (interface['route'] is List) {
@@ -412,13 +509,16 @@ class AppState extends ChangeNotifier {
         }
       }
     } catch (e) {
-  
       return null;
     }
     return null;
   }
 
-    num _calculateTotalBytes(Map<String, dynamic>? networkData, String key, {Set<String>? wanDeviceNames}) {
+  num _calculateTotalBytes(
+    Map<String, dynamic>? networkData,
+    String key, {
+    Set<String>? wanDeviceNames,
+  }) {
     if (networkData == null) return 0;
     num total = 0;
     networkData.forEach((devName, devData) {
@@ -459,7 +559,11 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = await _apiService.reboot(_ipAddress!, _sysauth!, _useHttps);
+      final result = await _apiService.reboot(
+        _ipAddress!,
+        _sysauth!,
+        _useHttps,
+      );
       // Wait 15 seconds before starting to poll for router availability
       Future.delayed(const Duration(seconds: 15), () {
         _pollRouterAvailability();
@@ -486,7 +590,12 @@ class AppState extends ChangeNotifier {
         }
         // Force relogin
         if (_selectedRouter != null) {
-          await login(_selectedRouter!.ipAddress, _selectedRouter!.username, _selectedRouter!.password, _selectedRouter!.useHttps);
+          await login(
+            _selectedRouter!.ipAddress,
+            _selectedRouter!.username,
+            _selectedRouter!.password,
+            _selectedRouter!.useHttps,
+          );
         }
       }
     });
@@ -499,8 +608,12 @@ class AppState extends ChangeNotifier {
       final scheme = _useHttps ? 'https' : 'http';
       final uri = Uri.parse('$scheme://$_ipAddress/');
       final client = _apiService.createHttpClient(_useHttps);
-      final response = await client.get(uri).timeout(const Duration(seconds: 2));
-      return response.statusCode == 200 || response.statusCode == 401 || response.statusCode == 403;
+      final response = await client
+          .get(uri)
+          .timeout(const Duration(seconds: 2));
+      return response.statusCode == 200 ||
+          response.statusCode == 401 ||
+          response.statusCode == 403;
     } catch (e) {
       return false;
     }
@@ -510,7 +623,14 @@ class AppState extends ChangeNotifier {
     if (_ipAddress == null) return false;
     try {
       // Use a lightweight API call to check if router is up (e.g., system.board)
-      final result = await _apiService.call(_ipAddress!, '', _useHttps, object: 'system', method: 'board', params: {});
+      final result = await _apiService.call(
+        _ipAddress!,
+        '',
+        _useHttps,
+        object: 'system',
+        method: 'board',
+        params: {},
+      );
       return result != null;
     } catch (e) {
       return false;
@@ -531,7 +651,7 @@ class AppState extends ChangeNotifier {
         params: {
           'config': 'wireless',
           'section': device,
-          'values': {'disabled': enabled ? '0' : '1'}
+          'values': {'disabled': enabled ? '0' : '1'},
         },
       );
 
@@ -595,7 +715,11 @@ class AppState extends ChangeNotifier {
           for (final iface in interfaces) {
             final config = iface['config'] ?? {};
             final iwinfo = iface['iwinfo'] ?? {};
-            final ifname = iface['ifname'] ?? iwinfo['ifname'] ?? config['ifname'] ?? config['device'];
+            final ifname =
+                iface['ifname'] ??
+                iwinfo['ifname'] ??
+                config['ifname'] ??
+                config['device'];
             if (ifname != null) {
               final macList = await _apiService.fetchAssociatedStations(
                 ipAddress: _ipAddress!,

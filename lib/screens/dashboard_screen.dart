@@ -4,8 +4,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:luci_mobile/state/app_state.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 import 'package:luci_mobile/models/router.dart' as model;
-import 'package:luci_mobile/screens/main_screen.dart'; // Added import for MainScreen
-
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -22,8 +20,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final ScrollController _wanScrollController = ScrollController();
   bool _showWanLeftArrow = false;
   bool _showWanRightArrow = false;
-  
-
 
   @override
   void initState() {
@@ -109,18 +105,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildDeviceInfoCard(AppState appState) {
-    final boardInfo = appState.dashboardData?['boardInfo'] as Map<String, dynamic>?;
+    final boardInfo =
+        appState.dashboardData?['boardInfo'] as Map<String, dynamic>?;
     final model = boardInfo?['model'] ?? 'N/A';
     final version = boardInfo?['release']?['version'] ?? 'N/A';
-    final isSnapshot = boardInfo?['release']?['revision']?.toString().contains('SNAPSHOT') == true;
+    final isSnapshot =
+        boardInfo?['release']?['revision']?.toString().contains('SNAPSHOT') ==
+        true;
     final branch = isSnapshot ? 'SNAPSHOT' : 'stable';
 
     final labelStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context).colorScheme.onSurface,
-        );
-    final valueStyle = Theme.of(context).textTheme.titleSmall?.copyWith(
-          fontWeight: FontWeight.bold,
-        );
+      color: Theme.of(context).colorScheme.onSurface,
+    );
+    final valueStyle = Theme.of(
+      context,
+    ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold);
 
     return Card(
       elevation: 2,
@@ -136,7 +135,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Text('Model', style: labelStyle),
                   const SizedBox(height: 4),
-                  Text(model, style: valueStyle, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
+                  Text(
+                    model,
+                    style: valueStyle,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
                 ],
               ),
             ),
@@ -151,21 +155,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Flexible(
-                        child: Text(version, style: valueStyle, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
+                        child: Text(
+                          version,
+                          style: valueStyle,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                       const SizedBox(width: 4),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
-                          color: isSnapshot ? Colors.orange.withValues(alpha: 0.15) : Colors.green.withValues(alpha: 0.15),
+                          color: isSnapshot
+                              ? Colors.orange.withValues(alpha: 0.15)
+                              : Colors.green.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           branch,
                           style: TextStyle(
-                            color: isSnapshot ? Colors.orange.shade800 : Colors.green.shade800,
+                            color: isSnapshot
+                                ? Colors.orange.shade800
+                                : Colors.green.shade800,
                             fontWeight: FontWeight.bold,
-                            fontSize: Theme.of(context).textTheme.bodySmall?.fontSize,
+                            fontSize: Theme.of(
+                              context,
+                            ).textTheme.bodySmall?.fontSize,
                           ),
                         ),
                       ),
@@ -182,8 +200,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildRealtimeThroughputCard(AppState appState) {
     // Show loading state if we don't have any throughput data yet
-    final hasValidData = appState.rxHistory.isNotEmpty || appState.txHistory.isNotEmpty;
-    
+    final hasValidData =
+        appState.rxHistory.isNotEmpty || appState.txHistory.isNotEmpty;
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -192,19 +211,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildSpeedIndicator(Icons.arrow_downward, Colors.green, '', appState.currentRxRate),
-                _buildSpeedIndicator(Icons.arrow_upward, Colors.blue, '', appState.currentTxRate),
+                _buildSpeedIndicator(
+                  Icons.arrow_downward,
+                  Colors.green,
+                  '',
+                  appState.currentRxRate,
+                ),
+                _buildSpeedIndicator(
+                  Icons.arrow_upward,
+                  Colors.blue,
+                  '',
+                  appState.currentTxRate,
+                ),
               ],
             ),
           ),
           const SizedBox(height: 8),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(top: 16.0), // Add space above the chart
+              padding: const EdgeInsets.only(
+                top: 16.0,
+              ), // Add space above the chart
               child: hasValidData
                   ? LineChart(
                       LineChartData(
@@ -214,13 +248,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         lineTouchData: LineTouchData(
                           touchTooltipData: LineTouchTooltipData(
                             fitInsideVertically: true,
-                            getTooltipColor: (LineBarSpot spot) => Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+                            getTooltipColor: (LineBarSpot spot) => Theme.of(
+                              context,
+                            ).colorScheme.surface.withValues(alpha: 0.9),
                             tooltipBorderRadius: BorderRadius.circular(8),
-                            tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            tooltipPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
                             getTooltipItems: (List<LineBarSpot> touchedSpots) {
                               return touchedSpots.map((barSpot) {
                                 final flSpot = barSpot;
-                                final Color color = flSpot.bar.gradient?.colors.first ?? flSpot.bar.color ?? Colors.white;
+                                final Color color =
+                                    flSpot.bar.gradient?.colors.first ??
+                                    flSpot.bar.color ??
+                                    Colors.white;
 
                                 return LineTooltipItem(
                                   _formatSpeed(flSpot.y),
@@ -235,8 +277,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         ),
                         lineBarsData: [
-                          _buildLineChartBarData(appState.rxHistory, [Colors.green.shade700, Colors.green.shade400]),
-                          _buildLineChartBarData(appState.txHistory, [Colors.blue.shade700, Colors.blue.shade400]),
+                          _buildLineChartBarData(appState.rxHistory, [
+                            Colors.green.shade700,
+                            Colors.green.shade400,
+                          ]),
+                          _buildLineChartBarData(appState.txHistory, [
+                            Colors.blue.shade700,
+                            Colors.blue.shade400,
+                          ]),
                         ],
                       ),
                       duration: const Duration(milliseconds: 800),
@@ -249,14 +297,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           Icon(
                             Icons.trending_up,
                             size: 48,
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: 0.7),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'Collecting throughput data...',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
-                            ),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurface
+                                      .withValues(alpha: 0.8),
+                                ),
                           ),
                         ],
                       ),
@@ -268,9 +320,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildSpeedIndicator(IconData icon, Color color, String label, double speed) {
+  Widget _buildSpeedIndicator(
+    IconData icon,
+    Color color,
+    String label,
+    double speed,
+  ) {
     // Show 0 if we don't have valid throughput data yet
-    final displaySpeed = speed.isNaN || speed.isInfinite || speed < 0 ? 0.0 : speed;
+    final displaySpeed = speed.isNaN || speed.isInfinite || speed < 0
+        ? 0.0
+        : speed;
     final speedText = AnimatedSwitcher(
       duration: const Duration(milliseconds: 400),
       transitionBuilder: (Widget child, Animation<double> animation) {
@@ -286,9 +345,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       },
       child: Text(
-        _formatSpeed(displaySpeed), 
+        _formatSpeed(displaySpeed),
         key: ValueKey(displaySpeed),
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
       ),
     );
 
@@ -315,7 +376,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  LineChartBarData _buildLineChartBarData(List<double> data, List<Color> gradientColors) {
+  LineChartBarData _buildLineChartBarData(
+    List<double> data,
+    List<Color> gradientColors,
+  ) {
     // Don't show chart data if we don't have enough data points
     if (data.isEmpty) {
       return LineChartBarData(
@@ -328,9 +392,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         belowBarData: BarAreaData(show: false),
       );
     }
-    
+
     return LineChartBarData(
-      spots: data.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value)).toList(),
+      spots: data
+          .asMap()
+          .entries
+          .map((e) => FlSpot(e.key.toDouble(), e.value))
+          .toList(),
       isCurved: true,
       gradient: LinearGradient(colors: gradientColors),
       barWidth: 3,
@@ -339,7 +407,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       belowBarData: BarAreaData(
         show: true,
         gradient: LinearGradient(
-          colors: gradientColors.map((color) => color.withValues(alpha: 0.3)).toList(),
+          colors: gradientColors
+              .map((color) => color.withValues(alpha: 0.3))
+              .toList(),
         ),
       ),
     );
@@ -347,10 +417,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   String _formatSpeed(double bytesPerSecond) {
     // Handle edge cases
-    if (bytesPerSecond.isNaN || bytesPerSecond.isInfinite || bytesPerSecond < 0) {
+    if (bytesPerSecond.isNaN ||
+        bytesPerSecond.isInfinite ||
+        bytesPerSecond < 0) {
       return '0 bps';
     }
-    
+
     final bitsPerSecond = bytesPerSecond * 8;
     if (bitsPerSecond < 1_000) return '${bitsPerSecond.toStringAsFixed(0)} bps';
     if (bitsPerSecond < 1_000_000) {
@@ -360,20 +432,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // Consistent card builder for all dashboard vitals and summary cards
-  Widget _buildVitalsColumn(BuildContext context, {required String label, required String value}) {
+  Widget _buildVitalsColumn(
+    BuildContext context, {
+    required String label,
+    required String value,
+  }) {
     final labelStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context).colorScheme.onSurface,
-        );
-    final valueStyle = Theme.of(context).textTheme.titleSmall?.copyWith(
-          fontWeight: FontWeight.bold,
-        );
+      color: Theme.of(context).colorScheme.onSurface,
+    );
+    final valueStyle = Theme.of(
+      context,
+    ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(label, style: labelStyle),
         const SizedBox(height: 4),
-        Text(value, style: valueStyle, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
+        Text(
+          value,
+          style: valueStyle,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+        ),
       ],
     );
   }
@@ -391,7 +472,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final freeMem = sysInfo?['memory']?['free'] as int? ?? 0;
     final bufferedMem = sysInfo?['memory']?['buffered'] as int? ?? 0;
     final usedMem = totalMem - freeMem - bufferedMem;
-    final memoryValue = totalMem > 0 ? '${(usedMem / totalMem * 100).toStringAsFixed(0)}%' : 'N/A';
+    final memoryValue = totalMem > 0
+        ? '${(usedMem / totalMem * 100).toStringAsFixed(0)}%'
+        : 'N/A';
 
     return Card(
       elevation: 2,
@@ -402,13 +485,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Row(
           children: [
             Expanded(
-              child: _buildVitalsColumn(context, label: 'CPU Load', value: cpuLoadValue),
+              child: _buildVitalsColumn(
+                context,
+                label: 'CPU Load',
+                value: cpuLoadValue,
+              ),
             ),
             Expanded(
-              child: _buildVitalsColumn(context, label: 'Memory', value: memoryValue),
+              child: _buildVitalsColumn(
+                context,
+                label: 'Memory',
+                value: memoryValue,
+              ),
             ),
             Expanded(
-              child: _buildVitalsColumn(context, label: 'Uptime', value: uptimeValue),
+              child: _buildVitalsColumn(
+                context,
+                label: 'Uptime',
+                value: uptimeValue,
+              ),
             ),
           ],
         ),
@@ -435,13 +530,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Icon(
               Icons.wifi,
-              color: isEnabled ? primaryColor : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+              color: isEnabled
+                  ? primaryColor
+                  : Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.5),
               size: 20,
             ),
             const SizedBox(width: 8),
             Text(
               ssid,
-              style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+              style: textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ],
@@ -456,10 +557,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.network_cell, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
+                    Icon(
+                      Icons.network_cell,
+                      size: 16,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
                     const SizedBox(width: 4),
                     Flexible(
-                      child: Text('$signal dBm', style: textTheme.bodySmall, overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        '$signal dBm',
+                        style: textTheme.bodySmall,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
@@ -469,10 +580,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.settings_input_antenna, size: 16, color: Colors.grey.shade600),
+                  Icon(
+                    Icons.settings_input_antenna,
+                    size: 16,
+                    color: Colors.grey.shade600,
+                  ),
                   const SizedBox(width: 4),
                   Flexible(
-                    child: Text('Ch: $channel', style: textTheme.bodySmall, overflow: TextOverflow.ellipsis),
+                    child: Text(
+                      'Ch: $channel',
+                      style: textTheme.bodySmall,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
@@ -484,7 +603,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildWirelessNetworksCard(AppState appState) {
-    final wirelessRadios = appState.dashboardData?['wireless'] as Map<String, dynamic>?;
+    final wirelessRadios =
+        appState.dashboardData?['wireless'] as Map<String, dynamic>?;
     if (wirelessRadios == null || wirelessRadios.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -501,24 +621,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
           final deviceName = config['device'] ?? radioName;
           final isEnabled = !(config['disabled'] as bool? ?? false);
-          final channel = (iwinfo['channel'] ?? config['channel'] ?? 'N/A').toString();
+          final channel = (iwinfo['channel'] ?? config['channel'] ?? 'N/A')
+              .toString();
           final signal = iwinfo['signal'] as int?;
 
           networkCardWidgets.add(
             Card(
               margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
                 borderRadius: BorderRadius.circular(18),
                 onLongPress: () {
                   // Navigate to interfaces tab with the specific interface name
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => MainScreen(initialTab: 2, interfaceToScroll: deviceName),
-                    ),
+                  final appState = Provider.of<AppState>(
+                    context,
+                    listen: false,
                   );
+                  appState.requestTab(2, interfaceToScroll: deviceName);
                 },
                 child: Padding(
                   padding: const EdgeInsets.all(8.0),
@@ -587,7 +710,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Icon(
                     Icons.arrow_forward_ios_rounded,
                     size: 18,
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.45),
                   ),
                 ),
               ),
@@ -614,7 +739,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Icon(
                     Icons.arrow_back_ios_new_rounded,
                     size: 18,
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.45),
                   ),
                 ),
               ),
@@ -642,7 +769,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildInterfaceStatusCards(AppState appState) {
-    final interfaces = appState.dashboardData?['interfaceDump']?['interface'] as List<dynamic>?;
+    final interfaces =
+        appState.dashboardData?['interfaceDump']?['interface']
+            as List<dynamic>?;
     if (interfaces == null || interfaces.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -651,7 +780,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final interface = item as Map<String, dynamic>;
       final name = interface['interface'] as String? ?? '';
       final proto = interface['proto'] as String? ?? '';
-      return name.startsWith('wan') || proto == 'pppoe' || proto == 'wireguard' || proto == 'openvpn';
+      return name.startsWith('wan') ||
+          proto == 'pppoe' ||
+          proto == 'wireguard' ||
+          proto == 'openvpn';
     }).toList();
 
     if (wanVpnInterfaces.isEmpty) {
@@ -669,36 +801,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Card(
           margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             borderRadius: BorderRadius.circular(18),
             onLongPress: () {
               // Navigate to interfaces tab with the specific interface name
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => MainScreen(initialTab: 2, interfaceToScroll: name),
-                ),
-              );
+              final appState = Provider.of<AppState>(context, listen: false);
+              appState.requestTab(2, interfaceToScroll: name);
             },
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 12.0),
+              padding: const EdgeInsets.symmetric(
+                vertical: 12.0,
+                horizontal: 12.0,
+              ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Icon(_getInterfaceIcon(proto), color: Theme.of(context).colorScheme.primary, size: 20),
+                  Icon(
+                    _getInterfaceIcon(proto),
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 20,
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     name.toUpperCase(),
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: isUp ? Colors.green.withValues(alpha: 0.15) : Colors.red.withValues(alpha: 0.15),
+                      color: isUp
+                          ? Colors.green.withValues(alpha: 0.15)
+                          : Colors.red.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: SizedBox(
@@ -708,13 +853,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(isUp ? Icons.check_circle : Icons.cancel, size: 11, color: isUp ? Colors.green.shade800 : Colors.red.shade800),
+                            Icon(
+                              isUp ? Icons.check_circle : Icons.cancel,
+                              size: 11,
+                              color: isUp
+                                  ? Colors.green.shade800
+                                  : Colors.red.shade800,
+                            ),
                             const SizedBox(width: 1),
                             Text(
                               isUp ? 'UP' : 'DOWN',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: isUp ? Colors.green.shade900 : Colors.red.shade900,
+                                color: isUp
+                                    ? Colors.green.shade900
+                                    : Colors.red.shade900,
                                 fontSize: 10,
                               ),
                             ),
@@ -749,7 +902,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           final calculatedCardWidth = (width - totalSpacing) / 4;
           final localRowChildren = <Widget>[];
           for (int i = 0; i < interfaceCardWidgets.length; i++) {
-            localRowChildren.add(SizedBox(width: calculatedCardWidth, child: interfaceCardWidgets[i]));
+            localRowChildren.add(
+              SizedBox(
+                width: calculatedCardWidth,
+                child: interfaceCardWidgets[i],
+              ),
+            );
             if (i < interfaceCardWidgets.length - 1) {
               localRowChildren.add(const SizedBox(width: 6));
             }
@@ -786,7 +944,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: Icon(
                         Icons.arrow_forward_ios_rounded,
                         size: 18,
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.45),
                       ),
                     ),
                   ),
@@ -813,7 +973,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: Icon(
                         Icons.arrow_back_ios_new_rounded,
                         size: 18,
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.45),
                       ),
                     ),
                   ),
@@ -836,7 +998,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       builder: (context, appState, child) {
         final List<model.Router> routers = appState.routers;
         final model.Router? selected = appState.selectedRouter;
-        final boardInfo = appState.dashboardData?['boardInfo'] as Map<String, dynamic>?;
+        final boardInfo =
+            appState.dashboardData?['boardInfo'] as Map<String, dynamic>?;
         final hostname = boardInfo?['hostname']?.toString();
         final headerText = (hostname != null && hostname.isNotEmpty)
             ? hostname
@@ -844,14 +1007,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return Scaffold(
           appBar: LuciAppBar(
             centerTitle: true,
-            title: routers.length > 1
-                ? null
-                : headerText,
+            title: routers.length > 1 ? null : headerText,
             titleWidget: routers.length > 1
                 ? Center(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainerLowest,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerLowest,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color: Theme.of(context).colorScheme.outlineVariant,
@@ -868,78 +1031,148 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             final selectedId = await showModalBottomSheet<String>(
                               context: context,
                               isScrollControlled: false,
-                              backgroundColor: Theme.of(context).colorScheme.surface,
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.surface,
                               shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(18),
+                                ),
                               ),
                               builder: (context) {
                                 return SafeArea(
                                   child: Padding(
-                                    padding: const EdgeInsets.only(top: 12, left: 8, right: 8, bottom: 8),
+                                    padding: const EdgeInsets.only(
+                                      top: 12,
+                                      left: 8,
+                                      right: 8,
+                                      bottom: 8,
+                                    ),
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Center(
                                           child: Container(
                                             width: 40,
                                             height: 4,
-                                            margin: const EdgeInsets.only(bottom: 12),
+                                            margin: const EdgeInsets.only(
+                                              bottom: 12,
+                                            ),
                                             decoration: BoxDecoration(
-                                              color: Theme.of(context).colorScheme.outlineVariant,
-                                              borderRadius: BorderRadius.circular(2),
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.outlineVariant,
+                                              borderRadius:
+                                                  BorderRadius.circular(2),
                                             ),
                                           ),
                                         ),
                                         Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12.0,
+                                            vertical: 4,
+                                          ),
                                           child: Center(
                                             child: Text(
                                               'Select Router',
-                                              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .titleMedium
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
                                               textAlign: TextAlign.center,
                                             ),
                                           ),
                                         ),
                                         const Divider(height: 16),
                                         ...routers.map((r) {
-                                          final isSelected = r.id == selected?.id;
+                                          final isSelected =
+                                              r.id == selected?.id;
                                           String routerTitle;
                                           bool isStale = false;
                                           if (isSelected && boardInfo != null) {
-                                            final hostname = boardInfo['hostname']?.toString();
-                                            routerTitle = (hostname != null && hostname.isNotEmpty)
+                                            final hostname =
+                                                boardInfo['hostname']
+                                                    ?.toString();
+                                            routerTitle =
+                                                (hostname != null &&
+                                                    hostname.isNotEmpty)
                                                 ? hostname
-                                                : (r.lastKnownHostname ?? r.ipAddress);
-                                          } else if (r.lastKnownHostname != null && r.lastKnownHostname!.isNotEmpty) {
+                                                : (r.lastKnownHostname ??
+                                                      r.ipAddress);
+                                          } else if (r.lastKnownHostname !=
+                                                  null &&
+                                              r.lastKnownHostname!.isNotEmpty) {
                                             routerTitle = r.lastKnownHostname!;
                                             isStale = true;
                                           } else {
                                             routerTitle = r.ipAddress;
                                           }
                                           return ListTile(
-                                            leading: Icon(Icons.router, color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant),
+                                            leading: Icon(
+                                              Icons.router,
+                                              color: isSelected
+                                                  ? Theme.of(
+                                                      context,
+                                                    ).colorScheme.primary
+                                                  : Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
+                                            ),
                                             title: Tooltip(
-                                              message: isStale ? 'Last known hostname (may be out of date)' : '',
+                                              message: isStale
+                                                  ? 'Last known hostname (may be out of date)'
+                                                  : '',
                                               child: Text(
                                                 routerTitle,
-                                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: isStale
-                                                      ? Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7)
-                                                      : Theme.of(context).colorScheme.onSurface,
-                                                ),
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .titleMedium
+                                                    ?.copyWith(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: isStale
+                                                          ? Theme.of(context)
+                                                                .colorScheme
+                                                                .onSurfaceVariant
+                                                                .withValues(
+                                                                  alpha: 0.7,
+                                                                )
+                                                          : Theme.of(context)
+                                                                .colorScheme
+                                                                .onSurface,
+                                                    ),
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                             ),
-                                            subtitle: Text(r.ipAddress, style: Theme.of(context).textTheme.bodySmall),
+                                            subtitle: Text(
+                                              r.ipAddress,
+                                              style: Theme.of(
+                                                context,
+                                              ).textTheme.bodySmall,
+                                            ),
                                             trailing: isSelected
-                                                ? Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary)
+                                                ? Icon(
+                                                    Icons.check_circle,
+                                                    color: Theme.of(
+                                                      context,
+                                                    ).colorScheme.primary,
+                                                  )
                                                 : null,
                                             selected: isSelected,
-                                            selectedTileColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.07),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                            onTap: () => Navigator.of(context).pop(r.id),
+                                            selectedTileColor: Theme.of(context)
+                                                .colorScheme
+                                                .primary
+                                                .withValues(alpha: 0.07),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            onTap: () =>
+                                                Navigator.of(context).pop(r.id),
                                           );
                                         }),
                                         const SizedBox(height: 8),
@@ -949,24 +1182,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 );
                               },
                             );
-                            if (selectedId != null && selectedId != selected?.id) {
+                            if (selectedId != null &&
+                                selectedId != selected?.id) {
                               appState.selectRouter(selectedId);
                             }
                           },
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12.0,
+                              vertical: 4.0,
+                            ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 Text(
                                   headerText,
-                                  style: Theme.of(context).appBarTheme.titleTextStyle ??
-                                         Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).appBarTheme.titleTextStyle?.color),
+                                  style:
+                                      Theme.of(
+                                        context,
+                                      ).appBarTheme.titleTextStyle ??
+                                      Theme.of(
+                                        context,
+                                      ).textTheme.titleLarge?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: Theme.of(
+                                          context,
+                                        ).appBarTheme.titleTextStyle?.color,
+                                      ),
                                   overflow: TextOverflow.ellipsis,
                                   textAlign: TextAlign.center,
                                 ),
-                                Icon(Icons.arrow_drop_down, size: 22, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                Icon(
+                                  Icons.arrow_drop_down,
+                                  size: 22,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
                               ],
                             ),
                           ),
@@ -986,7 +1239,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (appState.dashboardError != null) {
       return LuciErrorDisplay(
         title: 'Connection Failed',
-        message: 'Unable to connect to the router. Please check your network connection and router settings.',
+        message:
+            'Unable to connect to the router. Please check your network connection and router settings.',
         actionLabel: 'Retry Connection',
         onAction: () => appState.fetchDashboardData(),
         icon: Icons.wifi_off_rounded,
@@ -1000,7 +1254,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (appState.dashboardData == null) {
       return LuciEmptyState(
         title: 'No Data Available',
-        message: 'Unable to fetch dashboard data. Pull down to refresh or tap the button below.',
+        message:
+            'Unable to fetch dashboard data. Pull down to refresh or tap the button below.',
         icon: Icons.dashboard_outlined,
         actionLabel: 'Fetch Data',
         onAction: () => appState.fetchDashboardData(),
@@ -1011,13 +1266,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onRefresh: () => appState.fetchDashboardData(),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+          final isLandscape =
+              MediaQuery.of(context).orientation == Orientation.landscape;
           final content = [
             const SizedBox(height: 16),
             _buildDeviceInfoCard(appState),
             const SizedBox(height: 12),
             isLandscape
-                ? SizedBox(height: 240, child: _buildRealtimeThroughputCard(appState))
+                ? SizedBox(
+                    height: 240,
+                    child: _buildRealtimeThroughputCard(appState),
+                  )
                 : Expanded(child: _buildRealtimeThroughputCard(appState)),
             const SizedBox(height: 12),
             _buildSystemVitalsCard(appState),

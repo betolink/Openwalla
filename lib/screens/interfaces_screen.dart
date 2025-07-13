@@ -6,12 +6,15 @@ import 'package:luci_mobile/models/interface.dart';
 import 'dart:math';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 
-
 class InterfacesScreen extends StatefulWidget {
   final String? scrollToInterface;
   final VoidCallback? onScrollComplete;
-  
-  const InterfacesScreen({super.key, this.scrollToInterface, this.onScrollComplete});
+
+  const InterfacesScreen({
+    super.key,
+    this.scrollToInterface,
+    this.onScrollComplete,
+  });
 
   @override
   State<InterfacesScreen> createState() => _InterfacesScreenState();
@@ -40,10 +43,15 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
     return (value ?? '').trim().toLowerCase();
   }
 
-  String _interfaceKeyForWireless({String? ssid, String? radioName, String? deviceName, String? name}) {
+  String _interfaceKeyForWireless({
+    String? ssid,
+    String? radioName,
+    String? deviceName,
+    String? name,
+  }) {
     final radio = (radioName ?? '').trim();
     final ssidTrimmed = (ssid ?? '').trim();
-    
+
     // If SSID is empty, we need to ensure uniqueness even with same radio
     if (ssidTrimmed.isEmpty) {
       // Use device name as fallback for uniqueness
@@ -59,7 +67,7 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
       // If all names are the same, add a unique suffix
       return '${ssidTrimmed.toLowerCase()}__${radio.toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}';
     }
-    
+
     // If SSID is not empty, use SSID + radio
     return '${ssidTrimmed.toLowerCase()}__${radio.toLowerCase()}';
   }
@@ -79,7 +87,7 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
   @override
   void didUpdateWidget(InterfacesScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     // Handle parameter changes (important for iOS navigation)
     if (widget.scrollToInterface != oldWidget.scrollToInterface) {
       _targetInterface = widget.scrollToInterface;
@@ -106,17 +114,18 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
 
   void _scrollToInterface(String interfaceName) {
     if (!_scrollController.hasClients) return;
-    
+
     // Find the target interface and calculate its position
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         // Get the app state to access interface data
         final appState = Provider.of<AppState>(context, listen: false);
         final dashboardData = appState.dashboardData;
-        
+
         if (dashboardData != null) {
           // Check wired interfaces first
-          final wiredInterfaces = dashboardData['interfaceDump']?['interface'] as List<dynamic>?;
+          final wiredInterfaces =
+              dashboardData['interfaceDump']?['interface'] as List<dynamic>?;
           if (wiredInterfaces != null) {
             for (int i = 0; i < wiredInterfaces.length; i++) {
               final iface = wiredInterfaces[i] as Map<String, dynamic>;
@@ -129,9 +138,10 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
               }
             }
           }
-          
+
           // If not found in wired, check wireless interfaces
-          final wirelessData = dashboardData['wireless'] as Map<String, dynamic>?;
+          final wirelessData =
+              dashboardData['wireless'] as Map<String, dynamic>?;
           if (wirelessData != null) {
             final normalizedTarget = _normalizeInterfaceKey(interfaceName);
             wirelessData.forEach((radioName, radioData) {
@@ -144,13 +154,20 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
                   final deviceName = config['device'] ?? radioName;
                   final ssid = iwinfo['ssid'] ?? config['ssid'] ?? '';
                   final name = interface['name'] ?? '';
-                  final keyStr = _interfaceKeyForWireless(ssid: ssid, radioName: radioName, deviceName: deviceName, name: name);
+                  final keyStr = _interfaceKeyForWireless(
+                    ssid: ssid,
+                    radioName: radioName,
+                    deviceName: deviceName,
+                    name: name,
+                  );
                   // Generate all possible normalized keys for matching
                   final ssidKey = _normalizeInterfaceKey(ssid);
                   final deviceKey = _normalizeInterfaceKey(deviceName);
                   final nameKey = _normalizeInterfaceKey(name);
                   // Match against all possible keys
-                  if (normalizedTarget == ssidKey || normalizedTarget == deviceKey || normalizedTarget == nameKey) {
+                  if (normalizedTarget == ssidKey ||
+                      normalizedTarget == deviceKey ||
+                      normalizedTarget == nameKey) {
                     _scrollToExpandedCard(keyStr);
                     return;
                   }
@@ -159,9 +176,9 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
             });
           }
         }
-        
+
         // If not found, use section-based scrolling
-        if (interfaceName.toLowerCase().contains('wifi') || 
+        if (interfaceName.toLowerCase().contains('wifi') ||
             interfaceName.toLowerCase().contains('wireless') ||
             interfaceName.toLowerCase().contains('radio')) {
           _scrollToSection(200); // Wireless section
@@ -178,115 +195,133 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
   }
 
   void _scrollToExpandedCard(String keyStr, {int retry = 0}) {
+    if (!mounted) return;
+
+    // Set the expanded interface
     if (_expandedInterface != keyStr) {
       setState(() {
         _expandedInterface = keyStr;
       });
+
+      // Wait for the expansion animation to complete (400ms) before calculating scroll
+      Future.delayed(const Duration(milliseconds: 450), () {
+        if (mounted) _performScrollToCard(keyStr, retry: retry);
+      });
+    } else {
+      // Already expanded, perform scroll immediately
+      _performScrollToCard(keyStr, retry: retry);
+    }
+  }
+
+  void _performScrollToCard(String keyStr, {int retry = 0}) {
+    if (!mounted) return;
+
+    final key = _interfaceKeys[keyStr];
+    final currentContext = context; // Store context
+
+    final ctx = key?.currentContext;
+    if (ctx == null) {
+      if (retry < 5) {
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) _performScrollToCard(keyStr, retry: retry + 1);
+        });
+      }
+      return;
     }
 
-    Future.delayed(const Duration(milliseconds: 350), () {
-      if (!mounted) return;
-      final key = _interfaceKeys[keyStr];
-      final ctx = key?.currentContext;
-      if (ctx == null) {
-        if (retry < 5) {
-          Future.delayed(const Duration(milliseconds: 100), () {
-            if (mounted) _scrollToExpandedCard(keyStr, retry: retry + 1);
-          });
-        }
-        return;
+    final headerOffset = _headerOffset(currentContext);
+    final renderBox = ctx.findRenderObject() as RenderBox?;
+    if (renderBox == null) {
+      if (retry < 5) {
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) _performScrollToCard(keyStr, retry: retry + 1);
+        });
       }
+      return;
+    }
 
-      final headerOffset = _headerOffset(context);
-      final renderBox = ctx.findRenderObject() as RenderBox?;
-      if (renderBox == null) {
-        if (retry < 5) {
-          Future.delayed(const Duration(milliseconds: 100), () {
-            if (mounted) _scrollToExpandedCard(keyStr, retry: retry + 1);
-          });
-        }
-        return;
-      }
-      final cardOffset = renderBox.localToGlobal(Offset.zero).dy;
-      final cardHeight = renderBox.size.height;
-      final scrollableBox = _scrollController.position.context.storageContext.findRenderObject() as RenderBox?;
-      final scrollableTop = scrollableBox?.localToGlobal(Offset.zero).dy ?? 0.0;
-      final visibleTop = scrollableTop + headerOffset;
-      final visibleBottom = MediaQuery.of(context).size.height;
-      final cardBottom = cardOffset + cardHeight;
-      final needsScroll = cardOffset < visibleTop || cardBottom > visibleBottom;
+    final cardOffset = renderBox.localToGlobal(Offset.zero).dy;
+    final cardHeight = renderBox.size.height;
+    final scrollableBox = _scrollController.position.hasContentDimensions
+        ? _scrollController.position.context.storageContext.findRenderObject()
+              as RenderBox?
+        : null;
+    final scrollableTop = scrollableBox?.localToGlobal(Offset.zero).dy ?? 0.0;
+    final visibleTop = scrollableTop + headerOffset;
+    final visibleBottom = MediaQuery.of(currentContext).size.height;
+    final cardBottom = cardOffset + cardHeight;
 
-      // Dynamic alignment: if card is first (very close to top), use 0.0, else 0.15
-      double alignment = cardOffset - scrollableTop < 10.0 ? 0.0 : 0.15;
+    // Calculate how much of the card is visible
+    final visibleCardTop = max(cardOffset, visibleTop);
+    final visibleCardBottom = min(cardBottom, visibleBottom);
+    final visibleCardHeight = max(0.0, visibleCardBottom - visibleCardTop);
+    final cardVisibilityRatio = cardHeight > 0
+        ? visibleCardHeight / cardHeight
+        : 0.0;
 
-      if (needsScroll) {
-        Scrollable.ensureVisible(
-          ctx,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.fastOutSlowIn,
-          alignment: alignment,
-        ).then((_) {
-          Future.delayed(const Duration(milliseconds: 100), () {
-            if (mounted && _scrollController.hasClients) {
-              // Only apply header offset if card is under the header
-              final newCardOffset = renderBox.localToGlobal(Offset.zero).dy;
-              if (newCardOffset < visibleTop) {
-                final currentOffset = _scrollController.offset;
-                final newOffset = (currentOffset - (visibleTop - newCardOffset)).clamp(0.0, _scrollController.position.maxScrollExtent);
-                _scrollController.animateTo(
-                  newOffset,
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.fastOutSlowIn,
-                ).then((_) {
-                  if (mounted) {
-                    setState(() {
-                      _targetInterface = null;
-                    });
-                    widget.onScrollComplete?.call();
-                  }
-                });
-              } else {
-                if (mounted) {
-                  setState(() {
-                    _targetInterface = null;
-                  });
-                  widget.onScrollComplete?.call();
-                }
-              }
+    // Only scroll if less than 90% of the card is visible
+    final needsScroll = cardVisibilityRatio < 0.9;
+
+    if (needsScroll) {
+      // Calculate optimal scroll position to center the card
+      final screenHeight = MediaQuery.of(currentContext).size.height;
+      final availableHeight = screenHeight - headerOffset;
+      final targetPosition =
+          cardOffset - headerOffset - (availableHeight - cardHeight) / 2;
+      final clampedPosition = targetPosition.clamp(
+        0.0,
+        _scrollController.position.maxScrollExtent,
+      );
+
+      _scrollController
+          .animateTo(
+            clampedPosition,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.fastOutSlowIn,
+          )
+          .then((_) {
+            if (mounted) {
+              setState(() {
+                _targetInterface = null;
+              });
+              widget.onScrollComplete?.call();
             }
           });
+    } else {
+      if (mounted) {
+        setState(() {
+          _targetInterface = null;
         });
-      } else {
-        if (mounted) {
-          setState(() {
-            _targetInterface = null;
-          });
-          widget.onScrollComplete?.call();
-        }
+        widget.onScrollComplete?.call();
       }
-    });
+    }
   }
 
   void _scrollToSection(double targetPosition) {
-    if (!_scrollController.hasClients) return;
-    
+    if (!_scrollController.hasClients ||
+        !_scrollController.position.hasContentDimensions) {
+      return;
+    }
+
     final maxScroll = _scrollController.position.maxScrollExtent;
     final clampedPosition = targetPosition.clamp(0.0, maxScroll);
-    
-    _scrollController.animateTo(
-      clampedPosition,
-      duration: const Duration(milliseconds: 800),
-      curve: Curves.easeInOut,
-    ).then((_) {
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          setState(() {
-            _targetInterface = null;
+
+    _scrollController
+        .animateTo(
+          clampedPosition,
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.easeInOut,
+        )
+        .then((_) {
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              setState(() {
+                _targetInterface = null;
+              });
+              widget.onScrollComplete?.call();
+            }
           });
-          widget.onScrollComplete?.call();
-        }
-      });
-    });
+        });
   }
 
   @override
@@ -299,51 +334,58 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
         top: true,
         bottom: false,
         child: RefreshIndicator(
-        onRefresh: () => appState.fetchDashboardData(),
-        child: Selector<AppState, (bool, String?, Map<String, dynamic>?)>(
-          selector: (_, state) => (
-            state.isDashboardLoading,
-            state.dashboardError,
-            state.dashboardData,
-          ),
-          builder: (context, data, _) {
-            final (isLoading, dashboardError, dashboardData) = data;
+          onRefresh: () => appState.fetchDashboardData(),
+          child: Selector<AppState, (bool, String?, Map<String, dynamic>?)>(
+            selector: (_, state) => (
+              state.isDashboardLoading,
+              state.dashboardError,
+              state.dashboardData,
+            ),
+            builder: (context, data, _) {
+              final (isLoading, dashboardError, dashboardData) = data;
 
-            if (isLoading && dashboardData == null) {
-              return const LuciLoadingWidget();
-            }
+              if (isLoading && dashboardData == null) {
+                return const LuciLoadingWidget();
+              }
 
-            if (dashboardError != null && dashboardData == null) {
-              return LuciErrorDisplay(
-                title: 'Failed to Load Interfaces',
-                message: 'Could not connect to the router. Please check your network connection and router settings.',
-                actionLabel: 'Retry',
-                onAction: () => appState.fetchDashboardData(),
-                icon: Icons.wifi_off_rounded,
-              );
-            }
+              if (dashboardError != null && dashboardData == null) {
+                return LuciErrorDisplay(
+                  title: 'Failed to Load Interfaces',
+                  message:
+                      'Could not connect to the router. Please check your network connection and router settings.',
+                  actionLabel: 'Retry',
+                  onAction: () => appState.fetchDashboardData(),
+                  icon: Icons.wifi_off_rounded,
+                );
+              }
 
-            if (dashboardData == null) {
-              return LuciEmptyState(
-                title: 'No Interface Data',
-                message: 'Unable to fetch interface information. Pull down to refresh or tap the button below.',
-                icon: Icons.device_hub_outlined,
-                actionLabel: 'Fetch Data',
-                onAction: () => appState.fetchDashboardData(),
-              );
-            }
+              if (dashboardData == null) {
+                return LuciEmptyState(
+                  title: 'No Interface Data',
+                  message:
+                      'Unable to fetch interface information. Pull down to refresh or tap the button below.',
+                  icon: Icons.device_hub_outlined,
+                  actionLabel: 'Fetch Data',
+                  onAction: () => appState.fetchDashboardData(),
+                );
+              }
 
-            return CustomScrollView(
+              return CustomScrollView(
                 controller: _scrollController,
-              slivers: [
-                SliverToBoxAdapter(child: LuciSectionHeader('Wired')),
-                _buildWiredInterfacesList(),
-                SliverToBoxAdapter(child: LuciSectionHeader('Wireless')),
-                _buildWirelessInterfacesList(),
-                SliverToBoxAdapter(child: Padding(padding: EdgeInsets.only(bottom: 16), child: SizedBox.shrink())),
-              ],
-            );
-          },
+                slivers: [
+                  SliverToBoxAdapter(child: LuciSectionHeader('Wired')),
+                  _buildWiredInterfacesList(),
+                  SliverToBoxAdapter(child: LuciSectionHeader('Wireless')),
+                  _buildWirelessInterfacesList(),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: 16),
+                      child: SizedBox.shrink(),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -362,21 +404,28 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
             detailedData['interface'] is List &&
             statsDataSource is Map) {
           final List<dynamic> interfaceDataList = detailedData['interface'];
-          final Map<String, dynamic> networkStatsMap = Map<String, dynamic>.from(statsDataSource);
+          final Map<String, dynamic> networkStatsMap =
+              Map<String, dynamic>.from(statsDataSource);
 
-          interfacesList = interfaceDataList.whereType<Map<String, dynamic>>().map((detailedInterfaceMap) {
-            final stats = detailedInterfaceMap['stats'];
-            if (stats == null || (stats is Map && stats.isEmpty)) {
-              final String? deviceName = detailedInterfaceMap['l3_device'] ?? detailedInterfaceMap['device'];
-              if (deviceName != null) {
-                final statsContainer = networkStatsMap[deviceName];
-                if (statsContainer is Map && statsContainer['stats'] is Map) {
-                  detailedInterfaceMap['stats'] = statsContainer['stats'];
+          interfacesList = interfaceDataList
+              .whereType<Map<String, dynamic>>()
+              .map((detailedInterfaceMap) {
+                final stats = detailedInterfaceMap['stats'];
+                if (stats == null || (stats is Map && stats.isEmpty)) {
+                  final String? deviceName =
+                      detailedInterfaceMap['l3_device'] ??
+                      detailedInterfaceMap['device'];
+                  if (deviceName != null) {
+                    final statsContainer = networkStatsMap[deviceName];
+                    if (statsContainer is Map &&
+                        statsContainer['stats'] is Map) {
+                      detailedInterfaceMap['stats'] = statsContainer['stats'];
+                    }
+                  }
                 }
-              }
-            }
-            return NetworkInterface.fromJson(detailedInterfaceMap);
-          }).toList();
+                return NetworkInterface.fromJson(detailedInterfaceMap);
+              })
+              .toList();
         }
         return interfacesList;
       },
@@ -385,29 +434,31 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
           return const SliverToBoxAdapter(child: SizedBox.shrink());
         }
         return SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) {
-              final iface = interfaces[index];
-              final isTargetInterface = _targetInterface != null && 
-                  iface.name.toLowerCase() == _targetInterface!.toLowerCase();
-              
-              final keyStr = _interfaceKey(name: iface.name);
-              final key = _interfaceKeys.putIfAbsent(keyStr, () => GlobalKey());
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                child: _UnifiedNetworkCard(
-                  key: isTargetInterface ? key : null,
-                  name: iface.name.toUpperCase(),
-                  subtitle: _buildMinimalInterfaceSubtitle(iface),
-                  isUp: iface.isUp,
-                  icon: _getInterfaceIcon(iface.protocol),
-                  details: _buildWiredDetails(context, iface),
-                  initiallyExpanded: _expandedInterface == keyStr,
-                ),
-              );
-            },
-            childCount: interfaces.length,
-          ),
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final iface = interfaces[index];
+            final isTargetInterface =
+                _targetInterface != null &&
+                iface.name.toLowerCase() == _targetInterface!.toLowerCase();
+
+            final keyStr = _interfaceKey(name: iface.name);
+            final key = _interfaceKeys.putIfAbsent(keyStr, () => GlobalKey());
+            return Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
+              ),
+              child: _UnifiedNetworkCard(
+                key: key,
+                name: iface.name.toUpperCase(),
+                subtitle: _buildMinimalInterfaceSubtitle(iface),
+                isUp: iface.isUp,
+                icon: _getInterfaceIcon(iface.protocol),
+                details: _buildWiredDetails(context, iface),
+                initiallyExpanded:
+                    isTargetInterface || _expandedInterface == keyStr,
+              ),
+            );
+          }, childCount: interfaces.length),
         );
       },
     );
@@ -417,7 +468,8 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
     return Selector<AppState, List<Map<String, dynamic>>>(
       selector: (_, state) {
         final dashboardData = state.dashboardData;
-        final wirelessData = dashboardData?['wireless'] as Map<String, dynamic>?;
+        final wirelessData =
+            dashboardData?['wireless'] as Map<String, dynamic>?;
         final uciWirelessConfig = dashboardData?['uciWirelessConfig'];
         final interfacesList = <Map<String, dynamic>>[];
 
@@ -456,11 +508,10 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
                 final name = iface['name'] ?? '';
                 final ssid = iwinfo['ssid'] ?? config['ssid'] ?? '';
                 final deviceName = config['device'] ?? radioName;
-                final keyStr = _interfaceKeyForWireless(ssid: ssid, radioName: radioName, deviceName: deviceName, name: name);
-
                 interfacesList.add({
                   'name': config['ssid'] ?? iwinfo['ssid'] ?? 'Unnamed',
-                  'subtitle': '${config['mode']?.toUpperCase() ?? iwinfo['mode']?.toUpperCase() ?? 'N/A'} • Ch. ${iwinfo['channel']?.toString() ?? config['channel']?.toString() ?? 'N/A'}',
+                  'subtitle':
+                      '${config['mode']?.toUpperCase() ?? iwinfo['mode']?.toUpperCase() ?? 'N/A'} • Ch. ${iwinfo['channel']?.toString() ?? config['channel']?.toString() ?? 'N/A'}',
                   'isEnabled': isEnabled,
                   'deviceName': deviceName,
                   'radioName': radioName,
@@ -469,10 +520,15 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
                   'details': {
                     'Device': config['device'] ?? radioName,
                     'Mode': config['mode'] ?? iwinfo['mode'] ?? 'N/A',
-                    'Channel': iwinfo['channel']?.toString() ?? config['channel']?.toString() ?? 'N/A',
+                    'Channel':
+                        iwinfo['channel']?.toString() ??
+                        config['channel']?.toString() ??
+                        'N/A',
                     'Signal': '${iwinfo['signal']?.toString() ?? '--'} dBm',
-                    'Network': (config['network'] is List) ? (config['network'] as List).join(', ') : config['network'] ?? 'N/A',
-                  }
+                    'Network': (config['network'] is List)
+                        ? (config['network'] as List).join(', ')
+                        : config['network'] ?? 'N/A',
+                  },
                 });
               }
             }
@@ -487,11 +543,10 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
             final isEnabled = isRadioEnabled && isIfaceEnabled;
 
             final name = config['ssid'] ?? 'Unnamed';
-                            final keyStr = _interfaceKeyForWireless(ssid: name, radioName: radioName, deviceName: radioName, name: name);
-
             interfacesList.add({
               'name': config['ssid'] ?? 'Unnamed',
-              'subtitle': '${config['mode']?.toUpperCase() ?? 'N/A'} • Disabled',
+              'subtitle':
+                  '${config['mode']?.toUpperCase() ?? 'N/A'} • Disabled',
               'isEnabled': isEnabled,
               'deviceName': radioName,
               'radioName': radioName,
@@ -501,12 +556,14 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
                 'Device': radioName,
                 'Mode': config['mode'] ?? 'N/A',
                 'SSID': config['ssid'] ?? 'N/A',
-                'Network': (config['network'] is List) ? (config['network'] as List).join(', ') : config['network'] ?? 'N/A',
-              }
+                'Network': (config['network'] is List)
+                    ? (config['network'] as List).join(', ')
+                    : config['network'] ?? 'N/A',
+              },
             });
           }
         });
-        
+
         return interfacesList;
       },
       builder: (context, interfaces, _) {
@@ -514,33 +571,52 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
           return const SliverToBoxAdapter(child: SizedBox.shrink());
         }
         return SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) {
-              final iface = interfaces[index];
-              final deviceName = iface['deviceName'] ?? '';
-              final radioName = iface['radioName'] ?? '';
-              final ssid = iface['ssid'] ?? '';
-              final name = iface['interfaceName'] ?? '';
-              // Use the stored values for key generation
-              final keyStr = _interfaceKeyForWireless(ssid: ssid, radioName: radioName, deviceName: deviceName, name: name);
-              final key = _interfaceKeys.putIfAbsent(keyStr, () => GlobalKey());
-              final displayName = ssid.toString().isNotEmpty ? ssid.toString() : deviceName.toString();
-              final shouldExpand = _expandedInterface == keyStr;
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                child: _UnifiedNetworkCard(
-                  key: key,
-                  name: displayName,
-                  subtitle: iface['subtitle'],
-                  isUp: iface['isEnabled'],
-                  icon: Icons.wifi,
-                  details: _buildGenericDetails(context, iface['details']),
-                  initiallyExpanded: shouldExpand,
-                ),
-              );
-            },
-            childCount: interfaces.length,
-          ),
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final iface = interfaces[index];
+            final deviceName = iface['deviceName'] ?? '';
+            final radioName = iface['radioName'] ?? '';
+            final ssid = iface['ssid'] ?? '';
+            final name = iface['interfaceName'] ?? '';
+            // Use the stored values for key generation
+            final keyStr = _interfaceKeyForWireless(
+              ssid: ssid,
+              radioName: radioName,
+              deviceName: deviceName,
+              name: name,
+            );
+            final key = _interfaceKeys.putIfAbsent(keyStr, () => GlobalKey());
+            final displayName = ssid.toString().isNotEmpty
+                ? ssid.toString()
+                : deviceName.toString();
+
+            // Check if this is the target interface for expansion
+            final isTargetInterface =
+                _targetInterface != null &&
+                (_normalizeInterfaceKey(ssid) ==
+                        _normalizeInterfaceKey(_targetInterface!) ||
+                    _normalizeInterfaceKey(deviceName) ==
+                        _normalizeInterfaceKey(_targetInterface!) ||
+                    _normalizeInterfaceKey(name) ==
+                        _normalizeInterfaceKey(_targetInterface!));
+
+            final shouldExpand =
+                isTargetInterface || _expandedInterface == keyStr;
+            return Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
+              ),
+              child: _UnifiedNetworkCard(
+                key: key,
+                name: displayName,
+                subtitle: iface['subtitle'],
+                isUp: iface['isEnabled'],
+                icon: Icons.wifi,
+                details: _buildGenericDetails(context, iface['details']),
+                initiallyExpanded: shouldExpand,
+              ),
+            );
+          }, childCount: interfaces.length),
         );
       },
     );
@@ -556,28 +632,37 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
             context,
             'IP Address',
             interface.ipAddress!,
-            onTap: () => _copyToClipboard(context, interface.ipAddress!, 'IP Address'),
+            onTap: () =>
+                _copyToClipboard(context, interface.ipAddress!, 'IP Address'),
           ),
-        if (interface.ipv6Addresses != null && interface.ipv6Addresses!.isNotEmpty)
-          ...interface.ipv6Addresses!.map((ipv6) => _buildDetailRow(
-                context,
-                'IPv6 Address',
-                ipv6,
-                onTap: () => _copyToClipboard(context, ipv6, 'IPv6 Address'),
-              )),
+        if (interface.ipv6Addresses != null &&
+            interface.ipv6Addresses!.isNotEmpty)
+          ...interface.ipv6Addresses!.map(
+            (ipv6) => _buildDetailRow(
+              context,
+              'IPv6 Address',
+              ipv6,
+              onTap: () => _copyToClipboard(context, ipv6, 'IPv6 Address'),
+            ),
+          ),
         if (interface.gateway != null)
           _buildDetailRow(
             context,
             'Gateway',
             interface.gateway!,
-            onTap: () => _copyToClipboard(context, interface.gateway!, 'Gateway IP'),
+            onTap: () =>
+                _copyToClipboard(context, interface.gateway!, 'Gateway IP'),
           ),
         if (interface.dnsServers.isNotEmpty)
           _buildDetailRow(
             context,
             'DNS',
             interface.dnsServers.join(', '),
-            onTap: () => _copyToClipboard(context, interface.dnsServers.join(', '), 'DNS Servers'),
+            onTap: () => _copyToClipboard(
+              context,
+              interface.dnsServers.join(', '),
+              'DNS Servers',
+            ),
           ),
         // Add WireGuard peer information if this is a WireGuard interface
         if (interface.protocol.toLowerCase() == 'wireguard') ...[
@@ -597,10 +682,14 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
     );
   }
 
-  Widget _buildWireGuardPeersSection(BuildContext context, String interfaceName) {
+  Widget _buildWireGuardPeersSection(
+    BuildContext context,
+    String interfaceName,
+  ) {
     return Selector<AppState, Map<String, dynamic>?>(
       selector: (_, state) {
-        final wireguardData = state.dashboardData?['wireguard'] as Map<String, dynamic>?;
+        final wireguardData =
+            state.dashboardData?['wireguard'] as Map<String, dynamic>?;
         final result = wireguardData?[interfaceName];
         return result;
       },
@@ -611,8 +700,16 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
         final peers = peerData['peers'] as Map<String, dynamic>?;
         if (peers == null || peers.isEmpty) {
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: const Divider(height: 24, thickness: 1, indent: 0, endIndent: 0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
+            child: const Divider(
+              height: 24,
+              thickness: 1,
+              indent: 0,
+              endIndent: 0,
+            ),
           );
         }
         return Padding(
@@ -622,7 +719,12 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
             children: [
               const Divider(height: 1, thickness: 1, indent: 0, endIndent: 0),
               const SizedBox(height: 8),
-              ...peers.values.map((peer) => _buildCohesivePeerRow(context, peer as Map<String, dynamic>)).toList(),
+              ...peers.values.map(
+                (peer) => _buildCohesivePeerRow(
+                  context,
+                  peer as Map<String, dynamic>,
+                ),
+              ),
               const SizedBox(height: 8),
             ],
           ),
@@ -631,7 +733,10 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
     );
   }
 
-  Widget _buildCohesivePeerRow(BuildContext context, Map<String, dynamic> peer) {
+  Widget _buildCohesivePeerRow(
+    BuildContext context,
+    Map<String, dynamic> peer,
+  ) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final publicKey = peer['public_key'] as String? ?? 'Unknown';
@@ -646,13 +751,15 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
         lastHandshake = int.tryParse(rawHandshake) ?? 0;
       }
     }
-    final displayKey = publicKey.length > 16 
+    final displayKey = publicKey.length > 16
         ? '${publicKey.substring(0, 8)}...${publicKey.substring(publicKey.length - 8)}'
         : publicKey;
     String formatHandshakeTime(int timestamp) {
       if (timestamp == 0) return 'Never';
       final now = DateTime.now();
-      final handshakeTime = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+      final handshakeTime = DateTime.fromMillisecondsSinceEpoch(
+        timestamp * 1000,
+      );
       final difference = now.difference(handshakeTime);
       if (difference.inSeconds < 0) return 'Never';
       if (difference.inDays > 0) {
@@ -665,6 +772,7 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
         return '${difference.inSeconds}s ago';
       }
     }
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Column(
@@ -711,11 +819,21 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text('Last Handshake', style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontSize: 12)),
+                    Text(
+                      'Last Handshake',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
+                    ),
                     const SizedBox(height: 2),
                     Text(
                       formatHandshakeTime(lastHandshake),
-                      style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500, fontSize: 14, color: colorScheme.onSurface),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                        color: colorScheme.onSurface,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -726,11 +844,21 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text('Endpoint', style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontSize: 12)),
+                    Text(
+                      'Endpoint',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
+                    ),
                     const SizedBox(height: 2),
                     Text(
                       endpoint,
-                      style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500, fontSize: 14, color: colorScheme.onSurface),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                        color: colorScheme.onSurface,
+                      ),
                       textAlign: TextAlign.center,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -744,7 +872,10 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
     );
   }
 
-  Widget _buildGenericDetails(BuildContext context, Map<String, dynamic> details) {
+  Widget _buildGenericDetails(
+    BuildContext context,
+    Map<String, dynamic> details,
+  ) {
     return Column(
       children: details.entries.map((entry) {
         return _buildDetailRow(context, entry.key, entry.value.toString());
@@ -752,7 +883,12 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
     );
   }
 
-  Widget _buildDetailRow(BuildContext context, String title, String value, {VoidCallback? onTap}) {
+  Widget _buildDetailRow(
+    BuildContext context,
+    String title,
+    String value, {
+    VoidCallback? onTap,
+  }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return InkWell(
@@ -763,7 +899,12 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(title, style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurface)),
+            Text(
+              title,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurface,
+              ),
+            ),
             Row(
               children: [
                 Text(
@@ -780,7 +921,11 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
                     onTap: onTap,
                     child: const Padding(
                       padding: EdgeInsets.only(left: 8.0),
-                      child: Icon(Icons.copy_all_outlined, size: 16, semanticLabel: 'Copy'),
+                      child: Icon(
+                        Icons.copy_all_outlined,
+                        size: 16,
+                        semanticLabel: 'Copy',
+                      ),
                     ),
                   ),
               ],
@@ -794,7 +939,10 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
   void _copyToClipboard(BuildContext context, String text, String label) {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$label copied to clipboard'), duration: const Duration(seconds: 2)),
+      SnackBar(
+        content: Text('$label copied to clipboard'),
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 
@@ -809,13 +957,31 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        _buildStatColumn(context, 'Received', formatBytes(stats['rx_bytes'] ?? 0), Icons.arrow_downward, Colors.green),
-        _buildStatColumn(context, 'Transmitted', formatBytes(stats['tx_bytes'] ?? 0), Icons.arrow_upward, Colors.blue),
+        _buildStatColumn(
+          context,
+          'Received',
+          formatBytes(stats['rx_bytes'] ?? 0),
+          Icons.arrow_downward,
+          Colors.green,
+        ),
+        _buildStatColumn(
+          context,
+          'Transmitted',
+          formatBytes(stats['tx_bytes'] ?? 0),
+          Icons.arrow_upward,
+          Colors.blue,
+        ),
       ],
     );
   }
 
-  Widget _buildStatColumn(BuildContext context, String label, String value, IconData icon, Color color) {
+  Widget _buildStatColumn(
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     final theme = Theme.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -828,11 +994,22 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
           children: [
             Icon(icon, size: 16, color: color),
             const SizedBox(width: 4),
-            Text(label, style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurface)),
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 4),
-        Text(value, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+        Text(
+          value,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+          textAlign: TextAlign.center,
+        ),
       ],
     );
   }
@@ -898,7 +1075,6 @@ class _UnifiedNetworkCard extends StatefulWidget {
   final IconData icon;
   final Widget details;
   final bool initiallyExpanded;
-  final GlobalKey? key;
 
   const _UnifiedNetworkCard({
     required this.name,
@@ -907,14 +1083,15 @@ class _UnifiedNetworkCard extends StatefulWidget {
     required this.icon,
     required this.details,
     this.initiallyExpanded = false,
-    this.key,
+    super.key,
   });
 
   @override
   State<_UnifiedNetworkCard> createState() => _UnifiedNetworkCardState();
 }
 
-class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard> with SingleTickerProviderStateMixin {
+class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard>
+    with SingleTickerProviderStateMixin {
   bool _isExpanded = false;
   late AnimationController _controller;
   @override
@@ -972,7 +1149,7 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard> with SingleTic
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18.0),
         side: BorderSide(
-          color: widget.initiallyExpanded && _isExpanded 
+          color: widget.initiallyExpanded && _isExpanded
               ? colorScheme.primary.withValues(alpha: 0.3)
               : colorScheme.surfaceContainerHighest.withValues(alpha: 0.10),
           width: widget.initiallyExpanded && _isExpanded ? 2 : 1,
@@ -983,119 +1160,143 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard> with SingleTic
         scale: widget.initiallyExpanded && _isExpanded ? 1.02 : 1.0,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutBack,
-      child: Column(
-        children: [
-          InkWell(
-            onTap: _toggleExpand,
-            borderRadius: BorderRadius.circular(18.0),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-              child: Row(
-                children: [
-                  Stack(
-                    alignment: Alignment.topRight,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8.0),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer.withValues(alpha: 0.13),
-                          shape: BoxShape.circle,
-                        ),
+        child: Column(
+          children: [
+            InkWell(
+              onTap: _toggleExpand,
+              borderRadius: BorderRadius.circular(18.0),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20.0,
+                  vertical: 10.0,
+                ),
+                child: Row(
+                  children: [
+                    Stack(
+                      alignment: Alignment.topRight,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8.0),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primaryContainer.withValues(
+                              alpha: 0.13,
+                            ),
+                            shape: BoxShape.circle,
+                          ),
                           child: AnimatedScale(
-                            scale: widget.initiallyExpanded && _isExpanded ? 1.1 : 1.0,
+                            scale: widget.initiallyExpanded && _isExpanded
+                                ? 1.1
+                                : 1.0,
                             duration: const Duration(milliseconds: 500),
                             curve: Curves.elasticOut,
-                        child: Icon(
-                          widget.icon,
-                          color: widget.isUp ? colorScheme.primary : colorScheme.onSurface,
-                          size: 22,
-                          semanticLabel: 'Interface icon',
-                            ),
-                        ),
-                      ),
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: Tooltip(
-                          message: widget.isUp ? 'Interface is up' : 'Interface is down',
-                          child: Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: widget.isUp ? Colors.green : colorScheme.error,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: colorScheme.surface, width: 1.5),
+                            child: Icon(
+                              widget.icon,
+                              color: widget.isUp
+                                  ? colorScheme.primary
+                                  : colorScheme.onSurface,
+                              size: 22,
+                              semanticLabel: 'Interface icon',
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.name,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Tooltip(
+                            message: widget.isUp
+                                ? 'Interface is up'
+                                : 'Interface is down',
+                            child: Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: widget.isUp
+                                    ? Colors.green
+                                    : colorScheme.error,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: colorScheme.surface,
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
                           ),
-                          semanticsLabel: 'Interface name: ${widget.name}',
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          margin: const EdgeInsets.only(right: 32),
-                          child: Divider(
-                              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.10),
-                            thickness: 1,
-                            height: 8,
-                          ),
-                        ),
-                        Text(
-                          widget.subtitle,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            letterSpacing: 0.1,
-                          ),
-                          semanticsLabel: 'Interface details: ${widget.subtitle}',
                         ),
                       ],
                     ),
-                  ),
-                  if (!widget.isUp)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 4.0),
-                      child: Chip(
-                        label: const Text('OFF'),
-                        labelStyle: theme.textTheme.labelSmall?.copyWith(color: colorScheme.onError),
-                        backgroundColor: colorScheme.error.withValues(alpha: 0.7),
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.name,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                            semanticsLabel: 'Interface name: ${widget.name}',
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            margin: const EdgeInsets.only(right: 32),
+                            child: Divider(
+                              color: colorScheme.surfaceContainerHighest
+                                  .withValues(alpha: 0.10),
+                              thickness: 1,
+                              height: 8,
+                            ),
+                          ),
+                          Text(
+                            widget.subtitle,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: 0.1,
+                            ),
+                            semanticsLabel:
+                                'Interface details: ${widget.subtitle}',
+                          ),
+                        ],
                       ),
                     ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    _isExpanded ? Icons.expand_less : Icons.expand_more,
-                    color: colorScheme.onSurfaceVariant,
-                    size: 26,
-                    semanticLabel: _isExpanded ? 'Collapse details' : 'Expand details',
-                  ),
-                ],
+                    if (!widget.isUp)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4.0),
+                        child: Chip(
+                          label: const Text('OFF'),
+                          labelStyle: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onError,
+                          ),
+                          backgroundColor: colorScheme.error.withValues(
+                            alpha: 0.7,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                        ),
+                      ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      _isExpanded ? Icons.expand_less : Icons.expand_more,
+                      color: colorScheme.onSurfaceVariant,
+                      size: 26,
+                      semanticLabel: _isExpanded
+                          ? 'Collapse details'
+                          : 'Expand details',
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          if (_isExpanded)
-            Column(
-              children: [
-                const Divider(height: 1, indent: 18, endIndent: 18),
-                widget.details,
-              ],
-            ),
-        ],
+            if (_isExpanded)
+              Column(
+                children: [
+                  const Divider(height: 1, indent: 18, endIndent: 18),
+                  widget.details,
+                ],
+              ),
+          ],
         ),
       ),
     );
@@ -1103,10 +1304,26 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard> with SingleTic
     if (!widget.isUp) {
       return ColorFiltered(
         colorFilter: const ColorFilter.matrix([
-          0.2126, 0.7152, 0.0722, 0, 0,
-          0.2126, 0.7152, 0.0722, 0, 0,
-          0.2126, 0.7152, 0.0722, 0, 0,
-          0,      0,      0,      1, 0,
+          0.2126,
+          0.7152,
+          0.0722,
+          0,
+          0,
+          0.2126,
+          0.7152,
+          0.0722,
+          0,
+          0,
+          0.2126,
+          0.7152,
+          0.0722,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
         ]),
         child: card,
       );
