@@ -579,6 +579,14 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
             interface.dnsServers.join(', '),
             onTap: () => _copyToClipboard(context, interface.dnsServers.join(', '), 'DNS Servers'),
           ),
+        // Add WireGuard peer information if this is a WireGuard interface
+        if (interface.protocol.toLowerCase() == 'wireguard') ...[
+          Builder(
+            builder: (context) {
+              return _buildWireGuardPeersSection(context, interface.name);
+            },
+          ),
+        ],
         const Divider(height: 1, indent: 16, endIndent: 16),
         const SizedBox(height: 8),
         Padding(
@@ -586,6 +594,153 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
           child: _buildStatsRow(context, interface.stats),
         ),
       ],
+    );
+  }
+
+  Widget _buildWireGuardPeersSection(BuildContext context, String interfaceName) {
+    return Selector<AppState, Map<String, dynamic>?>(
+      selector: (_, state) {
+        final wireguardData = state.dashboardData?['wireguard'] as Map<String, dynamic>?;
+        final result = wireguardData?[interfaceName];
+        return result;
+      },
+      builder: (context, peerData, _) {
+        if (peerData == null) {
+          return const SizedBox.shrink();
+        }
+        final peers = peerData['peers'] as Map<String, dynamic>?;
+        if (peers == null || peers.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: const Divider(height: 24, thickness: 1, indent: 0, endIndent: 0),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Divider(height: 1, thickness: 1, indent: 0, endIndent: 0),
+              const SizedBox(height: 8),
+              ...peers.values.map((peer) => _buildCohesivePeerRow(context, peer as Map<String, dynamic>)).toList(),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCohesivePeerRow(BuildContext context, Map<String, dynamic> peer) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final publicKey = peer['public_key'] as String? ?? 'Unknown';
+    final endpoint = peer['endpoint'] as String? ?? 'N/A';
+    final peerName = peer['name'] as String?;
+    int lastHandshake = 0;
+    final rawHandshake = peer['last_handshake'] ?? peer['latest_handshake'];
+    if (rawHandshake != null) {
+      if (rawHandshake is int) {
+        lastHandshake = rawHandshake;
+      } else if (rawHandshake is String) {
+        lastHandshake = int.tryParse(rawHandshake) ?? 0;
+      }
+    }
+    final displayKey = publicKey.length > 16 
+        ? '${publicKey.substring(0, 8)}...${publicKey.substring(publicKey.length - 8)}'
+        : publicKey;
+    String formatHandshakeTime(int timestamp) {
+      if (timestamp == 0) return 'Never';
+      final now = DateTime.now();
+      final handshakeTime = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+      final difference = now.difference(handshakeTime);
+      if (difference.inSeconds < 0) return 'Never';
+      if (difference.inDays > 0) {
+        return '${difference.inDays}d ago';
+      } else if (difference.inHours > 0) {
+        return '${difference.inHours}h ago';
+      } else if (difference.inMinutes > 0) {
+        return '${difference.inMinutes}m ago';
+      } else {
+        return '${difference.inSeconds}s ago';
+      }
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.vpn_key, size: 18, color: colorScheme.primary),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  displayKey,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.onSurface,
+                    fontSize: 14,
+                  ),
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          if (peerName != null && peerName.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                peerName,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                  fontWeight: FontWeight.normal,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text('Last Handshake', style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontSize: 12)),
+                    const SizedBox(height: 2),
+                    Text(
+                      formatHandshakeTime(lastHandshake),
+                      style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500, fontSize: 14, color: colorScheme.onSurface),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 24),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text('Endpoint', style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontSize: 12)),
+                    const SizedBox(height: 2),
+                    Text(
+                      endpoint,
+                      style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500, fontSize: 14, color: colorScheme.onSurface),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -663,8 +818,13 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
   Widget _buildStatColumn(BuildContext context, String label, String value, IconData icon, Color color) {
     final theme = Theme.of(context);
     return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Icon(icon, size: 16, color: color),
             const SizedBox(width: 4),
@@ -672,7 +832,7 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
           ],
         ),
         const SizedBox(height: 4),
-        Text(value, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+        Text(value, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
       ],
     );
   }

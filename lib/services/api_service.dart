@@ -58,7 +58,6 @@ class ApiService {
       }
       return null;
     } catch (e) {
-      // print('Error during login: $e');
       rethrow;
     } finally {
       client.close();
@@ -107,7 +106,6 @@ class ApiService {
         throw Exception('Failed to call RPC: HTTP ${response.statusCode}');
       }
     } catch (e) {
-      // print('Error in RPC call ($object.$method): $e');
       rethrow;
     } finally {
       client.close();
@@ -129,7 +127,6 @@ class ApiService {
       }
       return false;
     } catch (e) {
-      // print('Error during reboot: $e');
       return false;
     }
   }
@@ -162,6 +159,91 @@ class ApiService {
       return [];
     } catch (e) {
       return [];
+    }
+  }
+
+  /// Fetches WireGuard peer information for a given interface
+  /// If interface is empty, returns data for all WireGuard interfaces
+  Future<Map<String, dynamic>?> fetchWireGuardPeers({
+    required String ipAddress,
+    required String sysauth,
+    required bool useHttps,
+    required String interface,
+  }) async {
+    try {
+      // Use the correct luci.wireguard.getWgInstances method
+      final result = await call(
+        ipAddress,
+        sysauth,
+        useHttps,
+        object: 'luci.wireguard',
+        method: 'getWgInstances',
+        params: {},
+      );
+      
+      if (result is List && result.length > 1 && result[0] == 0) {
+        final data = result[1] as Map<String, dynamic>?;
+        if (data != null) {
+          return _parseWireGuardFromInstances(data, interface);
+        }
+      }
+      
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Map<String, dynamic>? _parseWireGuardFromInstances(Map<String, dynamic> data, String targetInterface) {
+    final wireguardData = <String, dynamic>{};
+    
+    data.forEach((key, value) {
+      if (value is Map<String, dynamic>) {
+        
+        // Look for peers in the interface data
+        final peers = <String, dynamic>{};
+        
+        // The structure might have peers in different formats
+        if (value['peers'] is List) {
+          final peersList = value['peers'] as List;
+          for (final peer in peersList) {
+            if (peer is Map<String, dynamic>) {
+              final publicKey = peer['public_key'] as String?;
+              if (publicKey != null) {
+                peers[publicKey] = {
+                  'public_key': publicKey,
+                  'endpoint': peer['endpoint'] ?? 'N/A',
+                  'last_handshake': int.tryParse(peer['latest_handshake']?.toString() ?? '0') ?? 0,
+                };
+              }
+            }
+          }
+        } else if (value['peers'] is Map<String, dynamic>) {
+          final peersMap = value['peers'] as Map<String, dynamic>;
+          peersMap.forEach((peerKey, peerData) {
+            if (peerData is Map<String, dynamic>) {
+              peers[peerKey] = {
+                'public_key': peerKey,
+                'endpoint': peerData['endpoint'] ?? 'N/A',
+                'last_handshake': int.tryParse(peerData['latest_handshake']?.toString() ?? '0') ?? 0,
+              };
+            }
+          });
+        }
+        
+        if (peers.isNotEmpty) {
+          wireguardData[key] = {
+            'interface': key,
+            'peers': peers,
+          };
+        }
+      }
+    });
+    
+    if (targetInterface.isEmpty) {
+      return wireguardData;
+    } else {
+      return wireguardData[targetInterface];
     }
   }
 }

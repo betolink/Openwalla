@@ -249,6 +249,48 @@ class AppState extends ChangeNotifier {
       final dhcpLeases = getData(results[5]) as Map<String, dynamic>?;
       final uciWirelessConfig = getData(results[6]);
 
+      // Fetch WireGuard peer information for WireGuard interfaces
+      final wireguardData = <String, dynamic>{};
+      if (interfaceDump != null && interfaceDump['interface'] is List) {
+        // Check if there are any WireGuard interfaces
+        final hasWireGuardInterfaces = interfaceDump['interface'].any((interface) {
+          if (interface is Map<String, dynamic>) {
+            final proto = interface['proto'] as String?;
+            return proto == 'wireguard';
+          }
+          return false;
+        });
+
+        if (hasWireGuardInterfaces) {
+          // Fetch all WireGuard data at once
+          final allWireGuardData = await _apiService.fetchWireGuardPeers(
+            ipAddress: ip,
+            sysauth: _sysauth!,
+            useHttps: useHttps,
+            interface: '', // Empty string to get all interfaces
+          );
+          
+          if (allWireGuardData != null) {
+            // The new endpoint returns data for all interfaces
+            // We need to extract data for each WireGuard interface
+            for (final interface in interfaceDump['interface']) {
+              if (interface is Map<String, dynamic>) {
+                final ifname = interface['interface'] as String?;
+                final proto = interface['proto'] as String?;
+                if (proto == 'wireguard' && ifname != null) {
+                  // Look for this interface in the WireGuard data
+                  final interfaceData = allWireGuardData[ifname];
+                  
+                  if (interfaceData != null) {
+                    wireguardData[ifname] = interfaceData;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
       // Throughput calculation
       final wanDeviceNames = <String>{};
       if (interfaceDump != null && interfaceDump['interface'] is List) {
@@ -309,6 +351,7 @@ class AppState extends ChangeNotifier {
         'dhcpLeases': dhcpLeases,
         'wan': _extractWanData(interfaceDump),
         'uciWirelessConfig': uciWirelessConfig,
+        'wireguard': wireguardData,
       };
 
       // Hybrid approach: update lastKnownHostname for the selected router

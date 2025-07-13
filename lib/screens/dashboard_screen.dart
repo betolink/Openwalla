@@ -294,19 +294,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, color: color, size: 20),
         const SizedBox(width: 8),
         if (label.isNotEmpty)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: Theme.of(context).textTheme.bodyMedium),
-              speedText,
-            ],
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: Theme.of(context).textTheme.bodyMedium),
+                speedText,
+              ],
+            ),
           )
         else
-          speedText,
+          Flexible(child: speedText),
       ],
     );
   }

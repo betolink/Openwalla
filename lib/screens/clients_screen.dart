@@ -15,7 +15,7 @@ class ClientsScreen extends StatefulWidget {
 
 class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProviderStateMixin {
   String _searchQuery = '';
-  int? _expandedClientIndex;
+  final Set<int> _expandedClientIndices = {};
   late AnimationController _controller;
   late TextEditingController _searchController;
 
@@ -160,7 +160,7 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
                               itemCount: filteredClients.length,
                               itemBuilder: (context, index) {
                                 final client = filteredClients[index];
-                                final isExpanded = _expandedClientIndex == index;
+                                final isExpanded = _expandedClientIndices.contains(index);
 
                                 return Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -170,11 +170,9 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
                                     onTap: () {
                                       setState(() {
                                         if (isExpanded) {
-                                          _expandedClientIndex = null;
-                                          _controller.reverse();
+                                          _expandedClientIndices.remove(index);
                                         } else {
-                                          _expandedClientIndex = index;
-                                          _controller.forward();
+                                          _expandedClientIndices.add(index);
                                         }
                                       });
                                     },
