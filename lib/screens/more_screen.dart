@@ -4,30 +4,11 @@ import 'package:luci_mobile/state/app_state.dart';
 import 'package:luci_mobile/screens/login_screen.dart';
 import 'package:luci_mobile/screens/settings_screen.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
+import 'package:luci_mobile/design/luci_design_system.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:luci_mobile/config/app_config.dart';
 import 'package:luci_mobile/screens/manage_routers_screen.dart';
-
-class LuciSectionHeader extends StatelessWidget {
-  final String title;
-  const LuciSectionHeader(this.title, {super.key});
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 28, 16, 8),
-      child: Text(
-        title,
-        style: theme.textTheme.titleMedium?.copyWith(
-          color: theme.colorScheme.onSurface,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1.2,
-        ),
-      ),
-    );
-  }
-}
 
 class _MoreScreenSection extends StatelessWidget {
   final List<Widget> tiles;
@@ -38,9 +19,9 @@ class _MoreScreenSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 2,
-      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      margin: const EdgeInsets.symmetric(horizontal: LuciSpacing.md, vertical: LuciSpacing.sm),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: LuciCardStyles.standardRadius,
       ),
       child: Column(
         children: ListTile.divideTiles(
@@ -104,7 +85,7 @@ class _MoreScreenState extends State<MoreScreen> {
           backgroundColor: colorScheme.primary,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          margin: const EdgeInsets.symmetric(horizontal: LuciSpacing.lg, vertical: LuciSpacing.md),
           duration: const Duration(seconds: 3),
         ),
       );
@@ -275,9 +256,11 @@ class _MoreScreenState extends State<MoreScreen> {
 
     return Scaffold(
       appBar: const LuciAppBar(title: 'More'),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 8.0),
-        children: [
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: LuciSpacing.sm),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           const LuciSectionHeader('Device Management'),
           Selector<AppState, bool>(
             selector: (_, state) => state.isRebooting,
@@ -345,7 +328,8 @@ class _MoreScreenState extends State<MoreScreen> {
               ),
             ],
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -381,26 +365,25 @@ class _MoreScreenState extends State<MoreScreen> {
         ),
         title: Text(
           title,
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: titleColor ?? theme.colorScheme.onSurface,
-            fontWeight: FontWeight.bold,
-          ),
+          style: titleColor != null 
+            ? LuciTextStyles.cardTitle(context).copyWith(color: titleColor)
+            : LuciTextStyles.cardTitle(context),
           semanticsLabel: title,
         ),
         subtitle: Text(
           subtitle,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: subtitleColor ?? theme.colorScheme.onSurfaceVariant,
-          ),
+          style: subtitleColor != null
+            ? LuciTextStyles.cardSubtitle(context).copyWith(color: subtitleColor)
+            : LuciTextStyles.cardSubtitle(context),
           semanticsLabel: subtitle,
         ),
         enabled: enabled,
         onTap: enabled ? onTap : null,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(horizontal: LuciSpacing.lg, vertical: 10),
         hoverColor: theme.colorScheme.primary.withValues(alpha: 0.04),
         splashColor: theme.colorScheme.primary.withValues(alpha: 0.08),
-        minVerticalPadding: 16,
+        minVerticalPadding: LuciSpacing.md,
         minLeadingWidth: 0,
         visualDensity: VisualDensity.standard,
       ),

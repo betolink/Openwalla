@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:luci_mobile/state/app_state.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
+import 'package:luci_mobile/widgets/luci_animation_system.dart';
 import 'package:luci_mobile/models/router.dart' as model;
 
 class DashboardScreen extends StatefulWidget {
@@ -200,8 +201,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildRealtimeThroughputCard(AppState appState) {
     // Show loading state if we don't have any throughput data yet
-    final hasValidData =
-        appState.rxHistory.isNotEmpty || appState.txHistory.isNotEmpty;
+    final hasValidData = appState.rxHistory.length > 1 || appState.txHistory.length > 1; // Need at least 2 points for a line
+    // Only show switching state if we're loading AND no dashboard data is available (true router switch)
+    final isSwitchingRouter = appState.isLoading && appState.dashboardData == null;
 
     return Card(
       elevation: 2,
@@ -222,13 +224,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Icons.arrow_downward,
                   Colors.green,
                   '',
-                  appState.currentRxRate,
+                  isSwitchingRouter ? 0.0 : appState.currentRxRate,
                 ),
                 _buildSpeedIndicator(
                   Icons.arrow_upward,
                   Colors.blue,
                   '',
-                  appState.currentTxRate,
+                  isSwitchingRouter ? 0.0 : appState.currentTxRate,
                 ),
               ],
             ),
@@ -239,8 +241,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.only(
                 top: 16.0,
               ), // Add space above the chart
-              child: hasValidData
-                  ? LineChart(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 600), // Smoother transition
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.2),
+                        end: Offset.zero,
+                      ).animate(CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutCubic,
+                      )),
+                      child: child,
+                    ),
+                  );
+                },
+                child: hasValidData && !isSwitchingRouter
+                    ? LineChart(
+                        key: ValueKey('chart_${appState.selectedRouter?.id}'),
                       LineChartData(
                         gridData: FlGridData(show: false),
                         titlesData: FlTitlesData(show: false),
@@ -290,8 +310,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       duration: const Duration(milliseconds: 800),
                       curve: Curves.easeInOut,
                     )
-                  : Center(
-                      child: Column(
+                    : Center(
+                        key: ValueKey('loading_${appState.selectedRouter?.id}'),
+                        child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
@@ -303,7 +324,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Collecting throughput data...',
+                            isSwitchingRouter 
+                                ? 'Switching router...'
+                                : 'Collecting throughput data...',
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(
                                   color: Theme.of(context).colorScheme.onSurface
@@ -313,6 +336,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ],
                       ),
                     ),
+              ),
             ),
           ),
         ],
@@ -380,8 +404,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     List<double> data,
     List<Color> gradientColors,
   ) {
-    // Don't show chart data if we don't have enough data points
-    if (data.isEmpty) {
+    // Don't show chart data if we don't have enough data points for a smooth line
+    if (data.length < 2) {
       return LineChartBarData(
         spots: [],
         isCurved: true,
@@ -1268,38 +1292,70 @@ class _DashboardScreenState extends State<DashboardScreen> {
         builder: (context, constraints) {
           final isLandscape =
               MediaQuery.of(context).orientation == Orientation.landscape;
-          final content = [
-            const SizedBox(height: 16),
-            _buildDeviceInfoCard(appState),
-            const SizedBox(height: 12),
-            isLandscape
-                ? SizedBox(
-                    height: 240,
-                    child: _buildRealtimeThroughputCard(appState),
-                  )
-                : Expanded(child: _buildRealtimeThroughputCard(appState)),
-            const SizedBox(height: 12),
-            _buildSystemVitalsCard(appState),
-            const SizedBox(height: 12),
-            _buildWirelessNetworksCard(appState),
-            const SizedBox(height: 12),
-            _buildInterfaceStatusCards(appState),
-            const SizedBox(height: 12),
-          ];
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: isLandscape
-                ? SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: content,
-                    ),
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: content,
+          
+          // Split layout handling to avoid Expanded widget conflicts with staggered animations
+          if (isLandscape) {
+            final landscapeContent = [
+              const SizedBox(height: 16),
+              _buildDeviceInfoCard(appState),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 240,
+                child: _buildRealtimeThroughputCard(appState),
+              ),
+              const SizedBox(height: 12),
+              _buildSystemVitalsCard(appState),
+              const SizedBox(height: 12),
+              _buildWirelessNetworksCard(appState),
+              const SizedBox(height: 12),
+              _buildInterfaceStatusCards(appState),
+              const SizedBox(height: 12),
+            ];
+            
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: SingleChildScrollView(              child: LuciStaggeredAnimation(
+                staggerDelay: const Duration(milliseconds: 50),
+                children: landscapeContent,
+              ),
+              ),
+            );
+          } else {
+            // Portrait mode: Split animations to avoid Expanded widget layout conflicts
+            // Animate cards separately above and below the expandable chart
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Animate the top cards
+                  LuciStaggeredAnimation(
+                    staggerDelay: const Duration(milliseconds: 50),
+                    children: [
+                      const SizedBox(height: 16),
+                      _buildDeviceInfoCard(appState),
+                      const SizedBox(height: 12),
+                    ],
                   ),
-          );
+                  // Expanded chart (not animated to avoid layout issues)
+                  Expanded(child: _buildRealtimeThroughputCard(appState)),
+                  // Animate the bottom cards
+                  LuciStaggeredAnimation(
+                    staggerDelay: const Duration(milliseconds: 40), // Faster for bottom section
+                    children: [
+                      const SizedBox(height: 12),
+                      _buildSystemVitalsCard(appState),
+                      const SizedBox(height: 12),
+                      _buildWirelessNetworksCard(appState),
+                      const SizedBox(height: 12),
+                      _buildInterfaceStatusCards(appState),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }
         },
       ),
     );

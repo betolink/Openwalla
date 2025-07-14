@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:luci_mobile/design/luci_design_system.dart';
 
 class LuciAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String? title;
@@ -66,17 +67,18 @@ class LuciSectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 28.0, bottom: 8.0),
+      padding: const EdgeInsets.only(
+        left: LuciSpacing.md, 
+        right: LuciSpacing.md, 
+        top: LuciSpacing.xl, 
+        bottom: LuciSpacing.sm
+      ),
       child: Row(
         children: [
           Expanded(
             child: Text(
               title.toUpperCase(),
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
-                  ),
+              style: LuciTextStyles.sectionHeader(context),
             ),
           ),
         ],
@@ -111,7 +113,7 @@ class LuciErrorDisplay extends StatelessWidget {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(LuciSpacing.lg),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -120,7 +122,7 @@ class LuciErrorDisplay extends StatelessWidget {
               color: colorScheme.error,
               size: 64,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: LuciSpacing.lg),
             Text(
               title,
               style: textTheme.headlineSmall?.copyWith(
@@ -138,7 +140,7 @@ class LuciErrorDisplay extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             if (showRetry || onAction != null) ...[
-              const SizedBox(height: 32),
+              const SizedBox(height: LuciSpacing.xl),
               if (showRetry)
                 ElevatedButton.icon(
                   onPressed: onAction,
@@ -147,7 +149,7 @@ class LuciErrorDisplay extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: colorScheme.primary,
                     foregroundColor: colorScheme.onPrimary,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: LuciSpacing.lg, vertical: 12),
                   ),
                 ),
             ],
@@ -182,7 +184,7 @@ class LuciEmptyState extends StatelessWidget {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(LuciSpacing.lg),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -191,7 +193,7 @@ class LuciEmptyState extends StatelessWidget {
               color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
               size: 64,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: LuciSpacing.lg),
             Text(
               title,
               style: textTheme.titleLarge?.copyWith(
@@ -200,7 +202,7 @@ class LuciEmptyState extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: LuciSpacing.sm),
             Text(
               message,
               style: textTheme.bodyMedium?.copyWith(
@@ -209,7 +211,7 @@ class LuciEmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             if (onAction != null) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: LuciSpacing.lg),
               ElevatedButton.icon(
                 onPressed: onAction,
                 icon: const Icon(Icons.add_rounded),
@@ -217,7 +219,7 @@ class LuciEmptyState extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: colorScheme.primary,
                   foregroundColor: colorScheme.onPrimary,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: LuciSpacing.lg, vertical: 12),
                 ),
               ),
             ],

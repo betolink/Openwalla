@@ -4,6 +4,10 @@ import 'package:provider/provider.dart';
 import 'package:luci_mobile/models/client.dart';
 import 'package:luci_mobile/state/app_state.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
+import 'package:luci_mobile/design/luci_design_system.dart';
+import 'package:luci_mobile/widgets/luci_loading_states.dart';
+import 'package:luci_mobile/widgets/luci_refresh_components.dart';
+import 'package:luci_mobile/widgets/luci_animation_system.dart';
 
 
 class ClientsScreen extends StatefulWidget {
@@ -55,7 +59,7 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
         final wirelessMacs = snapshot.data ?? {};
         return Scaffold(
           appBar: const LuciAppBar(title: 'Clients'),
-          body: RefreshIndicator(
+          body: LuciPullToRefresh(
             onRefresh: () => appState.fetchDashboardData(),
             child: Selector<AppState, (bool, String?, Map<String, dynamic>?)>(
               selector: (_, state) => (
@@ -67,7 +71,32 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
                 final (isLoading, dashboardError, dhcpData) = data;
 
                 if (isLoading && dhcpData == null) {
-                  return const LuciLoadingWidget();
+                  return Padding(
+                    padding: EdgeInsets.symmetric(horizontal: LuciSpacing.md),
+                    child: Column(
+                      children: [
+                        SizedBox(height: LuciSpacing.md),
+                        // Search bar skeleton
+                        LuciSkeleton(
+                          width: double.infinity,
+                          height: 56,
+                          borderRadius: BorderRadius.circular(LuciSpacing.sm),
+                        ),
+                        SizedBox(height: LuciSpacing.md),
+                        // Client list skeletons
+                        Expanded(
+                          child: ListView.separated(
+                            itemCount: 6,
+                            separatorBuilder: (context, index) => SizedBox(height: LuciSpacing.sm),
+                            itemBuilder: (context, index) => LuciListItemSkeleton(
+                              showLeading: true,
+                              showTrailing: true,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
                 }
 
                 if (dashboardError != null && dhcpData == null) {
@@ -162,20 +191,25 @@ class _ClientsScreenState extends State<ClientsScreen> with SingleTickerProvider
                                 final client = filteredClients[index];
                                 final isExpanded = _expandedClientIndices.contains(index);
 
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                                  child: _UnifiedClientCard(
-                                    client: client,
-                                    isExpanded: isExpanded,
-                                    onTap: () {
-                                      setState(() {
-                                        if (isExpanded) {
-                                          _expandedClientIndices.remove(index);
-                                        } else {
-                                          _expandedClientIndices.add(index);
-                                        }
-                                      });
-                                    },
+                                return LuciSlideTransition(
+                                  direction: LuciSlideDirection.up,
+                                  delay: Duration(milliseconds: index * 50),
+                                  distance: 30,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                                    child: _UnifiedClientCard(
+                                      client: client,
+                                      isExpanded: isExpanded,
+                                      onTap: () {
+                                        setState(() {
+                                          if (isExpanded) {
+                                            _expandedClientIndices.remove(index);
+                                          } else {
+                                            _expandedClientIndices.add(index);
+                                          }
+                                        });
+                                      },
+                                    ),
                                   ),
                                 );
                               },
@@ -321,15 +355,12 @@ class _UnifiedClientCardState extends State<_UnifiedClientCard> with SingleTicke
                         children: [
                           Text(
                             widget.client.hostname,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.onSurface,
-                            ),
+                            style: LuciTextStyles.cardTitle(context),
                             semanticsLabel: 'Client hostname: ${widget.client.hostname}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: LuciSpacing.xs),
                           Container(
                             margin: const EdgeInsets.only(right: 32),
                             child: Divider(
@@ -340,12 +371,7 @@ class _UnifiedClientCardState extends State<_UnifiedClientCard> with SingleTicke
                           ),
                           Text(
                             _buildMinimalClientSubtitle(widget.client),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              letterSpacing: 0.1,
-                            ),
+                            style: LuciTextStyles.cardSubtitle(context),
                             semanticsLabel: 'Client details: ${_buildMinimalClientSubtitle(widget.client)}',
                           ),
                           if (widget.client.vendor != null && widget.client.vendor!.isNotEmpty)
@@ -425,26 +451,24 @@ class _UnifiedClientCardState extends State<_UnifiedClientCard> with SingleTicke
 
   Widget _buildClientDetails(BuildContext context, Client client) {
     final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
 
     Widget detailRow(String title, String value, {Color? valueColor, VoidCallback? onTap, String? semanticsLabel}) {
       return InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          padding: const EdgeInsets.symmetric(horizontal: LuciSpacing.md, vertical: LuciSpacing.sm),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface), semanticsLabel: title),
+              Text(title, style: LuciTextStyles.detailLabel(context), semanticsLabel: title),
               Row(
                 children: [
                   Text(
                     value,
-                    style: textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color: valueColor ?? theme.colorScheme.onSurface,
-                    ),
+                    style: valueColor != null 
+                      ? LuciTextStyles.detailValue(context).copyWith(color: valueColor)
+                      : LuciTextStyles.detailValue(context),
                     semanticsLabel: semanticsLabel ?? value,
                   ),
                   if (onTap != null)

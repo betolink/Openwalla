@@ -4,6 +4,7 @@ import 'package:luci_mobile/screens/clients_screen.dart';
 import 'package:luci_mobile/screens/interfaces_screen.dart';
 import 'package:luci_mobile/screens/more_screen.dart';
 import 'package:luci_mobile/state/app_state.dart';
+import 'package:luci_mobile/widgets/luci_navigation_enhancements.dart';
 import 'package:provider/provider.dart';
 
 class MainScreen extends StatefulWidget {
@@ -97,7 +98,12 @@ class _MainScreenState extends State<MainScreen> {
       });
     }
     return Scaffold(
-      body: Center(child: _widgetOptions.elementAt(_selectedIndex)),
+      body: Center(
+        child: LuciTabTransition(
+          transitionKey: 'tab_$_selectedIndex',
+          child: _widgetOptions.elementAt(_selectedIndex),
+        ),
+      ),
       bottomNavigationBar: Selector<AppState, bool>(
         selector: (_, state) => state.isRebooting,
         builder: (context, isRebooting, _) {

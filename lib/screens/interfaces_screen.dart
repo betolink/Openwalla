@@ -5,6 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:luci_mobile/models/interface.dart';
 import 'dart:math';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
+import 'package:luci_mobile/design/luci_design_system.dart';
+import 'package:luci_mobile/widgets/luci_loading_states.dart';
+import 'package:luci_mobile/widgets/luci_refresh_components.dart';
 
 class InterfacesScreen extends StatefulWidget {
   final String? scrollToInterface;
@@ -333,7 +336,7 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
       body: SafeArea(
         top: true,
         bottom: false,
-        child: RefreshIndicator(
+        child: LuciPullToRefresh(
           onRefresh: () => appState.fetchDashboardData(),
           child: Selector<AppState, (bool, String?, Map<String, dynamic>?)>(
             selector: (_, state) => (
@@ -345,7 +348,26 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
               final (isLoading, dashboardError, dashboardData) = data;
 
               if (isLoading && dashboardData == null) {
-                return const LuciLoadingWidget();
+                return Padding(
+                  padding: EdgeInsets.symmetric(horizontal: LuciSpacing.md),
+                  child: Column(
+                    children: [
+                      SizedBox(height: LuciSpacing.md),
+                      // Interface cards skeleton
+                      Expanded(
+                        child: ListView.separated(
+                          itemCount: 4,
+                          separatorBuilder: (context, index) => SizedBox(height: LuciSpacing.md),
+                          itemBuilder: (context, index) => LuciCardSkeleton(
+                            showTitle: true,
+                            showSubtitle: true,
+                            contentLines: 3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
               }
 
               if (dashboardError != null && dashboardData == null) {
@@ -1147,7 +1169,7 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard>
       elevation: _isExpanded ? 6 : 2,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18.0),
+        borderRadius: LuciCardStyles.standardRadius,
         side: BorderSide(
           color: widget.initiallyExpanded && _isExpanded
               ? colorScheme.primary.withValues(alpha: 0.3)
@@ -1158,16 +1180,16 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard>
       clipBehavior: Clip.antiAlias,
       child: AnimatedScale(
         scale: widget.initiallyExpanded && _isExpanded ? 1.02 : 1.0,
-        duration: const Duration(milliseconds: 300),
+        duration: LuciAnimations.standard,
         curve: Curves.easeOutBack,
         child: Column(
           children: [
             InkWell(
               onTap: _toggleExpand,
-              borderRadius: BorderRadius.circular(18.0),
+              borderRadius: LuciCardStyles.standardRadius,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 20.0,
+                  horizontal: LuciSpacing.lg,
                   vertical: 10.0,
                 ),
                 child: Row(
@@ -1206,20 +1228,7 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard>
                             message: widget.isUp
                                 ? 'Interface is up'
                                 : 'Interface is down',
-                            child: Container(
-                              width: 10,
-                              height: 10,
-                              decoration: BoxDecoration(
-                                color: widget.isUp
-                                    ? Colors.green
-                                    : colorScheme.error,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: colorScheme.surface,
-                                  width: 1.5,
-                                ),
-                              ),
-                            ),
+                            child: LuciStatusIndicators.statusDot(context, widget.isUp),
                           ),
                         ),
                       ],
@@ -1231,13 +1240,10 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard>
                         children: [
                           Text(
                             widget.name,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.onSurface,
-                            ),
+                            style: LuciTextStyles.cardTitle(context),
                             semanticsLabel: 'Interface name: ${widget.name}',
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: LuciSpacing.xs),
                           Container(
                             margin: const EdgeInsets.only(right: 32),
                             child: Divider(
@@ -1249,12 +1255,7 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard>
                           ),
                           Text(
                             widget.subtitle,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              letterSpacing: 0.1,
-                            ),
+                            style: LuciTextStyles.cardSubtitle(context),
                             semanticsLabel:
                                 'Interface details: ${widget.subtitle}',
                           ),
@@ -1263,20 +1264,10 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard>
                     ),
                     if (!widget.isUp)
                       Padding(
-                        padding: const EdgeInsets.only(right: 4.0),
-                        child: Chip(
-                          label: const Text('OFF'),
-                          labelStyle: theme.textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onError,
-                          ),
-                          backgroundColor: colorScheme.error.withValues(
-                            alpha: 0.7,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                        ),
+                        padding: const EdgeInsets.only(right: LuciSpacing.xs),
+                        child: LuciStatusIndicators.statusChip(context, 'OFF', false),
                       ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: LuciSpacing.sm),
                     Icon(
                       _isExpanded ? Icons.expand_less : Icons.expand_more,
                       color: colorScheme.onSurfaceVariant,
