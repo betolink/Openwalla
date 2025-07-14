@@ -33,26 +33,35 @@ class LuciAppBar extends StatelessWidget implements PreferredSizeWidget {
       titleSpacing: 16.0,
       leading: showBack
           ? IconButton(
-              icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.colorScheme.onSurface),
+              icon: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: theme.colorScheme.onSurface,
+              ),
               onPressed: () => Navigator.of(context).maybePop(),
               tooltip: 'Back',
             )
           : null,
-      title: titleWidget ?? (title != null
-          ? Text(
-              title!,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
-              ),
-            )
-          : null),
+      title:
+          titleWidget ??
+          (title != null
+              ? Text(
+                  title!,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                )
+              : null),
       actions: actions,
       shadowColor: theme.shadowColor,
       surfaceTintColor: backgroundColor ?? theme.colorScheme.surface,
       systemOverlayStyle: Theme.of(context).brightness == Brightness.dark
-          ? Theme.of(context).appBarTheme.systemOverlayStyle?.copyWith(statusBarBrightness: Brightness.dark)
-          : Theme.of(context).appBarTheme.systemOverlayStyle?.copyWith(statusBarBrightness: Brightness.light),
+          ? Theme.of(context).appBarTheme.systemOverlayStyle?.copyWith(
+              statusBarBrightness: Brightness.dark,
+            )
+          : Theme.of(context).appBarTheme.systemOverlayStyle?.copyWith(
+              statusBarBrightness: Brightness.light,
+            ),
     );
   }
 
@@ -68,10 +77,10 @@ class LuciSectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(
-        left: LuciSpacing.md, 
-        right: LuciSpacing.md, 
-        top: LuciSpacing.xl, 
-        bottom: LuciSpacing.sm
+        left: LuciSpacing.md,
+        right: LuciSpacing.md,
+        top: LuciSpacing.xl,
+        bottom: LuciSpacing.sm,
       ),
       child: Row(
         children: [
@@ -149,7 +158,10 @@ class LuciErrorDisplay extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: colorScheme.primary,
                     foregroundColor: colorScheme.onPrimary,
-                    padding: const EdgeInsets.symmetric(horizontal: LuciSpacing.lg, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: LuciSpacing.lg,
+                      vertical: 12,
+                    ),
                   ),
                 ),
             ],
@@ -219,7 +231,10 @@ class LuciEmptyState extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: colorScheme.primary,
                   foregroundColor: colorScheme.onPrimary,
-                  padding: const EdgeInsets.symmetric(horizontal: LuciSpacing.lg, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: LuciSpacing.lg,
+                    vertical: 12,
+                  ),
                 ),
               ),
             ],
@@ -237,7 +252,7 @@ class LuciLoadingWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     return Center(
       child: CircularProgressIndicator(
         color: colorScheme.primary,
@@ -245,4 +260,4 @@ class LuciLoadingWidget extends StatelessWidget {
       ),
     );
   }
-} 
+}

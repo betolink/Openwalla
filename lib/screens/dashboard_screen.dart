@@ -201,9 +201,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildRealtimeThroughputCard(AppState appState) {
     // Show loading state if we don't have any throughput data yet
-    final hasValidData = appState.rxHistory.length > 1 || appState.txHistory.length > 1; // Need at least 2 points for a line
+    final hasValidData =
+        appState.rxHistory.length > 1 ||
+        appState.txHistory.length > 1; // Need at least 2 points for a line
     // Only show switching state if we're loading AND no dashboard data is available (true router switch)
-    final isSwitchingRouter = appState.isLoading && appState.dashboardData == null;
+    final isSwitchingRouter =
+        appState.isLoading && appState.dashboardData == null;
 
     return Card(
       elevation: 2,
@@ -242,18 +245,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 top: 16.0,
               ), // Add space above the chart
               child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 600), // Smoother transition
+                duration: const Duration(
+                  milliseconds: 600,
+                ), // Smoother transition
                 transitionBuilder: (Widget child, Animation<double> animation) {
                   return FadeTransition(
                     opacity: animation,
                     child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, 0.2),
-                        end: Offset.zero,
-                      ).animate(CurvedAnimation(
-                        parent: animation,
-                        curve: Curves.easeOutCubic,
-                      )),
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(0, 0.2),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                            ),
+                          ),
                       child: child,
                     ),
                   );
@@ -261,81 +269,84 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: hasValidData && !isSwitchingRouter
                     ? LineChart(
                         key: ValueKey('chart_${appState.selectedRouter?.id}'),
-                      LineChartData(
-                        gridData: FlGridData(show: false),
-                        titlesData: FlTitlesData(show: false),
-                        borderData: FlBorderData(show: false),
-                        lineTouchData: LineTouchData(
-                          touchTooltipData: LineTouchTooltipData(
-                            fitInsideVertically: true,
-                            getTooltipColor: (LineBarSpot spot) => Theme.of(
-                              context,
-                            ).colorScheme.surface.withValues(alpha: 0.9),
-                            tooltipBorderRadius: BorderRadius.circular(8),
-                            tooltipPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            getTooltipItems: (List<LineBarSpot> touchedSpots) {
-                              return touchedSpots.map((barSpot) {
-                                final flSpot = barSpot;
-                                final Color color =
-                                    flSpot.bar.gradient?.colors.first ??
-                                    flSpot.bar.color ??
-                                    Colors.white;
+                        LineChartData(
+                          gridData: FlGridData(show: false),
+                          titlesData: FlTitlesData(show: false),
+                          borderData: FlBorderData(show: false),
+                          lineTouchData: LineTouchData(
+                            touchTooltipData: LineTouchTooltipData(
+                              fitInsideVertically: true,
+                              getTooltipColor: (LineBarSpot spot) => Theme.of(
+                                context,
+                              ).colorScheme.surface.withValues(alpha: 0.9),
+                              tooltipBorderRadius: BorderRadius.circular(8),
+                              tooltipPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              getTooltipItems:
+                                  (List<LineBarSpot> touchedSpots) {
+                                    return touchedSpots.map((barSpot) {
+                                      final flSpot = barSpot;
+                                      final Color color =
+                                          flSpot.bar.gradient?.colors.first ??
+                                          flSpot.bar.color ??
+                                          Colors.white;
 
-                                return LineTooltipItem(
-                                  _formatSpeed(flSpot.y),
-                                  TextStyle(
-                                    color: color,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                  textAlign: TextAlign.left,
-                                );
-                              }).toList();
-                            },
+                                      return LineTooltipItem(
+                                        _formatSpeed(flSpot.y),
+                                        TextStyle(
+                                          color: color,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                        textAlign: TextAlign.left,
+                                      );
+                                    }).toList();
+                                  },
+                            ),
                           ),
+                          lineBarsData: [
+                            _buildLineChartBarData(appState.rxHistory, [
+                              Colors.green.shade700,
+                              Colors.green.shade400,
+                            ]),
+                            _buildLineChartBarData(appState.txHistory, [
+                              Colors.blue.shade700,
+                              Colors.blue.shade400,
+                            ]),
+                          ],
                         ),
-                        lineBarsData: [
-                          _buildLineChartBarData(appState.rxHistory, [
-                            Colors.green.shade700,
-                            Colors.green.shade400,
-                          ]),
-                          _buildLineChartBarData(appState.txHistory, [
-                            Colors.blue.shade700,
-                            Colors.blue.shade400,
-                          ]),
-                        ],
-                      ),
-                      duration: const Duration(milliseconds: 800),
-                      curve: Curves.easeInOut,
-                    )
+                        duration: const Duration(milliseconds: 800),
+                        curve: Curves.easeInOut,
+                      )
                     : Center(
                         key: ValueKey('loading_${appState.selectedRouter?.id}'),
                         child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.trending_up,
-                            size: 48,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withValues(alpha: 0.7),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            isSwitchingRouter 
-                                ? 'Switching router...'
-                                : 'Collecting throughput data...',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurface
-                                      .withValues(alpha: 0.8),
-                                ),
-                          ),
-                        ],
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.trending_up,
+                              size: 48,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.7),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              isSwitchingRouter
+                                  ? 'Switching router...'
+                                  : 'Collecting throughput data...',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.8),
+                                  ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
               ),
             ),
           ),
@@ -1292,7 +1303,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         builder: (context, constraints) {
           final isLandscape =
               MediaQuery.of(context).orientation == Orientation.landscape;
-          
+
           // Split layout handling to avoid Expanded widget conflicts with staggered animations
           if (isLandscape) {
             final landscapeContent = [
@@ -1311,13 +1322,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _buildInterfaceStatusCards(appState),
               const SizedBox(height: 12),
             ];
-            
+
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: SingleChildScrollView(              child: LuciStaggeredAnimation(
-                staggerDelay: const Duration(milliseconds: 50),
-                children: landscapeContent,
-              ),
+              child: SingleChildScrollView(
+                child: LuciStaggeredAnimation(
+                  staggerDelay: const Duration(milliseconds: 50),
+                  children: landscapeContent,
+                ),
               ),
             );
           } else {
@@ -1341,7 +1353,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Expanded(child: _buildRealtimeThroughputCard(appState)),
                   // Animate the bottom cards
                   LuciStaggeredAnimation(
-                    staggerDelay: const Duration(milliseconds: 40), // Faster for bottom section
+                    staggerDelay: const Duration(
+                      milliseconds: 40,
+                    ), // Faster for bottom section
                     children: [
                       const SizedBox(height: 12),
                       _buildSystemVitalsCard(appState),

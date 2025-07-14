@@ -19,15 +19,15 @@ class _MoreScreenSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 2,
-      margin: const EdgeInsets.symmetric(horizontal: LuciSpacing.md, vertical: LuciSpacing.sm),
+      margin: const EdgeInsets.symmetric(
+        horizontal: LuciSpacing.md,
+        vertical: LuciSpacing.sm,
+      ),
       shape: RoundedRectangleBorder(
         borderRadius: LuciCardStyles.standardRadius,
       ),
       child: Column(
-        children: ListTile.divideTiles(
-          context: context,
-          tiles: tiles,
-        ).toList(),
+        children: ListTile.divideTiles(context: context, tiles: tiles).toList(),
       ),
     );
   }
@@ -77,22 +77,32 @@ class _MoreScreenState extends State<MoreScreen> {
               Expanded(
                 child: Text(
                   'Router is back online, reconnecting…',
-                  style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onPrimary),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onPrimary,
+                  ),
                 ),
               ),
             ],
           ),
           backgroundColor: colorScheme.primary,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          margin: const EdgeInsets.symmetric(horizontal: LuciSpacing.lg, vertical: LuciSpacing.md),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          margin: const EdgeInsets.symmetric(
+            horizontal: LuciSpacing.lg,
+            vertical: LuciSpacing.md,
+          ),
           duration: const Duration(seconds: 3),
         ),
       );
     }
   }
 
-  Future<void> _showLogoutDialog(BuildContext context, AppState appState) async {
+  Future<void> _showLogoutDialog(
+    BuildContext context,
+    AppState appState,
+  ) async {
     return showDialog<void>(
       context: context,
       builder: (BuildContext context) {
@@ -122,7 +132,10 @@ class _MoreScreenState extends State<MoreScreen> {
     );
   }
 
-  Future<void> _showRebootDialog(BuildContext context, AppState appState) async {
+  Future<void> _showRebootDialog(
+    BuildContext context,
+    AppState appState,
+  ) async {
     return showDialog<void>(
       context: context,
       builder: (BuildContext context) {
@@ -147,20 +160,31 @@ class _MoreScreenState extends State<MoreScreen> {
                   SnackBar(
                     content: Row(
                       children: [
-                        Icon(Icons.warning_amber_rounded, color: colorScheme.onPrimary, size: 20),
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: colorScheme.onPrimary,
+                          size: 20,
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             'Rebooting… Connection will be interrupted.',
-                            style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onPrimary),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onPrimary,
+                            ),
                           ),
                         ),
                       ],
                     ),
                     backgroundColor: colorScheme.primary,
                     behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 16,
+                    ),
                     duration: const Duration(days: 1), // effectively indefinite
                   ),
                 );
@@ -168,7 +192,11 @@ class _MoreScreenState extends State<MoreScreen> {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(success ? 'Reboot command sent successfully.' : 'Failed to send reboot command.'),
+                    content: Text(
+                      success
+                          ? 'Reboot command sent successfully.'
+                          : 'Failed to send reboot command.',
+                    ),
                   ),
                 );
               },
@@ -182,7 +210,7 @@ class _MoreScreenState extends State<MoreScreen> {
   Future<void> _showAboutDialog(BuildContext context) async {
     final info = await PackageInfo.fromPlatform();
     if (!context.mounted) return;
-    
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -207,7 +235,10 @@ class _MoreScreenState extends State<MoreScreen> {
               InkWell(
                 onTap: () async {
                   final url = AppConfig.githubRepositoryUrl;
-                  final success = await launchUrlString(url, mode: LaunchMode.externalApplication);
+                  final success = await launchUrlString(
+                    url,
+                    mode: LaunchMode.externalApplication,
+                  );
                   if (!success && context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -261,73 +292,81 @@ class _MoreScreenState extends State<MoreScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-          const LuciSectionHeader('Device Management'),
-          Selector<AppState, bool>(
-            selector: (_, state) => state.isRebooting,
-            builder: (context, isRebooting, _) {
-              return _MoreScreenSection(
-                tiles: [
-                  _buildMoreTile(
+            const LuciSectionHeader('Device Management'),
+            Selector<AppState, bool>(
+              selector: (_, state) => state.isRebooting,
+              builder: (context, isRebooting, _) {
+                return _MoreScreenSection(
+                  tiles: [
+                    _buildMoreTile(
+                      context,
+                      icon: Icons.restart_alt,
+                      iconColor: Theme.of(context).colorScheme.primary,
+                      title: 'Reboot Router',
+                      subtitle: 'Perform a system restart',
+                      onTap: isRebooting
+                          ? null
+                          : () => _showRebootDialog(context, appState),
+                      enabled: !isRebooting,
+                      showSpinner: isRebooting,
+                    ),
+                  ],
+                );
+              },
+            ),
+            const LuciSectionHeader('Application'),
+            _MoreScreenSection(
+              tiles: [
+                _buildMoreTile(
+                  context,
+                  icon: Icons.router,
+                  iconColor: Theme.of(context).colorScheme.primary,
+                  title: 'Manage Routers',
+                  subtitle: 'Edit or remove saved routers',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const ManageRoutersScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMoreTile(
+                  context,
+                  icon: Icons.settings_outlined,
+                  iconColor: Theme.of(context).colorScheme.primary,
+                  title: 'Settings',
+                  subtitle: 'Configure app preferences',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const SettingsScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMoreTile(
+                  context,
+                  icon: Icons.info_outline,
+                  iconColor: Theme.of(context).colorScheme.secondary,
+                  title: 'About',
+                  subtitle: 'App version and information',
+                  onTap: () => _showAboutDialog(context),
+                ),
+                _buildMoreTile(
+                  context,
+                  icon: Icons.logout,
+                  iconColor: Theme.of(context).colorScheme.error,
+                  title: 'Logout',
+                  subtitle: 'End your session and sign out',
+                  titleColor: Theme.of(context).colorScheme.error,
+                  subtitleColor: Theme.of(
                     context,
-                    icon: Icons.restart_alt,
-                    iconColor: Theme.of(context).colorScheme.primary,
-                    title: 'Reboot Router',
-                    subtitle: 'Perform a system restart',
-                    onTap: isRebooting ? null : () => _showRebootDialog(context, appState),
-                    enabled: !isRebooting,
-                    showSpinner: isRebooting,
-                  ),
-                ],
-              );
-            },
-          ),
-          const LuciSectionHeader('Application'),
-          _MoreScreenSection(
-            tiles: [
-              _buildMoreTile(
-                context,
-                icon: Icons.router,
-                iconColor: Theme.of(context).colorScheme.primary,
-                title: 'Manage Routers',
-                subtitle: 'Edit or remove saved routers',
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => const ManageRoutersScreen()),
-                  );
-                },
-              ),
-              _buildMoreTile(
-                context,
-                icon: Icons.settings_outlined,
-                iconColor: Theme.of(context).colorScheme.primary,
-                title: 'Settings',
-                subtitle: 'Configure app preferences',
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => const SettingsScreen()),
-                  );
-                },
-              ),
-              _buildMoreTile(
-                context,
-                icon: Icons.info_outline,
-                iconColor: Theme.of(context).colorScheme.secondary,
-                title: 'About',
-                subtitle: 'App version and information',
-                onTap: () => _showAboutDialog(context),
-              ),
-              _buildMoreTile(
-                context,
-                icon: Icons.logout,
-                iconColor: Theme.of(context).colorScheme.error,
-                title: 'Logout',
-                subtitle: 'End your session and sign out',
-                titleColor: Theme.of(context).colorScheme.error,
-                subtitleColor: Theme.of(context).colorScheme.error.withValues(alpha: 0.7),
-                onTap: () => _showLogoutDialog(context, appState),
-              ),
-            ],
-          ),
+                  ).colorScheme.error.withValues(alpha: 0.7),
+                  onTap: () => _showLogoutDialog(context, appState),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -348,9 +387,18 @@ class _MoreScreenState extends State<MoreScreen> {
   }) {
     final theme = Theme.of(context);
     // Persistent spinning icon using AnimationController
-    Widget spinningIconWidget = Icon(icon, color: iconColor, size: 24, semanticLabel: title);
+    Widget spinningIconWidget = Icon(
+      icon,
+      color: iconColor,
+      size: 24,
+      semanticLabel: title,
+    );
     if (showSpinner) {
-      spinningIconWidget = _SpinningIcon(icon: icon, color: iconColor, label: title);
+      spinningIconWidget = _SpinningIcon(
+        icon: icon,
+        color: iconColor,
+        label: title,
+      );
     }
     return Opacity(
       opacity: enabled ? 1.0 : 0.5,
@@ -365,22 +413,27 @@ class _MoreScreenState extends State<MoreScreen> {
         ),
         title: Text(
           title,
-          style: titleColor != null 
-            ? LuciTextStyles.cardTitle(context).copyWith(color: titleColor)
-            : LuciTextStyles.cardTitle(context),
+          style: titleColor != null
+              ? LuciTextStyles.cardTitle(context).copyWith(color: titleColor)
+              : LuciTextStyles.cardTitle(context),
           semanticsLabel: title,
         ),
         subtitle: Text(
           subtitle,
           style: subtitleColor != null
-            ? LuciTextStyles.cardSubtitle(context).copyWith(color: subtitleColor)
-            : LuciTextStyles.cardSubtitle(context),
+              ? LuciTextStyles.cardSubtitle(
+                  context,
+                ).copyWith(color: subtitleColor)
+              : LuciTextStyles.cardSubtitle(context),
           semanticsLabel: subtitle,
         ),
         enabled: enabled,
         onTap: enabled ? onTap : null,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: LuciSpacing.lg, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: LuciSpacing.lg,
+          vertical: 10,
+        ),
         hoverColor: theme.colorScheme.primary.withValues(alpha: 0.04),
         splashColor: theme.colorScheme.primary.withValues(alpha: 0.08),
         minVerticalPadding: LuciSpacing.md,
@@ -396,24 +449,34 @@ class _SpinningIcon extends StatefulWidget {
   final IconData icon;
   final Color color;
   final String label;
-  const _SpinningIcon({required this.icon, required this.color, required this.label});
+  const _SpinningIcon({
+    required this.icon,
+    required this.color,
+    required this.label,
+  });
   @override
   State<_SpinningIcon> createState() => _SpinningIconState();
 }
 
-class _SpinningIconState extends State<_SpinningIcon> with SingleTickerProviderStateMixin {
+class _SpinningIconState extends State<_SpinningIcon>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 1));
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
     _controller.repeat();
   }
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -421,7 +484,12 @@ class _SpinningIconState extends State<_SpinningIcon> with SingleTickerProviderS
       builder: (context, child) {
         return Transform.rotate(
           angle: _controller.value * 6.28319, // 2 * pi
-          child: Icon(widget.icon, color: widget.color, size: 24, semanticLabel: widget.label),
+          child: Icon(
+            widget.icon,
+            color: widget.color,
+            size: 24,
+            semanticLabel: widget.label,
+          ),
         );
       },
     );

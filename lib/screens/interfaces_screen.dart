@@ -357,7 +357,8 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
                       Expanded(
                         child: ListView.separated(
                           itemCount: 4,
-                          separatorBuilder: (context, index) => SizedBox(height: LuciSpacing.md),
+                          separatorBuilder: (context, index) =>
+                              SizedBox(height: LuciSpacing.md),
                           itemBuilder: (context, index) => LuciCardSkeleton(
                             showTitle: true,
                             showSubtitle: true,
@@ -1228,7 +1229,10 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard>
                             message: widget.isUp
                                 ? 'Interface is up'
                                 : 'Interface is down',
-                            child: LuciStatusIndicators.statusDot(context, widget.isUp),
+                            child: LuciStatusIndicators.statusDot(
+                              context,
+                              widget.isUp,
+                            ),
                           ),
                         ),
                       ],
@@ -1265,7 +1269,11 @@ class _UnifiedNetworkCardState extends State<_UnifiedNetworkCard>
                     if (!widget.isUp)
                       Padding(
                         padding: const EdgeInsets.only(right: LuciSpacing.xs),
-                        child: LuciStatusIndicators.statusChip(context, 'OFF', false),
+                        child: LuciStatusIndicators.statusChip(
+                          context,
+                          'OFF',
+                          false,
+                        ),
                       ),
                     const SizedBox(width: LuciSpacing.sm),
                     Icon(

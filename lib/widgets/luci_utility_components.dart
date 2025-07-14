@@ -4,7 +4,6 @@ import '../design/luci_design_system.dart';
 /// Utility components and formatters for enhanced user experience
 /// Professional components for router selection, status indicators, and data formatting
 class LuciUtilityComponents {
-  
   /// Enhanced Material 3 SegmentedButton for router selection
   static Widget routerSelector({
     required BuildContext context,
@@ -14,14 +13,18 @@ class LuciUtilityComponents {
   }) {
     if (routers.length <= 3) {
       return SegmentedButton<String>(
-        segments: routers.map<ButtonSegment<String>>((router) => ButtonSegment<String>(
-          value: router.id,
-          label: Text(
-            router.lastKnownHostname ?? router.ipAddress,
-            style: const TextStyle(fontSize: 12),
-          ),
-          icon: const Icon(Icons.router, size: 16),
-        )).toList(),
+        segments: routers
+            .map<ButtonSegment<String>>(
+              (router) => ButtonSegment<String>(
+                value: router.id,
+                label: Text(
+                  router.lastKnownHostname ?? router.ipAddress,
+                  style: const TextStyle(fontSize: 12),
+                ),
+                icon: const Icon(Icons.router, size: 16),
+              ),
+            )
+            .toList(),
         selected: {selectedRouter?.id ?? ''},
         onSelectionChanged: (Set<String> selection) {
           if (selection.isNotEmpty && selection.first != selectedRouter?.id) {
@@ -36,7 +39,7 @@ class LuciUtilityComponents {
         ),
       );
     }
-    
+
     // Return a Material 3 styled dropdown for more routers
     return Container(
       padding: EdgeInsets.symmetric(horizontal: LuciSpacing.sm),
@@ -53,16 +56,24 @@ class LuciUtilityComponents {
         hint: const Text('Select Router'),
         underline: const SizedBox(),
         borderRadius: BorderRadius.circular(LuciSpacing.sm),
-        items: routers.map<DropdownMenuItem<String>>((router) => DropdownMenuItem<String>(
-          value: router.id,
-          child: Row(
-            children: [
-              Icon(Icons.router, size: 16, color: Theme.of(context).colorScheme.primary),
-              SizedBox(width: LuciSpacing.sm),
-              Text(router.lastKnownHostname ?? router.ipAddress),
-            ],
-          ),
-        )).toList(),
+        items: routers
+            .map<DropdownMenuItem<String>>(
+              (router) => DropdownMenuItem<String>(
+                value: router.id,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.router,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    SizedBox(width: LuciSpacing.sm),
+                    Text(router.lastKnownHostname ?? router.ipAddress),
+                  ],
+                ),
+              ),
+            )
+            .toList(),
         onChanged: (String? value) {
           if (value != null && value != selectedRouter?.id) {
             onRouterChanged(value);
@@ -87,25 +98,21 @@ class LuciUtilityComponents {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 64,
-              color: Theme.of(context).colorScheme.outline,
-            ),
+            Icon(icon, size: 64, color: Theme.of(context).colorScheme.outline),
             SizedBox(height: LuciSpacing.md),
             Text(
               title,
-              style: LuciTextStyles.cardTitle(context).copyWith(
-                color: Theme.of(context).colorScheme.outline,
-              ),
+              style: LuciTextStyles.cardTitle(
+                context,
+              ).copyWith(color: Theme.of(context).colorScheme.outline),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: LuciSpacing.sm),
             Text(
               message,
-              style: LuciTextStyles.cardSubtitle(context).copyWith(
-                color: Theme.of(context).colorScheme.outline,
-              ),
+              style: LuciTextStyles.cardSubtitle(
+                context,
+              ).copyWith(color: Theme.of(context).colorScheme.outline),
               textAlign: TextAlign.center,
             ),
             if (actionLabel != null && onAction != null) ...[
@@ -132,10 +139,10 @@ class LuciUtilityComponents {
     Color? inactiveColor,
   }) {
     final theme = Theme.of(context);
-    final color = isActive 
+    final color = isActive
         ? (activeColor ?? theme.colorScheme.primary)
         : (inactiveColor ?? theme.colorScheme.outline);
-    
+
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: LuciSpacing.sm,
@@ -144,10 +151,7 @@ class LuciUtilityComponents {
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(LuciSpacing.sm),
-        border: Border.all(
-          color: color.withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -158,10 +162,9 @@ class LuciUtilityComponents {
           ],
           Text(
             label,
-            style: LuciTextStyles.detailValue(context).copyWith(
-              color: color,
-              fontWeight: FontWeight.w500,
-            ),
+            style: LuciTextStyles.detailValue(
+              context,
+            ).copyWith(color: color, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -176,7 +179,7 @@ class LuciUtilityComponents {
   }) {
     IconData icon;
     String label;
-    
+
     switch (type.toLowerCase()) {
       case 'wireless':
       case 'wifi':
@@ -197,7 +200,7 @@ class LuciUtilityComponents {
         icon = Icons.device_unknown;
         label = 'Unknown';
     }
-    
+
     return statusChip(
       context: context,
       label: label,
@@ -212,7 +215,8 @@ class LuciUtilityComponents {
   static String formatDataUsage(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    if (bytes < 1024 * 1024 * 1024)
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 
@@ -233,15 +237,14 @@ class LuciUtilityComponents {
   static String formatMacAddress(String mac) {
     // Remove any existing separators and convert to uppercase
     final cleanMac = mac.replaceAll(RegExp(r'[:-]'), '').toUpperCase();
-    
+
     // Add colons every 2 characters
     if (cleanMac.length == 12) {
-      return cleanMac.replaceAllMapped(
-        RegExp(r'(.{2})'),
-        (match) => '${match.group(1)}:',
-      ).substring(0, 17); // Remove trailing colon
+      return cleanMac
+          .replaceAllMapped(RegExp(r'(.{2})'), (match) => '${match.group(1)}:')
+          .substring(0, 17); // Remove trailing colon
     }
-    
+
     return mac; // Return original if not standard length
   }
 
@@ -249,12 +252,12 @@ class LuciUtilityComponents {
   static bool isValidIPAddress(String ip) {
     final parts = ip.split('.');
     if (parts.length != 4) return false;
-    
+
     for (final part in parts) {
       final num = int.tryParse(part);
       if (num == null || num < 0 || num > 255) return false;
     }
-    
+
     return true;
   }
 
@@ -267,11 +270,11 @@ class LuciUtilityComponents {
   }) {
     final status = isActive ? 'active' : 'inactive';
     final base = '$type $name is $status';
-    
+
     if (additionalInfo != null && additionalInfo.isNotEmpty) {
       return '$base, $additionalInfo';
     }
-    
+
     return base;
   }
 }

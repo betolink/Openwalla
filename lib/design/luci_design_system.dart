@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 
 /// Standardized spacing constants for consistent layout
 class LuciSpacing {
-  static const double xs = 4.0;   // Micro spacing
-  static const double sm = 8.0;   // Small spacing
-  static const double md = 16.0;  // Standard spacing
-  static const double lg = 24.0;  // Large spacing
-  static const double xl = 32.0;  // Extra large spacing
+  static const double xs = 4.0; // Micro spacing
+  static const double sm = 8.0; // Small spacing
+  static const double md = 16.0; // Standard spacing
+  static const double lg = 24.0; // Large spacing
+  static const double xl = 32.0; // Extra large spacing
   static const double xxl = 48.0; // Section spacing
 }
 
@@ -19,14 +19,14 @@ class LuciTextStyles {
       letterSpacing: 1.2,
     );
   }
-  
+
   static TextStyle cardTitle(BuildContext context) {
     return Theme.of(context).textTheme.titleMedium!.copyWith(
       fontWeight: FontWeight.bold,
       color: Theme.of(context).colorScheme.onSurface,
     );
   }
-  
+
   static TextStyle cardSubtitle(BuildContext context) {
     return Theme.of(context).textTheme.bodySmall!.copyWith(
       color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -59,11 +59,17 @@ class LuciTextStyles {
 /// Standardized animation constants for consistent motion
 class LuciAnimations {
   // Standard durations
-  static const Duration fast = Duration(milliseconds: 200);     // Micro interactions
-  static const Duration standard = Duration(milliseconds: 400); // Card expansions
-  static const Duration slow = Duration(milliseconds: 600);     // Page transitions
-  static const Duration chart = Duration(milliseconds: 800);    // Data visualizations
-  
+  static const Duration fast = Duration(
+    milliseconds: 200,
+  ); // Micro interactions
+  static const Duration standard = Duration(
+    milliseconds: 400,
+  ); // Card expansions
+  static const Duration slow = Duration(milliseconds: 600); // Page transitions
+  static const Duration chart = Duration(
+    milliseconds: 800,
+  ); // Data visualizations
+
   // Standard curves
   static const Curve easeOut = Curves.easeOutCubic;
   static const Curve easeInOut = Curves.easeInOutCubic;
@@ -74,25 +80,31 @@ class LuciAnimations {
 class LuciCardStyles {
   static BorderRadius standardRadius = BorderRadius.circular(16.0);
   static BorderRadius largeRadius = BorderRadius.circular(20.0);
-  
-  static BoxDecoration standardCard(BuildContext context, {bool isElevated = false, bool isSelected = false}) {
+
+  static BoxDecoration standardCard(
+    BuildContext context, {
+    bool isElevated = false,
+    bool isSelected = false,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
     return BoxDecoration(
       color: colorScheme.surface,
       borderRadius: standardRadius,
       border: Border.all(
-        color: isSelected 
-          ? colorScheme.primary.withValues(alpha: 0.3)
-          : colorScheme.outlineVariant.withValues(alpha: 0.2),
+        color: isSelected
+            ? colorScheme.primary.withValues(alpha: 0.3)
+            : colorScheme.outlineVariant.withValues(alpha: 0.2),
         width: isSelected ? 2 : 1,
       ),
-      boxShadow: isElevated ? [
-        BoxShadow(
-          color: Theme.of(context).shadowColor.withValues(alpha: 0.1),
-          blurRadius: 8,
-          offset: const Offset(0, 2),
-        ),
-      ] : null,
+      boxShadow: isElevated
+          ? [
+              BoxShadow(
+                color: Theme.of(context).shadowColor.withValues(alpha: 0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ]
+          : null,
     );
   }
 
@@ -107,7 +119,11 @@ class LuciCardStyles {
   }) {
     return Container(
       margin: margin ?? const EdgeInsets.symmetric(vertical: LuciSpacing.sm),
-      decoration: standardCard(context, isElevated: isElevated, isSelected: isSelected),
+      decoration: standardCard(
+        context,
+        isElevated: isElevated,
+        isSelected: isSelected,
+      ),
       child: Material(
         color: Colors.transparent,
         borderRadius: standardRadius,
@@ -126,7 +142,11 @@ class LuciCardStyles {
 
 /// Standardized status indicators
 class LuciStatusIndicators {
-  static Widget statusDot(BuildContext context, bool isActive, {double size = 10.0}) {
+  static Widget statusDot(
+    BuildContext context,
+    bool isActive, {
+    double size = 10.0,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: size,
@@ -134,10 +154,7 @@ class LuciStatusIndicators {
       decoration: BoxDecoration(
         color: isActive ? Colors.green : colorScheme.error,
         shape: BoxShape.circle,
-        border: Border.all(
-          color: colorScheme.surface,
-          width: 1.5,
-        ),
+        border: Border.all(color: colorScheme.surface, width: 1.5),
       ),
     );
   }
@@ -149,9 +166,9 @@ class LuciStatusIndicators {
       labelStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
         color: isActive ? colorScheme.onPrimary : colorScheme.onError,
       ),
-      backgroundColor: isActive 
-        ? colorScheme.primary.withValues(alpha: 0.8)
-        : colorScheme.error.withValues(alpha: 0.7),
+      backgroundColor: isActive
+          ? colorScheme.primary.withValues(alpha: 0.8)
+          : colorScheme.error.withValues(alpha: 0.7),
       visualDensity: VisualDensity.compact,
       padding: EdgeInsets.zero,
     );

@@ -32,23 +32,19 @@ class _LuciTabTransitionState extends State<LuciTabTransition>
   void initState() {
     super.initState();
     _controller = AnimationController(duration: widget.duration, vsync: this);
-    
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.3, 1.0, curve: Curves.easeInOut),
-    ));
-    
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.3, 1.0, curve: Curves.easeInOut),
+      ),
+    );
+
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0.0, 0.1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: widget.curve,
-    ));
-    
+    ).animate(CurvedAnimation(parent: _controller, curve: widget.curve));
+
     _controller.forward();
   }
 
@@ -71,10 +67,7 @@ class _LuciTabTransitionState extends State<LuciTabTransition>
   Widget build(BuildContext context) {
     return SlideTransition(
       position: _slideAnimation,
-      child: FadeTransition(
-        opacity: _fadeAnimation,
-        child: widget.child,
-      ),
+      child: FadeTransition(opacity: _fadeAnimation, child: widget.child),
     );
   }
 }
@@ -121,23 +114,17 @@ class _LuciEnhancedFABState extends State<LuciEnhancedFAB>
       duration: LuciAdvancedAnimations.quickTransition,
       vsync: this,
     );
-    
+
     _scaleAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.elasticOut,
-    ));
-    
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
+
     _rotationAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
-    
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+
     _controller.forward();
   }
 
@@ -173,15 +160,19 @@ class _LuciEnhancedFABState extends State<LuciEnhancedFAB>
                     label: Text(widget.label!),
                     heroTag: widget.heroTag,
                     tooltip: widget.tooltip,
-                    backgroundColor: widget.backgroundColor ?? colorScheme.primary,
-                    foregroundColor: widget.foregroundColor ?? colorScheme.onPrimary,
+                    backgroundColor:
+                        widget.backgroundColor ?? colorScheme.primary,
+                    foregroundColor:
+                        widget.foregroundColor ?? colorScheme.onPrimary,
                   )
                 : FloatingActionButton(
                     onPressed: _handlePress,
                     heroTag: widget.heroTag,
                     tooltip: widget.tooltip,
-                    backgroundColor: widget.backgroundColor ?? colorScheme.primary,
-                    foregroundColor: widget.foregroundColor ?? colorScheme.onPrimary,
+                    backgroundColor:
+                        widget.backgroundColor ?? colorScheme.primary,
+                    foregroundColor:
+                        widget.foregroundColor ?? colorScheme.onPrimary,
                     child: Icon(widget.icon),
                   ),
           ),
@@ -222,33 +213,25 @@ class _LuciLoadingOverlayState extends State<LuciLoadingOverlay>
   @override
   void initState() {
     super.initState();
-    
+
     _overlayController = AnimationController(
       duration: LuciAdvancedAnimations.quickTransition,
       vsync: this,
     );
-    
+
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
-    
-    _overlayAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _overlayController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _pulseAnimation = Tween<double>(
-      begin: 0.8,
-      end: 1.2,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
-    
+
+    _overlayAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _overlayController, curve: Curves.easeInOut),
+    );
+
+    _pulseAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
     if (widget.isLoading) {
       _overlayController.forward();
       _pulseController.repeat(reverse: true);
@@ -368,23 +351,19 @@ class _LuciAnimatedCardState extends State<LuciAnimatedCard>
       duration: LuciAdvancedAnimations.smoothTransition,
       vsync: this,
     );
-    
+
     _scaleAnimation = Tween<double>(
       begin: 0.8,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.elasticOut,
-    ));
-    
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
-    ));
-    
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
+      ),
+    );
+
     // Start animation after delay
     if (widget.animationDelay > Duration.zero) {
       Future.delayed(widget.animationDelay, () {
@@ -423,18 +402,23 @@ class _LuciAnimatedCardState extends State<LuciAnimatedCard>
                   duration: LuciAdvancedAnimations.microInteraction,
                   curve: Curves.easeInOut,
                   padding: widget.padding ?? EdgeInsets.all(LuciSpacing.md),
-                  decoration: LuciCardStyles.standardCard(
-                    context,
-                    isElevated: _isHovered || widget.elevation > 0,
-                  ).copyWith(
-                    boxShadow: _isHovered ? [
-                      BoxShadow(
-                        color: Theme.of(context).shadowColor.withValues(alpha: 0.15),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
+                  decoration:
+                      LuciCardStyles.standardCard(
+                        context,
+                        isElevated: _isHovered || widget.elevation > 0,
+                      ).copyWith(
+                        boxShadow: _isHovered
+                            ? [
+                                BoxShadow(
+                                  color: Theme.of(
+                                    context,
+                                  ).shadowColor.withValues(alpha: 0.15),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ]
+                            : null,
                       ),
-                    ] : null,
-                  ),
                   child: InkWell(
                     onTap: widget.onTap,
                     borderRadius: LuciCardStyles.standardRadius,
