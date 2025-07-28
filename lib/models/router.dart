@@ -52,4 +52,4 @@ class Router {
       lastKnownHostname: lastKnownHostname ?? this.lastKnownHostname,
     );
   }
-} 
+}

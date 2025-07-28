@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
 import 'package:provider/provider.dart';
+
 import 'package:luci_mobile/state/app_state.dart';
 import 'package:luci_mobile/screens/login_screen.dart';
 import 'package:luci_mobile/screens/main_screen.dart';
 import 'package:luci_mobile/screens/settings_screen.dart';
 import 'package:luci_mobile/screens/splash_screen.dart';
-import 'package:flutter/services.dart';
 
 void main() {
   runApp(const LuCIApp());
@@ -61,4 +63,3 @@ class LuCIApp extends StatelessWidget {
     );
   }
 }
-

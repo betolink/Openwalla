@@ -69,6 +69,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         pass,
         useHttps,
         fromRouter: false,
+        context: context,
       );
 
       if (success && mounted) {

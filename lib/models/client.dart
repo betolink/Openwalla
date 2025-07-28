@@ -1,5 +1,3 @@
-// Remove unused import 'dart:math'
-
 enum ConnectionType {
   wired,
   wireless,

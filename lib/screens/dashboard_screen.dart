@@ -1219,7 +1219,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             );
                             if (selectedId != null &&
                                 selectedId != selected?.id) {
-                              appState.selectRouter(selectedId);
+                              appState.selectRouter(selectedId, context: context);
                             }
                           },
                           child: Padding(

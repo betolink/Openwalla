@@ -75,7 +75,7 @@ class _ManageRoutersScreenState extends State<ManageRoutersScreen> {
                                       });
                                       
                                       try {
-                                        await appState.selectRouter(router.id);
+                                        await appState.selectRouter(router.id, context: context);
                                         // Fetch dashboard data before navigating
                                         await appState.fetchDashboardData();
                                         if (!context.mounted) return;

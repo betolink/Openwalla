@@ -1,7 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
+import '../utils/http_client_manager.dart';
+import '../utils/logger.dart';
 
 Uri _buildUrl(String ipAddress, bool useHttps, String path) {
   final scheme = useHttps ? 'https' : 'http';
@@ -9,14 +13,10 @@ Uri _buildUrl(String ipAddress, bool useHttps, String path) {
 }
 
 class ApiService {
-  http.Client createHttpClient(bool allowSelfSigned) {
-    if (allowSelfSigned) {
-      final ioc = HttpClient();
-      ioc.badCertificateCallback =
-          (X509Certificate cert, String host, int port) => true;
-      return IOClient(ioc);
-    }
-    return http.Client();
+  final HttpClientManager _httpClientManager = HttpClientManager();
+
+  http.Client createHttpClient(bool useHttps, String host, {BuildContext? context}) {
+    return _httpClientManager.getClient(host, useHttps, context: context);
   }
 
   Future<String?> login(
@@ -24,43 +24,39 @@ class ApiService {
     String username,
     String password,
     bool useHttps,
+    {BuildContext? context}
   ) async {
-    final client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 10);
-    if (useHttps) {
-      client.badCertificateCallback =
-          (X509Certificate cert, String host, int port) => true;
-    }
+    final client = createHttpClient(useHttps, ipAddress, context: context);
 
     try {
       final uri = _buildUrl(ipAddress, useHttps, '/cgi-bin/luci/');
-      final request = await client.postUrl(uri);
-      request.followRedirects = false;
-
+      
       final params =
           'luci_username=${Uri.encodeComponent(username)}&luci_password=${Uri.encodeComponent(password)}';
-      final body = utf8.encode(params);
 
-      request.headers.set('content-type', 'application/x-www-form-urlencoded');
-      request.contentLength = body.length;
-      request.add(body);
-
-      final response = await request.close();
+      final response = await client.post(
+        uri,
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: params,
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 302) {
-        final sysauthCookie = response.cookies.firstWhere(
-          (c) => c.name.contains('sysauth'),
-          orElse: () => Cookie('invalid', 'invalid'),
-        );
-        if (sysauthCookie.name != 'invalid') {
-          return sysauthCookie.value;
+        // Parse Set-Cookie headers to find sysauth cookie
+        final setCookieHeaders = response.headers['set-cookie'];
+        if (setCookieHeaders != null) {
+          final cookies = setCookieHeaders.split(',');
+          for (final cookie in cookies) {
+            if (cookie.contains('sysauth')) {
+              final cookieValue = cookie.split(';')[0].split('=')[1];
+              return cookieValue;
+            }
+          }
         }
       }
       return null;
-    } catch (e) {
+    } catch (e, stack) {
+      Logger.exception('Login failed', e, stack);
       rethrow;
-    } finally {
-      client.close();
     }
   }
 
@@ -71,9 +67,10 @@ class ApiService {
     required String object,
     required String method,
     Map<String, dynamic>? params,
+    BuildContext? context,
   }) async {
     final url = _buildUrl(ipAddress, useHttps, '/cgi-bin/luci/admin/ubus');
-    final client = createHttpClient(useHttps);
+    final client = createHttpClient(useHttps, ipAddress, context: context);
 
     final rpcPayload = {
       'jsonrpc': '2.0',
@@ -105,14 +102,13 @@ class ApiService {
       } else {
         throw Exception('Failed to call RPC: HTTP ${response.statusCode}');
       }
-    } catch (e) {
+    } catch (e, stack) {
+      Logger.exception('API call failed', e, stack);
       rethrow;
-    } finally {
-      client.close();
     }
   }
 
-  Future<bool> reboot(String ipAddress, String sysauth, bool useHttps) async {
+  Future<bool> reboot(String ipAddress, String sysauth, bool useHttps, {BuildContext? context}) async {
     try {
       final result = await call(
         ipAddress,
@@ -120,13 +116,17 @@ class ApiService {
         useHttps,
         object: 'system',
         method: 'reboot',
+        context: context,
       );
       // A successful reboot call returns [0].
       if (result is List && result.isNotEmpty && result[0] == 0) {
+        Logger.info('Router reboot initiated successfully');
         return true;
       }
+      Logger.warning('Router reboot call returned unexpected result: $result');
       return false;
-    } catch (e) {
+    } catch (e, stack) {
+      Logger.exception('Router reboot failed', e, stack);
       return false;
     }
   }
@@ -137,6 +137,7 @@ class ApiService {
     required String sysauth,
     required bool useHttps,
     required String interface,
+    BuildContext? context,
   }) async {
     try {
       final result = await call(
@@ -146,6 +147,7 @@ class ApiService {
         object: 'iwinfo',
         method: 'assoclist',
         params: {'device': interface},
+        context: context,
       );
       // The result is now a list with a 'results' key containing a list of station maps
       if (result is List && result.length > 1 && result[1] is Map && result[1]['results'] is List) {
@@ -157,7 +159,8 @@ class ApiService {
             .toList();
       }
       return [];
-    } catch (e) {
+    } catch (e, stack) {
+      Logger.exception('Failed to fetch associated stations', e, stack);
       return [];
     }
   }
@@ -169,6 +172,7 @@ class ApiService {
     required String sysauth,
     required bool useHttps,
     required String interface,
+    BuildContext? context,
   }) async {
     try {
       // Use the correct luci.wireguard.getWgInstances method
@@ -179,6 +183,7 @@ class ApiService {
         object: 'luci.wireguard',
         method: 'getWgInstances',
         params: {},
+        context: context,
       );
       
       if (result is List && result.length > 1 && result[0] == 0) {
@@ -189,7 +194,8 @@ class ApiService {
       }
       
       return null;
-    } catch (e) {
+    } catch (e, stack) {
+      Logger.exception('Failed to fetch WireGuard peers', e, stack);
       return null;
     }
   }
