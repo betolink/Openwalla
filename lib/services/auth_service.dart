@@ -1,50 +1,65 @@
-import 'package:flutter/material.dart';
-import 'package:luci_mobile/services/api_service.dart';
+import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
 import 'package:luci_mobile/services/secure_storage_service.dart';
+import 'package:luci_mobile/services/interfaces/auth_service_interface.dart';
 
-class AuthService {
+class RealAuthService implements IAuthService {
   final SecureStorageService _secureStorageService = SecureStorageService();
-  final ApiService _apiService = ApiService();
+  final IApiService _apiService;
 
   String? _sysauth;
   String? _ipAddress;
   bool _useHttps = false;
 
+  RealAuthService(this._apiService);
+
+  @override
   String? get sysauth => _sysauth;
+  @override
   String? get ipAddress => _ipAddress;
+  @override
   bool get useHttps => _useHttps;
+  @override
   bool get isAuthenticated => _sysauth != null;
 
-  Future<bool> login(
+  @override
+  Future<void> login(String ipAddress, String username, String password, bool useHttps) async {
+    await _login(ipAddress, username, password, useHttps);
+  }
+
+  Future<bool> _login(
     String ip,
     String user,
     String pass,
-    bool useHttps, {
-    BuildContext? context,
-  }) async {
+    bool useHttps,
+  ) async {
     try {
-      final token = await _apiService.login(ip, user, pass, useHttps, context: context);
-      if (token != null) {
-        _sysauth = token;
-        _ipAddress = ip;
-        _useHttps = useHttps;
-        
-        await _secureStorageService.saveCredentials(
-          ipAddress: ip,
-          username: user,
-          password: pass,
-          useHttps: useHttps,
-        );
-        
-        return true;
-      }
-      return false;
+      final token = await _apiService.login(ip, user, pass, useHttps);
+      _sysauth = token;
+      _ipAddress = ip;
+      _useHttps = useHttps;
+      
+      await _secureStorageService.saveCredentials(
+        ipAddress: ip,
+        username: user,
+        password: pass,
+        useHttps: useHttps,
+      );
+      
+      return true;
     } catch (e) {
       return false;
     }
   }
 
-  Future<bool> tryAutoLogin() async {
+  @override
+  Future<bool> tryAutoLogin(String? ipAddress, String? username, String? password, bool? useHttps) async {
+    if (ipAddress != null && username != null && password != null && useHttps != null) {
+      return await _login(ipAddress, username, password, useHttps);
+    }
+    return await _tryAutoLoginFromStorage();
+  }
+
+  Future<bool> _tryAutoLoginFromStorage() async {
     final credentials = await _secureStorageService.getCredentials();
     final ip = credentials['ipAddress'];
     final user = credentials['username'];
@@ -52,27 +67,29 @@ class AuthService {
     final useHttps = credentials['useHttps'] == 'true';
 
     if (ip != null && user != null && pass != null) {
-      return await login(ip, user, pass, useHttps);
+      return await _login(ip, user, pass, useHttps);
     }
 
     return false;
   }
 
-  void logout() {
+  @override
+  Future<void> logout() async {
     _sysauth = null;  
     _ipAddress = null;
     _useHttps = false;
-    _secureStorageService.clearCredentials();
+    await _secureStorageService.clearCredentials();
   }
 
-  Future<bool> checkRouterAvailability() async {
-    if (_ipAddress == null) return false;
+  @override
+  Future<bool> checkRouterAvailability(String ipAddress, bool useHttps) async {
+    if (ipAddress.isEmpty) return false;
     
     try {
       final result = await _apiService.call(
-        _ipAddress!,
+        ipAddress,
         '',
-        _useHttps,
+        useHttps,
         object: 'system',
         method: 'board',
         params: {},

@@ -28,6 +28,8 @@ class ThroughputService {
     if (_lastStats == null || _lastTimestamp == null) {
       _lastStats = networkData;
       _lastTimestamp = now;
+      // Add an initial zero-rate data point so the UI has something to display
+      _addToHistory(0.0, 0.0);
       return;
     }
 

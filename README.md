@@ -2,7 +2,7 @@
 
 <div align="center">
   <a href="https://apt.izzysoft.de/fdroid/index/apk/com.cogwheel.LuCIMobile">
-    <img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" alt="Get it on IzzyOnDroid" width="160"/>
+    <img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" alt="Get it on IzzyOnDroid" width="200"/>
   </a>
   <br><br>
   <a href="https://shields.rbtlog.dev/com.cogwheel.LuCIMobile">

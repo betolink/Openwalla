@@ -43,9 +43,6 @@ class HttpClientManager {
       
       // In debug mode, allow self-signed certificates for development
       if (kDebugMode) {
-        print('Warning: Accepting self-signed certificate for $certHost:$port');
-        print('Certificate subject: ${cert.subject}');
-        print('Certificate issuer: ${cert.issuer}');
         return true;
       }
       

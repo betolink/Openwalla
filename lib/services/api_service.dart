@@ -6,27 +6,48 @@ import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import '../utils/http_client_manager.dart';
 import '../utils/logger.dart';
+import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
 
 Uri _buildUrl(String ipAddress, bool useHttps, String path) {
   final scheme = useHttps ? 'https' : 'http';
   return Uri.parse('$scheme://$ipAddress$path');
 }
 
-class ApiService {
+class RealApiService implements IApiService {
   final HttpClientManager _httpClientManager = HttpClientManager();
 
-  http.Client createHttpClient(bool useHttps, String host, {BuildContext? context}) {
+  @override
+  http.Client createHttpClient() {
+    // Return a basic HTTP client without custom SSL handling
+    return http.Client();
+  }
+
+  @override
+  http.Client createHttpClientWithParams(bool useHttps, String host) {
+    return _createHttpClient(useHttps, host);
+  }
+
+  http.Client _createHttpClient(bool useHttps, String host, {BuildContext? context}) {
     return _httpClientManager.getClient(host, useHttps, context: context);
   }
 
-  Future<String?> login(
+  @override
+  Future<String> login(String ipAddress, String username, String password, bool useHttps) async {
+    final result = await _login(ipAddress, username, password, useHttps);
+    if (result == null) {
+      throw Exception('Login failed');
+    }
+    return result;
+  }
+
+  Future<String?> _login(
     String ipAddress,
     String username,
     String password,
     bool useHttps,
     {BuildContext? context}
   ) async {
-    final client = createHttpClient(useHttps, ipAddress, context: context);
+    final client = _createHttpClient(useHttps, ipAddress, context: context);
 
     try {
       final uri = _buildUrl(ipAddress, useHttps, '/cgi-bin/luci/');
@@ -60,7 +81,35 @@ class ApiService {
     }
   }
 
-  Future<dynamic> call(
+  @override
+  Future<dynamic> call(String ipAddress, String sysauth, bool useHttps, {required String object, required String method, Map<String, dynamic>? params, BuildContext? context}) async {
+    return await callWithContext(
+      ipAddress,
+      sysauth,
+      useHttps,
+      object: object,
+      method: method,
+      params: params,
+      context: context,
+    );
+  }
+
+  // Simplified call method for reviewer mode
+  @override
+  Future<dynamic> callSimple(String object, String method, Map<String, dynamic> params) async {
+    // Use default values for ipAddress, sysauth, and useHttps
+    // This is primarily for mock/testing scenarios
+    return await call(
+      'localhost',  // Default IP address
+      '',           // Default sysauth (empty for mock scenarios)
+      false,        // Default to HTTP
+      object: object,
+      method: method,
+      params: params,
+    );
+  }
+
+  Future<dynamic> callWithContext(
     String ipAddress,
     String sysauth,
     bool useHttps, {
@@ -70,7 +119,7 @@ class ApiService {
     BuildContext? context,
   }) async {
     final url = _buildUrl(ipAddress, useHttps, '/cgi-bin/luci/admin/ubus');
-    final client = createHttpClient(useHttps, ipAddress, context: context);
+    final client = _createHttpClient(useHttps, ipAddress, context: context);
 
     final rpcPayload = {
       'jsonrpc': '2.0',
@@ -98,7 +147,15 @@ class ApiService {
         if (decoded['error'] != null) {
           throw Exception('RPC error: ${decoded['error']['message']}');
         }
-        return decoded['result'];
+        // Return in LuCI RPC format: [status, data]
+        final result = decoded['result'];
+        if (result is List && result.isNotEmpty) {
+          // Result is already in [status, data] format
+          return result;
+        } else {
+          // Wrap single result in format: [0, data]
+          return [0, result];
+        }
       } else {
         throw Exception('Failed to call RPC: HTTP ${response.statusCode}');
       }
@@ -108,9 +165,14 @@ class ApiService {
     }
   }
 
+  @override
   Future<bool> reboot(String ipAddress, String sysauth, bool useHttps, {BuildContext? context}) async {
+    return await rebootWithContext(ipAddress, sysauth, useHttps, context: context);
+  }
+
+  Future<bool> rebootWithContext(String ipAddress, String sysauth, bool useHttps, {BuildContext? context}) async {
     try {
-      final result = await call(
+      final result = await callWithContext(
         ipAddress,
         sysauth,
         useHttps,
@@ -118,7 +180,7 @@ class ApiService {
         method: 'reboot',
         context: context,
       );
-      // A successful reboot call returns [0].
+      // Handle LuCI RPC format: [status, data] - successful reboot returns [0, ...]
       if (result is List && result.isNotEmpty && result[0] == 0) {
         Logger.info('Router reboot initiated successfully');
         return true;
@@ -131,8 +193,76 @@ class ApiService {
     }
   }
 
+  @override
+  Future<Map<String, Set<String>>> fetchAssociatedStations() async {
+    // This method is mainly used by the mock service
+    // For real implementation, individual interface queries via fetchAssociatedStationsWithContext should be used
+    // The app_state.dart should call fetchAllAssociatedWirelessMacsWithContext instead
+    throw UnimplementedError('Use fetchAllAssociatedWirelessMacsWithContext for real implementation');
+  }
+
+  /// Fetches all associated wireless MAC addresses from all wireless interfaces for real API
+  Future<Map<String, Set<String>>> fetchAllAssociatedWirelessMacsWithContext({
+    required String ipAddress,
+    required String sysauth,
+    required bool useHttps,
+    BuildContext? context,
+  }) async {
+    try {
+      // First, get wireless device information to find all wireless interfaces
+      final wirelessResult = await callWithContext(
+        ipAddress,
+        sysauth,
+        useHttps,
+        object: 'luci-rpc',
+        method: 'getWirelessDevices',
+        context: context,
+      );
+
+      if (wirelessResult is List && wirelessResult.length > 1 && wirelessResult[0] == 0) {
+        final wirelessData = wirelessResult[1] as Map<String, dynamic>?;
+        if (wirelessData == null) return {};
+
+        final result = <String, Set<String>>{};
+        
+        // For each wireless radio, get the associated stations
+        for (final entry in wirelessData.entries) {
+          final radioData = entry.value as Map<String, dynamic>?;
+          if (radioData == null || radioData['interfaces'] == null) continue;
+
+          final interfaces = radioData['interfaces'] as List?;
+          if (interfaces == null) continue;
+
+          for (final iface in interfaces) {
+            if (iface is Map<String, dynamic>) {
+              final ifname = iface['ifname'] as String?;
+              if (ifname != null) {
+                // Fetch associated stations for this interface
+                final stations = await fetchAssociatedStationsWithContext(
+                  ipAddress: ipAddress,
+                  sysauth: sysauth,
+                  useHttps: useHttps,
+                  interface: ifname,
+                  context: context,
+                );
+                if (stations.isNotEmpty) {
+                  result[ifname] = stations.toSet();
+                }
+              }
+            }
+          }
+        }
+        return result;
+      }
+      return {};
+    } catch (e, stack) {
+      Logger.exception('Failed to fetch all associated stations', e, stack);
+      return {};
+    }
+  }
+
   /// Fetches associated stations (wireless clients) for a given wireless interface (e.g., wlan0)
-  Future<List<String>> fetchAssociatedStations({
+  Future<List<String>> fetchAssociatedStationsWithContext({
     required String ipAddress,
     required String sysauth,
     required bool useHttps,
@@ -140,7 +270,7 @@ class ApiService {
     BuildContext? context,
   }) async {
     try {
-      final result = await call(
+      final result = await callWithContext(
         ipAddress,
         sysauth,
         useHttps,
@@ -149,14 +279,17 @@ class ApiService {
         params: {'device': interface},
         context: context,
       );
-      // The result is now a list with a 'results' key containing a list of station maps
-      if (result is List && result.length > 1 && result[1] is Map && result[1]['results'] is List) {
-        final resultsList = result[1]['results'] as List;
-        return resultsList
-            .map((entry) => (entry as Map<String, dynamic>)['mac']?.toString())
-            .where((mac) => mac != null)
-            .cast<String>()
-            .toList();
+      // Handle LuCI RPC format: [status, data]
+      if (result is List && result.length > 1 && result[0] == 0) {
+        final data = result[1];
+        if (data is Map && data['results'] is List) {
+          final resultsList = data['results'] as List;
+          return resultsList
+              .map((entry) => (entry as Map<String, dynamic>)['mac']?.toString())
+              .where((mac) => mac != null)
+              .cast<String>()
+              .toList();
+        }
       }
       return [];
     } catch (e, stack) {
@@ -165,9 +298,20 @@ class ApiService {
     }
   }
 
+  @override
+  Future<Map<String, dynamic>?> fetchWireGuardPeers({required String ipAddress, required String sysauth, required bool useHttps, required String interface, BuildContext? context}) async {
+    return await fetchWireGuardPeersWithContext(
+      ipAddress: ipAddress,
+      sysauth: sysauth,
+      useHttps: useHttps,
+      interface: interface,
+      context: context,
+    );
+  }
+
   /// Fetches WireGuard peer information for a given interface
   /// If interface is empty, returns data for all WireGuard interfaces
-  Future<Map<String, dynamic>?> fetchWireGuardPeers({
+  Future<Map<String, dynamic>?> fetchWireGuardPeersWithContext({
     required String ipAddress,
     required String sysauth,
     required bool useHttps,
@@ -176,7 +320,7 @@ class ApiService {
   }) async {
     try {
       // Use the correct luci.wireguard.getWgInstances method
-      final result = await call(
+      final result = await callWithContext(
         ipAddress,
         sysauth,
         useHttps,
@@ -186,6 +330,7 @@ class ApiService {
         context: context,
       );
       
+      // Handle LuCI RPC format: [status, data]
       if (result is List && result.length > 1 && result[0] == 0) {
         final data = result[1] as Map<String, dynamic>?;
         if (data != null) {
@@ -251,5 +396,48 @@ class ApiService {
     } else {
       return wireguardData[targetInterface];
     }
+  }
+
+  @override
+  Future<dynamic> uciSet(String ipAddress, String sysauth, bool useHttps, {required String config, required String section, required Map<String, String> values, BuildContext? context}) async {
+    return await callWithContext(
+      ipAddress,
+      sysauth,
+      useHttps,
+      object: 'uci',
+      method: 'set',
+      params: {
+        'config': config,
+        'section': section,
+        'values': values,
+      },
+      context: context,
+    );
+  }
+
+  @override
+  Future<dynamic> uciCommit(String ipAddress, String sysauth, bool useHttps, {required String config, BuildContext? context}) async {
+    return await callWithContext(
+      ipAddress,
+      sysauth,
+      useHttps,
+      object: 'uci',
+      method: 'commit',
+      params: {'config': config},
+      context: context,
+    );
+  }
+
+  @override
+  Future<dynamic> systemExec(String ipAddress, String sysauth, bool useHttps, {required String command, BuildContext? context}) async {
+    return await callWithContext(
+      ipAddress,
+      sysauth,
+      useHttps,
+      object: 'system',
+      method: 'exec',
+      params: {'command': command},
+      context: context,
+    );
   }
 }

@@ -199,16 +199,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildTitleWithTimestamp(String title, AppState appState) {
+    final lastUpdated = appState.dashboardData?['_lastUpdated'] as int?;
+    final updateTime = lastUpdated != null 
+        ? DateTime.fromMillisecondsSinceEpoch(lastUpdated)
+        : DateTime.now();
+    
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+        if (lastUpdated != null)
+          Text(
+            'Updated ${DateTime.now().difference(updateTime).inSeconds}s ago',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+              fontSize: 11,
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildRealtimeThroughputCard(AppState appState) {
     // Show loading state if we don't have any throughput data yet
     final hasValidData =
-        appState.rxHistory.length > 1 ||
-        appState.txHistory.length > 1; // Need at least 2 points for a line
+        appState.rxHistory.isNotEmpty ||
+        appState.txHistory.isNotEmpty ||
+        appState.currentRxRate > 0 ||
+        appState.currentTxRate > 0; // Show data as soon as we have any throughput info
     // Only show switching state if we're loading AND no dashboard data is available (true router switch)
     final isSwitchingRouter =
         appState.isLoading && appState.dashboardData == null;
 
-    return Card(
+    final card = Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       clipBehavior: Clip.antiAlias,
@@ -353,6 +383,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
     );
+
+    // Always return the card without fixed height - let parent control sizing
+    return card;
   }
 
   Widget _buildSpeedIndicator(
@@ -415,8 +448,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
     List<double> data,
     List<Color> gradientColors,
   ) {
-    // Don't show chart data if we don't have enough data points for a smooth line
-    if (data.length < 2) {
+    // Handle single data point case - show a flat line at that value
+    if (data.length == 1) {
+      return LineChartBarData(
+        spots: [
+          FlSpot(0, data[0]),
+          FlSpot(1, data[0]), // Duplicate the point to create a flat line
+        ],
+        isCurved: false, // Don't curve a flat line
+        gradient: LinearGradient(colors: gradientColors),
+        barWidth: 3,
+        isStrokeCapRound: true,
+        dotData: FlDotData(show: true, getDotPainter: (spot, percent, barData, index) {
+          return FlDotCirclePainter(
+            radius: 3,
+            color: gradientColors.first,
+            strokeWidth: 0,
+          );
+        }),
+        belowBarData: BarAreaData(
+          show: true,
+          gradient: LinearGradient(
+            colors: gradientColors
+                .map((color) => color.withOpacity(0.1))
+                .toList(),
+          ),
+        ),
+      );
+    }
+    
+    // Don't show chart data if we don't have any data points
+    if (data.isEmpty) {
       return LineChartBarData(
         spots: [],
         isCurved: true,
@@ -1042,7 +1104,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return Scaffold(
           appBar: LuciAppBar(
             centerTitle: true,
-            title: routers.length > 1 ? null : headerText,
+            title: null, // Always use titleWidget now
             titleWidget: routers.length > 1
                 ? Center(
                     child: Container(
@@ -1231,22 +1293,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Text(
-                                  headerText,
-                                  style:
-                                      Theme.of(
-                                        context,
-                                      ).appBarTheme.titleTextStyle ??
-                                      Theme.of(
-                                        context,
-                                      ).textTheme.titleLarge?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: Theme.of(
-                                          context,
-                                        ).appBarTheme.titleTextStyle?.color,
+                                Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      headerText,
+                                      style:
+                                          Theme.of(
+                                            context,
+                                          ).appBarTheme.titleTextStyle ??
+                                          Theme.of(
+                                            context,
+                                          ).textTheme.titleLarge?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: Theme.of(
+                                              context,
+                                            ).appBarTheme.titleTextStyle?.color,
+                                          ),
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    if (appState.dashboardData?['_lastUpdated'] != null)
+                                      Text(
+                                        'Updated ${DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(appState.dashboardData!['_lastUpdated'] as int)).inSeconds}s ago',
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                                          fontSize: 11,
+                                        ),
                                       ),
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.center,
+                                  ],
                                 ),
                                 Icon(
                                   Icons.arrow_drop_down,
@@ -1262,9 +1337,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                   )
-                : null,
+                : _buildTitleWithTimestamp(headerText, appState),
           ),
-          body: _buildBody(appState),
+          body: Stack(
+            children: [
+              _buildBody(appState),
+            ],
+          ),
         );
       },
     );
@@ -1321,11 +1400,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 12),
               _buildInterfaceStatusCards(appState),
               const SizedBox(height: 12),
+              // Extra padding to ensure scroll behavior for RefreshIndicator
+              const SizedBox(height: 100),
             ];
 
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 child: LuciStaggeredAnimation(
                   staggerDelay: const Duration(milliseconds: 50),
                   children: landscapeContent,
@@ -1333,41 +1415,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             );
           } else {
-            // Portrait mode: Split animations to avoid Expanded widget layout conflicts
-            // Animate cards separately above and below the expandable chart
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Animate the top cards
-                  LuciStaggeredAnimation(
-                    staggerDelay: const Duration(milliseconds: 50),
-                    children: [
-                      const SizedBox(height: 16),
-                      _buildDeviceInfoCard(appState),
-                      const SizedBox(height: 12),
-                    ],
+            // Portrait mode: Fill available height exactly without scrolling
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                return RefreshIndicator(
+                  onRefresh: () => appState.fetchDashboardData(),
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: SizedBox(
+                      height: constraints.maxHeight,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 16),
+                            _buildDeviceInfoCard(appState),
+                            const SizedBox(height: 12),
+                            Expanded(
+                              child: _buildRealtimeThroughputCard(appState),
+                            ),
+                            const SizedBox(height: 12),
+                            _buildSystemVitalsCard(appState),
+                            const SizedBox(height: 12),
+                            _buildWirelessNetworksCard(appState),
+                            const SizedBox(height: 12),
+                            _buildInterfaceStatusCards(appState),
+                            const SizedBox(height: 12),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                  // Expanded chart (not animated to avoid layout issues)
-                  Expanded(child: _buildRealtimeThroughputCard(appState)),
-                  // Animate the bottom cards
-                  LuciStaggeredAnimation(
-                    staggerDelay: const Duration(
-                      milliseconds: 40,
-                    ), // Faster for bottom section
-                    children: [
-                      const SizedBox(height: 12),
-                      _buildSystemVitalsCard(appState),
-                      const SizedBox(height: 12),
-                      _buildWirelessNetworksCard(appState),
-                      const SizedBox(height: 12),
-                      _buildInterfaceStatusCards(appState),
-                      const SizedBox(height: 12),
-                    ],
-                  ),
-                ],
-              ),
+                );
+              },
             );
           }
         },

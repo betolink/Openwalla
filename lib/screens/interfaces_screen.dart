@@ -336,7 +336,9 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
       body: SafeArea(
         top: true,
         bottom: false,
-        child: LuciPullToRefresh(
+        child: Stack(
+          children: [
+            LuciPullToRefresh(
           onRefresh: () => appState.fetchDashboardData(),
           child: Selector<AppState, (bool, String?, Map<String, dynamic>?)>(
             selector: (_, state) => (
@@ -410,6 +412,8 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
               );
             },
           ),
+            ),
+          ],
         ),
       ),
     );

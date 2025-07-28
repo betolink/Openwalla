@@ -59,7 +59,9 @@ class _ClientsScreenState extends State<ClientsScreen>
         final wirelessMacs = snapshot.data ?? {};
         return Scaffold(
           appBar: const LuciAppBar(title: 'Clients'),
-          body: LuciPullToRefresh(
+          body: Stack(
+            children: [
+              LuciPullToRefresh(
             onRefresh: () => appState.fetchDashboardData(),
             child: Selector<AppState, (bool, String?, Map<String, dynamic>?)>(
               selector: (_, state) => (
@@ -257,6 +259,8 @@ class _ClientsScreenState extends State<ClientsScreen>
                 );
               },
             ),
+              ),
+            ],
           ),
         );
       },

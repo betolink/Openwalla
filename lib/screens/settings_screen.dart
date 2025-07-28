@@ -2,9 +2,40 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:luci_mobile/state/app_state.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
+import 'package:luci_mobile/config/app_config.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
+  
+  void _showReviewerModeResetDialog(BuildContext context, AppState appState) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Exit Reviewer Mode?'),
+        content: const Text(
+          'This will disable reviewer mode and return to normal authentication. '
+          'You will need to log in with real router credentials.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await appState.setReviewerMode(false);
+              appState.logout();
+              if (context.mounted) {
+                Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+              }
+            },
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +71,33 @@ class SettingsScreen extends StatelessWidget {
                     groupValue: appState.themeMode,
                     onChanged: (mode) => appState.setThemeMode(mode!),
                   ),
+                  if (appState.reviewerModeEnabled) ...[
+                    const Divider(height: 32),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                      child: Text('Reviewer Mode', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.info_outline, color: Colors.orange),
+                      title: const Text('Reviewer Mode Active'),
+                      subtitle: Text(
+                        'Mock data is being used for demonstration',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: FilledButton.icon(
+                        onPressed: () => _showReviewerModeResetDialog(context, appState),
+                        icon: const Icon(Icons.exit_to_app),
+                        label: const Text('Exit Reviewer Mode'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.error,
+                          foregroundColor: Theme.of(context).colorScheme.onError,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               );
             },

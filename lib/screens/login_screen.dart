@@ -5,6 +5,7 @@ import 'package:luci_mobile/state/app_state.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:luci_mobile/config/app_config.dart';
+import 'package:luci_mobile/services/secure_storage_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,24 +14,130 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _ipController = TextEditingController();
   final _usernameController = TextEditingController(text: 'root');
   final _passwordController = TextEditingController();
+  final _confirmationController = TextEditingController();
   bool _useHttps = false;
   bool _isCheckingAutoLogin = true;
   bool _passwordVisible = false;
   late AnimationController _logoAnimController;
+  late AnimationController _progressAnimController;
+  bool _isActivatingReviewerMode = false;
   @override
   void initState() {
     super.initState();
-    _tryAutoLogin();
+    _checkReviewerModeAndAutoLogin();
     _logoAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
+    _progressAnimController = AnimationController(
+      vsync: this,
+      duration: AppConfig.reviewerModeActivationDuration,
+    );
     _logoAnimController.forward();
+  }
+  
+  Future<void> _checkReviewerModeAndAutoLogin() async {
+    // Check if reviewer mode is enabled
+    final secureStorage = SecureStorageService();
+    final reviewerModeEnabled = await secureStorage.readValue(AppConfig.reviewerModeKey);
+    
+    if (reviewerModeEnabled == 'true' && mounted) {
+      // Navigate directly to main screen in reviewer mode
+      Navigator.of(context).pushReplacementNamed('/');
+    } else {
+      // Try auto login
+      _tryAutoLogin();
+    }
+  }
+
+  void _startReviewerModeActivation() {
+    setState(() {
+      _isActivatingReviewerMode = true;
+    });
+    
+    // Start progress animation
+    _progressAnimController.forward();
+    
+    // Start a timer to check if the user has held for 5 seconds
+    Future.delayed(AppConfig.reviewerModeActivationDuration, () {
+      if (_isActivatingReviewerMode && mounted) {
+        _showReviewerModeDialog();
+      }
+    });
+  }
+  
+  void _cancelReviewerModeActivation() {
+    setState(() {
+      _isActivatingReviewerMode = false;
+    });
+    // Reset progress animation
+    _progressAnimController.reset();
+  }
+  
+  void _showReviewerModeDialog() {
+    _confirmationController.clear();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Activate Reviewer Mode?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'This will enable reviewer mode which bypasses authentication '
+                'and provides mock data for app demonstration purposes.'
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'To confirm, type "REVIEWER" below:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _confirmationController,
+                decoration: const InputDecoration(
+                  hintText: 'Type REVIEWER',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (_) => setDialogState(() {}),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: _confirmationController.text == 'REVIEWER'
+                  ? () {
+                      Navigator.of(context).pop();
+                      _activateReviewerMode();
+                    }
+                  : null,
+              child: const Text('Activate'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Future<void> _activateReviewerMode() async {
+    final appState = Provider.of<AppState>(context, listen: false);
+    await appState.setReviewerMode(true);
+    
+    if (mounted) {
+      Navigator.of(context).pushReplacementNamed('/');
+    }
   }
 
   @override
@@ -38,7 +145,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     _ipController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
+    _confirmationController.dispose();
     _logoAnimController.dispose();
+    _progressAnimController.dispose();
     super.dispose();
   }
 
@@ -134,11 +243,80 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         const SizedBox(height: 32),
-                        Text('LuCI Mobile', style: textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 4),
-                        Text('Connect to your OpenWrt router', style: textTheme.titleMedium?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.8))),
-                        const SizedBox(height: 2),
-                        Text('Fast. Secure. Open Source.', style: textTheme.bodySmall?.copyWith(color: colorScheme.primary)),
+                        GestureDetector(
+                          onLongPress: () {
+                            _startReviewerModeActivation();
+                          },
+                          onLongPressUp: () {
+                            _cancelReviewerModeActivation();
+                          },
+                          child: Column(
+                            children: [
+                              Column(
+                                children: [
+                                  Text('LuCI Mobile', style: textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold)),
+                                  const SizedBox(height: 4),
+                                  Text('Connect to your OpenWrt router', style: textTheme.titleMedium?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.8))),
+                                  const SizedBox(height: 2),
+                                  Text('Fast. Secure. Open Source.', style: textTheme.bodySmall?.copyWith(color: colorScheme.primary)),
+                                ],
+                              ),
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 200),
+                                child: _isActivatingReviewerMode
+                                    ? Padding(
+                                        key: const ValueKey('progress'),
+                                        padding: const EdgeInsets.only(top: 24),
+                                        child: AnimatedBuilder(
+                                          animation: _progressAnimController,
+                                          builder: (context, child) {
+                                            return Column(
+                                              children: [
+                                                Text(
+                                                  'Hold to activate reviewer mode...',
+                                                  style: textTheme.bodySmall?.copyWith(
+                                                    color: colorScheme.primary,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 12),
+                                                Container(
+                                                  width: 280,
+                                                  height: 6,
+                                                  decoration: BoxDecoration(
+                                                    borderRadius: BorderRadius.circular(12),
+                                                    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                                                    border: Border.all(
+                                                      color: colorScheme.outline.withValues(alpha: 0.15),
+                                                      width: 0.5,
+                                                    ),
+                                                  ),
+                                                  child: ClipRRect(
+                                                    borderRadius: BorderRadius.circular(12),
+                                                    child: LinearProgressIndicator(
+                                                      value: _progressAnimController.value,
+                                                      backgroundColor: Colors.transparent,
+                                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                                        colorScheme.primary.withValues(alpha: 0.9),
+                                                      ),
+                                                      minHeight: 6,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        ),
+                                      )
+                                    : const SizedBox(
+                                        key: ValueKey('empty'),
+                                        height: 0,
+                                      ),
+                              ),
+                            ],
+                          ),
+                        ),
                         const SizedBox(height: 24),
                         // Glassmorphism card
                         ClipRRect(

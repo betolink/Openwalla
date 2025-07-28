@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:luci_mobile/services/secure_storage_service.dart';
+import 'package:luci_mobile/config/app_config.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -20,11 +22,25 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     );
     _logoScale = CurvedAnimation(parent: _controller, curve: Curves.elasticOut);
     _controller.forward();
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/login');
-      }
-    });
+    _checkReviewerMode();
+  }
+
+  Future<void> _checkReviewerMode() async {
+    await Future.delayed(const Duration(seconds: 2));
+    
+    if (!mounted) return;
+    
+    // Check if reviewer mode is enabled
+    final secureStorage = SecureStorageService();
+    final reviewerModeEnabled = await secureStorage.readValue(AppConfig.reviewerModeKey);
+    
+    if (reviewerModeEnabled == 'true') {
+      // Navigate directly to main screen in reviewer mode
+      Navigator.of(context).pushReplacementNamed('/');
+    } else {
+      // Normal flow - go to login screen
+      Navigator.of(context).pushReplacementNamed('/login');
+    }
   }
 
   @override
