@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
@@ -9,10 +11,13 @@ import 'package:http/io_client.dart';
 class HttpClientManager {
   static final HttpClientManager _instance = HttpClientManager._internal();
   factory HttpClientManager() => _instance;
-  HttpClientManager._internal();
+  HttpClientManager._internal() {
+    _loadAcceptedCertificates();
+  }
 
   final Map<String, http.Client> _clients = {};
   final Map<String, bool> _userAcceptedCerts = {};
+  static const String _acceptedCertsKey = 'accepted_certificates';
 
   /// Creates or returns a cached HTTP client for the given host
   /// In production builds, certificate validation is enforced with user warnings
@@ -51,39 +56,39 @@ class HttpClientManager {
         return true;
       }
       
-      // In production, show warning dialog for untrusted certificates
-      if (context != null && context.mounted) {
-        _showCertificateWarning(context, cert, certHost, port, certKey);
-      }
-      
-      return _userAcceptedCerts[certKey] == true;
+      // Certificate not accepted yet
+      return false;
     };
 
     return IOClient(httpClient);
   }
 
-  /// Shows a warning dialog for untrusted certificates
-  Future<void> _showCertificateWarning(
-    BuildContext context,
-    X509Certificate cert,
-    String host,
-    int port,
-    String certKey,
-  ) async {
-    if (!context.mounted) return;
-    
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) => CertificateWarningDialog(
-        certificate: cert,
-        host: host,
-        port: port,
-      ),
-    );
-    
-    if (result == true) {
-      _userAcceptedCerts[certKey] = true;
+  /// Load accepted certificates from secure storage
+  Future<void> _loadAcceptedCertificates() async {
+    try {
+      final storage = const FlutterSecureStorage();
+      final certsJson = await storage.read(key: _acceptedCertsKey);
+      if (certsJson != null) {
+        final certs = Map<String, dynamic>.from(jsonDecode(certsJson));
+        _userAcceptedCerts.clear();
+        certs.forEach((key, value) {
+          if (value == true) {
+            _userAcceptedCerts[key] = true;
+          }
+        });
+      }
+    } catch (e) {
+      // Ignore errors loading certificates
+    }
+  }
+  
+  /// Save accepted certificates to secure storage
+  Future<void> _saveAcceptedCertificates() async {
+    try {
+      final storage = const FlutterSecureStorage();
+      await storage.write(key: _acceptedCertsKey, value: jsonEncode(_userAcceptedCerts));
+    } catch (e) {
+      // Ignore errors saving certificates
     }
   }
 
@@ -100,7 +105,161 @@ class HttpClientManager {
       client.close();
     }
     _clients.clear();
+    // Don't clear accepted certificates on dispose
+  }
+  
+  /// Clear accepted certificates (useful for logout or security reset)
+  Future<void> clearAcceptedCertificates() async {
+    // Clear in-memory certificates
     _userAcceptedCerts.clear();
+    
+    // Clear all cached HTTP clients
+    for (final client in _clients.values) {
+      client.close();
+    }
+    _clients.clear();
+    
+    // Delete from secure storage
+    try {
+      final storage = const FlutterSecureStorage();
+      await storage.delete(key: _acceptedCertsKey);
+    } catch (e) {
+      // Ignore errors
+    }
+  }
+  
+  /// Clear certificates for a specific host
+  Future<void> clearCertificatesForHost(String host) async {
+    // Remove certificates for this host on port 443
+    final certKey = '$host:443';
+    _userAcceptedCerts.remove(certKey);
+    
+    // Close and remove cached HTTP clients for this host
+    final keysToRemove = _clients.keys.where((key) => key.startsWith(host)).toList();
+    for (final key in keysToRemove) {
+      _clients[key]?.close();
+      _clients.remove(key);
+    }
+    
+    // Save the updated certificates
+    await _saveAcceptedCertificates();
+  }
+  
+  /// Prompts user to accept certificate for a given host
+  /// Returns true if user accepts, false otherwise
+  Future<bool> promptForCertificateAcceptance({
+    required BuildContext context,
+    required String host,
+    required bool useHttps,
+  }) async {
+    if (!useHttps) return true; // Non-HTTPS doesn't need certificate acceptance
+    if (!context.mounted) return false;
+    
+    // Check if already accepted
+    final certKey = '$host:443';
+    if (_userAcceptedCerts[certKey] == true) {
+      return true;
+    }
+    
+    // Try to make a test connection to trigger certificate validation
+    final testClient = HttpClient();
+    testClient.connectionTimeout = const Duration(seconds: 5);
+    
+    // Apply the same certificate validation logic
+    testClient.badCertificateCallback = (cert, certHost, port) {
+      return kDebugMode || _userAcceptedCerts['$certHost:$port'] == true;
+    };
+    
+    try {
+      final uri = Uri.parse('https://$host');
+      final request = await testClient.getUrl(uri);
+      await request.close();
+      // If we get here, certificate is already valid or accepted
+      return true;
+    } catch (e) {
+      if (e is HandshakeException) {
+        // Extract certificate details from the exception if possible
+        // For now, show a simplified dialog
+        if (context.mounted) {
+          final result = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext dialogContext) => AlertDialog(
+              icon: Icon(
+                Icons.warning_amber_rounded,
+                color: Theme.of(context).colorScheme.error,
+                size: 32,
+              ),
+              title: const Text('Certificate Warning'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'The certificate for $host is not trusted by your device. This could indicate a security risk.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: Theme.of(context).colorScheme.error,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Only proceed if you trust this router and understand the security implications.',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                    foregroundColor: Theme.of(context).colorScheme.onError,
+                  ),
+                  child: const Text('Accept Risk'),
+                ),
+              ],
+            ),
+          );
+          
+          if (result == true) {
+            // Store acceptance persistently
+            _userAcceptedCerts['$host:443'] = true;
+            await _saveAcceptedCertificates();
+            return true;
+          }
+        }
+      }
+    } finally {
+      testClient.close();
+    }
+    
+    return false;
   }
 }
 

@@ -1,20 +1,20 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:luci_mobile/state/app_state.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:luci_mobile/main.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:luci_mobile/config/app_config.dart';
 import 'package:luci_mobile/services/secure_storage_service.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin {
+class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _ipController = TextEditingController();
   final _usernameController = TextEditingController(text: 'root');
@@ -132,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   }
   
   Future<void> _activateReviewerMode() async {
-    final appState = Provider.of<AppState>(context, listen: false);
+    final appState = ref.read(appStateProvider);
     await appState.setReviewerMode(true);
     
     if (mounted) {
@@ -152,8 +152,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   }
 
   Future<void> _tryAutoLogin() async {
-    final appState = Provider.of<AppState>(context, listen: false);
-    final success = await appState.tryAutoLogin();
+    final appState = ref.read(appStateProvider);
+    final success = await appState.tryAutoLogin(context: context);
     if (success && mounted) {
       Navigator.of(context).pushReplacementNamed('/');
     } else {
@@ -167,7 +167,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
   Future<void> _connect() async {
     if (_formKey.currentState!.validate()) {
-      final appState = Provider.of<AppState>(context, listen: false);
+      final appState = ref.read(appStateProvider);
       final ip = _ipController.text;
       final user = _usernameController.text;
       final pass = _passwordController.text;
@@ -335,8 +335,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                 padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 16.0),
                                 child: Form(
                                   key: _formKey,
-                                  child: Consumer<AppState>(
-                                    builder: (context, appState, child) {
+                                  child: Builder(
+                                    builder: (context) {
+                                      final appState = ref.watch(appStateProvider);
                                       return Column(
                                         crossAxisAlignment: CrossAxisAlignment.stretch,
                                         mainAxisSize: MainAxisSize.min,

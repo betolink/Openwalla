@@ -1,23 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:luci_mobile/state/app_state.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/models/router.dart' as model;
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 
-class ManageRoutersScreen extends StatefulWidget {
+class ManageRoutersScreen extends ConsumerStatefulWidget {
   const ManageRoutersScreen({super.key});
 
   @override
-  State<ManageRoutersScreen> createState() => _ManageRoutersScreenState();
+  ConsumerState<ManageRoutersScreen> createState() => _ManageRoutersScreenState();
 }
 
-class _ManageRoutersScreenState extends State<ManageRoutersScreen> {
+class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
   String? _switchingRouterId;
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AppState>(
-      builder: (context, appState, _) {
+    final appState = ref.watch(appStateProvider);
         final List<model.Router> routers = appState.routers;
         final String? selectedId = appState.selectedRouter?.id;
         return Scaffold(
@@ -83,7 +82,7 @@ class _ManageRoutersScreenState extends State<ManageRoutersScreen> {
                                         Navigator.of(context).popUntil((route) => route.isFirst);
                                         // Set Dashboard tab as active
                                         WidgetsBinding.instance.addPostFrameCallback((_) {
-                                          Provider.of<AppState>(context, listen: false).requestTab(0);
+                                          ref.read(appStateProvider).requestTab(0);
                                         });
                                       } finally {
                                         if (mounted) {
@@ -362,8 +361,6 @@ class _ManageRoutersScreenState extends State<ManageRoutersScreen> {
             ],
           ),
         );
-      },
-    );
   }
 }
 

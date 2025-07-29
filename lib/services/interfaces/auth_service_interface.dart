@@ -1,8 +1,10 @@
+import 'package:flutter/material.dart';
+
 abstract class IAuthService {
-  Future<void> login(String ipAddress, String username, String password, bool useHttps);
-  Future<bool> tryAutoLogin(String? ipAddress, String? username, String? password, bool? useHttps);
+  Future<void> login(String ipAddress, String username, String password, bool useHttps, {BuildContext? context});
+  Future<bool> tryAutoLogin(String? ipAddress, String? username, String? password, bool? useHttps, {BuildContext? context});
   Future<void> logout();
-  Future<bool> checkRouterAvailability(String ipAddress, bool useHttps);
+  Future<bool> checkRouterAvailability(String ipAddress, bool useHttps, {BuildContext? context});
   
   String? get sysauth;
   String? get ipAddress;

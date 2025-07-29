@@ -1,9 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:http/io_client.dart';
 import '../utils/http_client_manager.dart';
 import '../utils/logger.dart';
 import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
@@ -32,8 +29,8 @@ class RealApiService implements IApiService {
   }
 
   @override
-  Future<String> login(String ipAddress, String username, String password, bool useHttps) async {
-    final result = await _login(ipAddress, username, password, useHttps);
+  Future<String> login(String ipAddress, String username, String password, bool useHttps, {BuildContext? context}) async {
+    final result = await _login(ipAddress, username, password, useHttps, context: context);
     if (result == null) {
       throw Exception('Login failed');
     }
@@ -48,13 +45,11 @@ class RealApiService implements IApiService {
     {BuildContext? context}
   ) async {
     final client = _createHttpClient(useHttps, ipAddress, context: context);
+    final uri = _buildUrl(ipAddress, useHttps, '/cgi-bin/luci/');
+    final params =
+        'luci_username=${Uri.encodeComponent(username)}&luci_password=${Uri.encodeComponent(password)}';
 
     try {
-      final uri = _buildUrl(ipAddress, useHttps, '/cgi-bin/luci/');
-      
-      final params =
-          'luci_username=${Uri.encodeComponent(username)}&luci_password=${Uri.encodeComponent(password)}';
-
       final response = await client.post(
         uri,
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -77,6 +72,44 @@ class RealApiService implements IApiService {
       return null;
     } catch (e, stack) {
       Logger.exception('Login failed', e, stack);
+      
+      // Check if this is a certificate error and we have context to show dialog
+      if (useHttps && context != null && e.toString().contains('CERTIFICATE_VERIFY_FAILED')) {
+        // Try to prompt for certificate acceptance
+        final accepted = await _httpClientManager.promptForCertificateAcceptance(
+          context: context,
+          host: ipAddress,
+          useHttps: useHttps,
+        );
+        
+        if (accepted) {
+          // Create a new client and retry the login
+          final retryClient = _createHttpClient(useHttps, ipAddress, context: context);
+          try {
+            final retryResponse = await retryClient.post(
+              uri,
+              headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+              body: params,
+            ).timeout(const Duration(seconds: 10));
+
+            if (retryResponse.statusCode == 302) {
+              final setCookieHeaders = retryResponse.headers['set-cookie'];
+              if (setCookieHeaders != null) {
+                final cookies = setCookieHeaders.split(',');
+                for (final cookie in cookies) {
+                  if (cookie.contains('sysauth')) {
+                    final cookieValue = cookie.split(';')[0].split('=')[1];
+                    return cookieValue;
+                  }
+                }
+              }
+            }
+          } catch (retryError, retryStack) {
+            Logger.exception('Login retry failed', retryError, retryStack);
+          }
+        }
+      }
+      
       rethrow;
     }
   }
@@ -202,6 +235,7 @@ class RealApiService implements IApiService {
   }
 
   /// Fetches all associated wireless MAC addresses from all wireless interfaces for real API
+  @override
   Future<Map<String, Set<String>>> fetchAllAssociatedWirelessMacsWithContext({
     required String ipAddress,
     required String sysauth,
@@ -262,6 +296,7 @@ class RealApiService implements IApiService {
   }
 
   /// Fetches associated stations (wireless clients) for a given wireless interface (e.g., wlan0)
+  @override
   Future<List<String>> fetchAssociatedStationsWithContext({
     required String ipAddress,
     required String sysauth,

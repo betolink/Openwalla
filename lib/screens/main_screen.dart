@@ -3,21 +3,21 @@ import 'package:luci_mobile/screens/dashboard_screen.dart';
 import 'package:luci_mobile/screens/clients_screen.dart';
 import 'package:luci_mobile/screens/interfaces_screen.dart';
 import 'package:luci_mobile/screens/more_screen.dart';
-import 'package:luci_mobile/state/app_state.dart';
+import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/widgets/luci_navigation_enhancements.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class MainScreen extends StatefulWidget {
+class MainScreen extends ConsumerStatefulWidget {
   final int? initialTab;
   final String? interfaceToScroll;
 
   const MainScreen({super.key, this.initialTab, this.interfaceToScroll});
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends ConsumerState<MainScreen> {
   int _selectedIndex = 0;
   String? _currentInterfaceToScroll;
 
@@ -78,7 +78,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     // Listen for requestedTab in AppState
-    final appState = Provider.of<AppState>(context);
+    final appState = ref.watch(appStateProvider);
     if (appState.requestedTab != null &&
         appState.requestedTab != _selectedIndex) {
       // Store the values before the callback to avoid null reference issues
@@ -104,9 +104,9 @@ class _MainScreenState extends State<MainScreen> {
           child: _widgetOptions.elementAt(_selectedIndex),
         ),
       ),
-      bottomNavigationBar: Selector<AppState, bool>(
-        selector: (_, state) => state.isRebooting,
-        builder: (context, isRebooting, _) {
+      bottomNavigationBar: Builder(
+        builder: (context) {
+          final isRebooting = ref.watch(appStateProvider.select((state) => state.isRebooting));
           Color? getTabColor(int index) =>
               (isRebooting && index != 3) ? Colors.grey.withAlpha(128) : null;
           double getTabOpacity(int index) =>

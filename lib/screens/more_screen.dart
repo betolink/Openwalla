@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:luci_mobile/state/app_state.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/screens/login_screen.dart';
 import 'package:luci_mobile/screens/settings_screen.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
@@ -9,6 +9,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:luci_mobile/config/app_config.dart';
 import 'package:luci_mobile/screens/manage_routers_screen.dart';
+import 'package:luci_mobile/utils/http_client_manager.dart';
 
 class _MoreScreenSection extends StatelessWidget {
   final List<Widget> tiles;
@@ -33,15 +34,14 @@ class _MoreScreenSection extends StatelessWidget {
   }
 }
 
-class MoreScreen extends StatefulWidget {
+class MoreScreen extends ConsumerStatefulWidget {
   const MoreScreen({super.key});
 
   @override
-  State<MoreScreen> createState() => _MoreScreenState();
+  ConsumerState<MoreScreen> createState() => _MoreScreenState();
 }
 
-class _MoreScreenState extends State<MoreScreen> {
-  AppState? _appState;
+class _MoreScreenState extends ConsumerState<MoreScreen> {
 
   @override
   void initState() {
@@ -52,13 +52,14 @@ class _MoreScreenState extends State<MoreScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _appState = Provider.of<AppState>(context, listen: false);
-    _appState?.onRouterBackOnline = _showRouterBackOnlineMessage;
+    final appState = ref.read(appStateProvider);
+    appState.onRouterBackOnline = _showRouterBackOnlineMessage;
   }
 
   @override
   void dispose() {
-    _appState?.onRouterBackOnline = null;
+    final appState = ref.read(appStateProvider);
+    appState.onRouterBackOnline = null;
     super.dispose();
   }
 
@@ -101,8 +102,8 @@ class _MoreScreenState extends State<MoreScreen> {
 
   Future<void> _showLogoutDialog(
     BuildContext context,
-    AppState appState,
   ) async {
+    final appState = ref.read(appStateProvider);
     return showDialog<void>(
       context: context,
       builder: (BuildContext context) {
@@ -118,8 +119,10 @@ class _MoreScreenState extends State<MoreScreen> {
             ),
             TextButton(
               child: const Text('Logout'),
-              onPressed: () {
+              onPressed: () async {
                 appState.logout();
+                // Clear all accepted certificates on logout
+                await HttpClientManager().clearAcceptedCertificates();
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(builder: (context) => const LoginScreen()),
                   (Route<dynamic> route) => false,
@@ -134,8 +137,8 @@ class _MoreScreenState extends State<MoreScreen> {
 
   Future<void> _showRebootDialog(
     BuildContext context,
-    AppState appState,
   ) async {
+    final appState = ref.read(appStateProvider);
     return showDialog<void>(
       context: context,
       builder: (BuildContext context) {
@@ -283,8 +286,6 @@ class _MoreScreenState extends State<MoreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final appState = Provider.of<AppState>(context, listen: false);
-
     return Scaffold(
       appBar: const LuciAppBar(title: 'More'),
       body: SingleChildScrollView(
@@ -293,9 +294,9 @@ class _MoreScreenState extends State<MoreScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const LuciSectionHeader('Device Management'),
-            Selector<AppState, bool>(
-              selector: (_, state) => state.isRebooting,
-              builder: (context, isRebooting, _) {
+            Builder(
+              builder: (context) {
+                final isRebooting = ref.watch(appStateProvider.select((state) => state.isRebooting));
                 return _MoreScreenSection(
                   tiles: [
                     _buildMoreTile(
@@ -306,7 +307,7 @@ class _MoreScreenState extends State<MoreScreen> {
                       subtitle: 'Perform a system restart',
                       onTap: isRebooting
                           ? null
-                          : () => _showRebootDialog(context, appState),
+                          : () => _showRebootDialog(context),
                       enabled: !isRebooting,
                       showSpinner: isRebooting,
                     ),
@@ -363,7 +364,7 @@ class _MoreScreenState extends State<MoreScreen> {
                   subtitleColor: Theme.of(
                     context,
                   ).colorScheme.error.withValues(alpha: 0.7),
-                  onTap: () => _showLogoutDialog(context, appState),
+                  onTap: () => _showLogoutDialog(context),
                 ),
               ],
             ),

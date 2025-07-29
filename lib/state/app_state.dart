@@ -9,13 +9,17 @@ import 'package:luci_mobile/services/interfaces/auth_service_interface.dart';
 import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
 import 'package:luci_mobile/services/service_factory.dart';
 import 'package:luci_mobile/config/app_config.dart';
+import 'package:luci_mobile/utils/http_client_manager.dart';
 
 class AppState extends ChangeNotifier {
+  static AppState? _instance;
+  
   late final SecureStorageService _secureStorageService;
   IApiService? _apiService;
   IAuthService? _authService;
   RouterService? _routerService;
   ThroughputService? _throughputService;
+  final HttpClientManager _httpClientManager = HttpClientManager();
   
   // Reviewer mode state
   bool _reviewerModeEnabled = false;
@@ -54,8 +58,12 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  AppState() {
+  AppState._() {
     _initialize();
+  }
+  
+  static AppState get instance {
+    return _instance ??= AppState._();
   }
   
   Future<void> _initialize() async {
@@ -136,6 +144,13 @@ class AppState extends ChangeNotifier {
 
   Future<void> removeRouter(String id) async {
     if (_routerService == null) return;
+    
+    // Get the router before removing to clear its certificates
+    final router = _routerService!.routers.firstWhere((r) => r.id == id, orElse: () => throw Exception('Router not found'));
+    
+    // Clear certificates for this specific router
+    await _httpClientManager.clearCertificatesForHost(router.ipAddress);
+    
     final needsSwitch = await _routerService!.removeRouter(id);
     if (needsSwitch && _routerService!.routers.isNotEmpty) {
       await selectRouter(_routerService!.routers.first.id);
@@ -197,7 +212,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _authService!.login(ip, user, pass, useHttps);
+      await _authService!.login(ip, user, pass, useHttps, context: context);
       
       // Check if authentication was successful
       if (_authService!.isAuthenticated) {
@@ -776,11 +791,11 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<bool> tryAutoLogin() async {
+  Future<bool> tryAutoLogin({BuildContext? context}) async {
     if (_reviewerModeEnabled) {
-      return await _authService!.tryAutoLogin(null, null, null, null);
+      return await _authService!.tryAutoLogin(null, null, null, null, context: context);
     }
-    return await _authService?.tryAutoLogin(null, null, null, null) ?? false;
+    return await _authService?.tryAutoLogin(null, null, null, null, context: context) ?? false;
   }
 
   /// Fetch all associated wireless MAC addresses from all wireless interfaces

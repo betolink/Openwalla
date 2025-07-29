@@ -18,7 +18,7 @@ class MockApiService implements IApiService {
   static int _baseLanRxPackets = 23456;
   static int _baseLanTxPackets = 18765;
   @override
-  Future<String> login(String ipAddress, String username, String password, bool useHttps) async {
+  Future<String> login(String ipAddress, String username, String password, bool useHttps, {BuildContext? context}) async {
     // Simulate a short delay for realism
     await Future.delayed(const Duration(milliseconds: 500));
     

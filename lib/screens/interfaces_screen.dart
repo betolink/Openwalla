@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:luci_mobile/state/app_state.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:luci_mobile/main.dart';
 import 'package:flutter/services.dart';
 import 'package:luci_mobile/models/interface.dart';
 import 'dart:math';
@@ -9,7 +9,7 @@ import 'package:luci_mobile/design/luci_design_system.dart';
 import 'package:luci_mobile/widgets/luci_loading_states.dart';
 import 'package:luci_mobile/widgets/luci_refresh_components.dart';
 
-class InterfacesScreen extends StatefulWidget {
+class InterfacesScreen extends ConsumerStatefulWidget {
   final String? scrollToInterface;
   final VoidCallback? onScrollComplete;
 
@@ -20,10 +20,10 @@ class InterfacesScreen extends StatefulWidget {
   });
 
   @override
-  State<InterfacesScreen> createState() => _InterfacesScreenState();
+  ConsumerState<InterfacesScreen> createState() => _InterfacesScreenState();
 }
 
-class _InterfacesScreenState extends State<InterfacesScreen> {
+class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
   final ScrollController _scrollController = ScrollController();
   String? _targetInterface;
   String? _expandedInterface;
@@ -122,7 +122,7 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         // Get the app state to access interface data
-        final appState = Provider.of<AppState>(context, listen: false);
+        final appState = ref.read(appStateProvider);
         final dashboardData = appState.dashboardData;
 
         if (dashboardData != null) {
@@ -329,7 +329,7 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final appState = Provider.of<AppState>(context, listen: false);
+    final appState = ref.read(appStateProvider);
 
     return Scaffold(
       appBar: const LuciAppBar(title: 'Interfaces'),
@@ -340,14 +340,12 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
           children: [
             LuciPullToRefresh(
           onRefresh: () => appState.fetchDashboardData(),
-          child: Selector<AppState, (bool, String?, Map<String, dynamic>?)>(
-            selector: (_, state) => (
-              state.isDashboardLoading,
-              state.dashboardError,
-              state.dashboardData,
-            ),
-            builder: (context, data, _) {
-              final (isLoading, dashboardError, dashboardData) = data;
+          child: Builder(
+            builder: (context) {
+              final watchedAppState = ref.watch(appStateProvider);
+              final isLoading = watchedAppState.isDashboardLoading;
+              final dashboardError = watchedAppState.dashboardError;
+              final dashboardData = watchedAppState.dashboardData;
 
               if (isLoading && dashboardData == null) {
                 return Padding(
@@ -420,232 +418,223 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
   }
 
   Widget _buildWiredInterfacesList() {
-    return Selector<AppState, List<NetworkInterface>>(
-      selector: (_, state) {
-        final dynamic detailedData = state.dashboardData?['interfaceDump'];
-        final dynamic statsDataSource = state.dashboardData?['networkDevices'];
-        var interfacesList = <NetworkInterface>[];
+    final appState = ref.watch(appStateProvider);
+    final dynamic detailedData = appState.dashboardData?['interfaceDump'];
+    final dynamic statsDataSource = appState.dashboardData?['networkDevices'];
+    var interfacesList = <NetworkInterface>[];
 
-        if (detailedData is Map &&
-            detailedData.containsKey('interface') &&
-            detailedData['interface'] is List &&
-            statsDataSource is Map) {
-          final List<dynamic> interfaceDataList = detailedData['interface'];
-          final Map<String, dynamic> networkStatsMap =
-              Map<String, dynamic>.from(statsDataSource);
+    if (detailedData is Map &&
+        detailedData.containsKey('interface') &&
+        detailedData['interface'] is List &&
+        statsDataSource is Map) {
+      final List<dynamic> interfaceDataList = detailedData['interface'];
+      final Map<String, dynamic> networkStatsMap =
+          Map<String, dynamic>.from(statsDataSource);
 
-          interfacesList = interfaceDataList
-              .whereType<Map<String, dynamic>>()
-              .map((detailedInterfaceMap) {
-                final stats = detailedInterfaceMap['stats'];
-                if (stats == null || (stats is Map && stats.isEmpty)) {
-                  final String? deviceName =
-                      detailedInterfaceMap['l3_device'] ??
-                      detailedInterfaceMap['device'];
-                  if (deviceName != null) {
-                    final statsContainer = networkStatsMap[deviceName];
-                    if (statsContainer is Map &&
-                        statsContainer['stats'] is Map) {
-                      detailedInterfaceMap['stats'] = statsContainer['stats'];
-                    }
-                  }
+      interfacesList = interfaceDataList
+          .whereType<Map<String, dynamic>>()
+          .map((detailedInterfaceMap) {
+            final stats = detailedInterfaceMap['stats'];
+            if (stats == null || (stats is Map && stats.isEmpty)) {
+              final String? deviceName =
+                  detailedInterfaceMap['l3_device'] ??
+                  detailedInterfaceMap['device'];
+              if (deviceName != null) {
+                final statsContainer = networkStatsMap[deviceName];
+                if (statsContainer is Map &&
+                    statsContainer['stats'] is Map) {
+                  detailedInterfaceMap['stats'] = statsContainer['stats'];
                 }
-                return NetworkInterface.fromJson(detailedInterfaceMap);
-              })
-              .toList();
-        }
-        return interfacesList;
-      },
-      builder: (context, interfaces, _) {
-        if (interfaces.isEmpty) {
-          return const SliverToBoxAdapter(child: SizedBox.shrink());
-        }
-        return SliverList(
-          delegate: SliverChildBuilderDelegate((context, index) {
-            final iface = interfaces[index];
-            final isTargetInterface =
-                _targetInterface != null &&
-                iface.name.toLowerCase() == _targetInterface!.toLowerCase();
+              }
+            }
+            return NetworkInterface.fromJson(detailedInterfaceMap);
+          })
+          .toList();
+    }
+    
+    final interfaces = interfacesList;
+    if (interfaces.isEmpty) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+    return SliverList(
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final iface = interfaces[index];
+        final isTargetInterface =
+            _targetInterface != null &&
+            iface.name.toLowerCase() == _targetInterface!.toLowerCase();
 
-            final keyStr = _interfaceKey(name: iface.name);
-            final key = _interfaceKeys.putIfAbsent(keyStr, () => GlobalKey());
-            return Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 8.0,
-              ),
-              child: _UnifiedNetworkCard(
-                key: key,
-                name: iface.name.toUpperCase(),
-                subtitle: _buildMinimalInterfaceSubtitle(iface),
-                isUp: iface.isUp,
-                icon: _getInterfaceIcon(iface.protocol),
-                details: _buildWiredDetails(context, iface),
-                initiallyExpanded:
-                    isTargetInterface || _expandedInterface == keyStr,
-              ),
-            );
-          }, childCount: interfaces.length),
+        final keyStr = _interfaceKey(name: iface.name);
+        final key = _interfaceKeys.putIfAbsent(keyStr, () => GlobalKey());
+        return Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16.0,
+            vertical: 8.0,
+          ),
+          child: _UnifiedNetworkCard(
+            key: key,
+            name: iface.name.toUpperCase(),
+            subtitle: _buildMinimalInterfaceSubtitle(iface),
+            isUp: iface.isUp,
+            icon: _getInterfaceIcon(iface.protocol),
+            details: _buildWiredDetails(context, iface),
+            initiallyExpanded:
+                isTargetInterface || _expandedInterface == keyStr,
+          ),
         );
-      },
+      }, childCount: interfaces.length),
     );
   }
 
   Widget _buildWirelessInterfacesList() {
-    return Selector<AppState, List<Map<String, dynamic>>>(
-      selector: (_, state) {
-        final dashboardData = state.dashboardData;
-        final wirelessData =
-            dashboardData?['wireless'] as Map<String, dynamic>?;
-        final uciWirelessConfig = dashboardData?['uciWirelessConfig'];
-        final interfacesList = <Map<String, dynamic>>[];
+    final appState = ref.watch(appStateProvider);
+    final dashboardData = appState.dashboardData;
+    final wirelessData =
+        dashboardData?['wireless'] as Map<String, dynamic>?;
+    final uciWirelessConfig = dashboardData?['uciWirelessConfig'];
+    final interfacesList = <Map<String, dynamic>>[];
 
-        final uciRadios = <String, Map>{};
-        final uciInterfaces = <String, Map>{};
+    final uciRadios = <String, Map>{};
+    final uciInterfaces = <String, Map>{};
 
-        final uciValues = uciWirelessConfig?['values'] as Map?;
-        if (uciValues != null) {
-          uciValues.forEach((key, value) {
-            final typedValue = value as Map?;
-            if (typedValue?['.type'] == 'wifi-device') {
-              uciRadios[key] = typedValue!;
-            } else if (typedValue?['.type'] == 'wifi-iface') {
-              uciInterfaces[key] = typedValue!;
-            }
-          });
+    final uciValues = uciWirelessConfig?['values'] as Map?;
+    if (uciValues != null) {
+      uciValues.forEach((key, value) {
+        final typedValue = value as Map?;
+        if (typedValue?['.type'] == 'wifi-device') {
+          uciRadios[key] = typedValue!;
+        } else if (typedValue?['.type'] == 'wifi-iface') {
+          uciInterfaces[key] = typedValue!;
         }
+      });
+    }
 
-        final runtimeInterfaces = <String>{};
-        if (wirelessData != null) {
-          wirelessData.forEach((radioName, radioData) {
-            final interfaces = radioData['interfaces'] as List<dynamic>?;
-            if (interfaces != null) {
-              for (final iface in interfaces) {
-                final config = iface['config'] ?? {};
-                final iwinfo = iface['iwinfo'] ?? {};
-                final uciName = iface['section'] as String?;
-                if (uciName != null) {
-                  runtimeInterfaces.add(uciName);
-                }
-
-                final isRadioEnabled = uciRadios[radioName]?['disabled'] != '1';
-                final isIfaceEnabled = config['disabled'] != '1';
-                final isEnabled = isRadioEnabled && isIfaceEnabled;
-
-                final name = iface['name'] ?? '';
-                final ssid = iwinfo['ssid'] ?? config['ssid'] ?? '';
-                final deviceName = config['device'] ?? radioName;
-                interfacesList.add({
-                  'name': config['ssid'] ?? iwinfo['ssid'] ?? 'Unnamed',
-                  'subtitle':
-                      '${config['mode']?.toUpperCase() ?? iwinfo['mode']?.toUpperCase() ?? 'N/A'} • Ch. ${iwinfo['channel']?.toString() ?? config['channel']?.toString() ?? 'N/A'}',
-                  'isEnabled': isEnabled,
-                  'deviceName': deviceName,
-                  'radioName': radioName,
-                  'ssid': ssid,
-                  'interfaceName': name,
-                  'details': {
-                    'Device': config['device'] ?? radioName,
-                    'Mode': config['mode'] ?? iwinfo['mode'] ?? 'N/A',
-                    'Channel':
-                        iwinfo['channel']?.toString() ??
-                        config['channel']?.toString() ??
-                        'N/A',
-                    'Signal': '${iwinfo['signal']?.toString() ?? '--'} dBm',
-                    'Network': (config['network'] is List)
-                        ? (config['network'] as List).join(', ')
-                        : config['network'] ?? 'N/A',
-                  },
-                });
-              }
+    final runtimeInterfaces = <String>{};
+    if (wirelessData != null) {
+      wirelessData.forEach((radioName, radioData) {
+        final interfaces = radioData['interfaces'] as List<dynamic>?;
+        if (interfaces != null) {
+          for (final iface in interfaces) {
+            final config = iface['config'] ?? {};
+            final iwinfo = iface['iwinfo'] ?? {};
+            final uciName = iface['section'] as String?;
+            if (uciName != null) {
+              runtimeInterfaces.add(uciName);
             }
-          });
-        }
 
-        uciInterfaces.forEach((uciName, config) {
-          if (!runtimeInterfaces.contains(uciName)) {
-            final radioName = config['device'];
             final isRadioEnabled = uciRadios[radioName]?['disabled'] != '1';
             final isIfaceEnabled = config['disabled'] != '1';
             final isEnabled = isRadioEnabled && isIfaceEnabled;
 
-            final name = config['ssid'] ?? 'Unnamed';
+            final name = iface['name'] ?? '';
+            final ssid = iwinfo['ssid'] ?? config['ssid'] ?? '';
+            final deviceName = config['device'] ?? radioName;
             interfacesList.add({
-              'name': config['ssid'] ?? 'Unnamed',
+              'name': config['ssid'] ?? iwinfo['ssid'] ?? 'Unnamed',
               'subtitle':
-                  '${config['mode']?.toUpperCase() ?? 'N/A'} • Disabled',
+                  '${config['mode']?.toUpperCase() ?? iwinfo['mode']?.toUpperCase() ?? 'N/A'} • Ch. ${iwinfo['channel']?.toString() ?? config['channel']?.toString() ?? 'N/A'}',
               'isEnabled': isEnabled,
-              'deviceName': radioName,
+              'deviceName': deviceName,
               'radioName': radioName,
-              'ssid': name,
+              'ssid': ssid,
               'interfaceName': name,
               'details': {
-                'Device': radioName,
-                'Mode': config['mode'] ?? 'N/A',
-                'SSID': config['ssid'] ?? 'N/A',
+                'Device': config['device'] ?? radioName,
+                'Mode': config['mode'] ?? iwinfo['mode'] ?? 'N/A',
+                'Channel':
+                    iwinfo['channel']?.toString() ??
+                    config['channel']?.toString() ??
+                    'N/A',
+                'Signal': '${iwinfo['signal']?.toString() ?? '--'} dBm',
                 'Network': (config['network'] is List)
                     ? (config['network'] as List).join(', ')
                     : config['network'] ?? 'N/A',
               },
             });
           }
-        });
-
-        return interfacesList;
-      },
-      builder: (context, interfaces, _) {
-        if (interfaces.isEmpty) {
-          return const SliverToBoxAdapter(child: SizedBox.shrink());
         }
-        return SliverList(
-          delegate: SliverChildBuilderDelegate((context, index) {
-            final iface = interfaces[index];
-            final deviceName = iface['deviceName'] ?? '';
-            final radioName = iface['radioName'] ?? '';
-            final ssid = iface['ssid'] ?? '';
-            final name = iface['interfaceName'] ?? '';
-            // Use the stored values for key generation
-            final keyStr = _interfaceKeyForWireless(
-              ssid: ssid,
-              radioName: radioName,
-              deviceName: deviceName,
-              name: name,
-            );
-            final key = _interfaceKeys.putIfAbsent(keyStr, () => GlobalKey());
-            final displayName = ssid.toString().isNotEmpty
-                ? ssid.toString()
-                : deviceName.toString();
+      });
+    }
 
-            // Check if this is the target interface for expansion
-            final isTargetInterface =
-                _targetInterface != null &&
-                (_normalizeInterfaceKey(ssid) ==
-                        _normalizeInterfaceKey(_targetInterface!) ||
-                    _normalizeInterfaceKey(deviceName) ==
-                        _normalizeInterfaceKey(_targetInterface!) ||
-                    _normalizeInterfaceKey(name) ==
-                        _normalizeInterfaceKey(_targetInterface!));
+    uciInterfaces.forEach((uciName, config) {
+      if (!runtimeInterfaces.contains(uciName)) {
+        final radioName = config['device'];
+        final isRadioEnabled = uciRadios[radioName]?['disabled'] != '1';
+        final isIfaceEnabled = config['disabled'] != '1';
+        final isEnabled = isRadioEnabled && isIfaceEnabled;
 
-            final shouldExpand =
-                isTargetInterface || _expandedInterface == keyStr;
-            return Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 8.0,
-              ),
-              child: _UnifiedNetworkCard(
-                key: key,
-                name: displayName,
-                subtitle: iface['subtitle'],
-                isUp: iface['isEnabled'],
-                icon: Icons.wifi,
-                details: _buildGenericDetails(context, iface['details']),
-                initiallyExpanded: shouldExpand,
-              ),
-            );
-          }, childCount: interfaces.length),
+        final name = config['ssid'] ?? 'Unnamed';
+        interfacesList.add({
+          'name': config['ssid'] ?? 'Unnamed',
+          'subtitle':
+              '${config['mode']?.toUpperCase() ?? 'N/A'} • Disabled',
+          'isEnabled': isEnabled,
+          'deviceName': radioName,
+          'radioName': radioName,
+          'ssid': name,
+          'interfaceName': name,
+          'details': {
+            'Device': radioName,
+            'Mode': config['mode'] ?? 'N/A',
+            'SSID': config['ssid'] ?? 'N/A',
+            'Network': (config['network'] is List)
+                ? (config['network'] as List).join(', ')
+                : config['network'] ?? 'N/A',
+          },
+        });
+      }
+    });
+
+    final interfaces = interfacesList;
+    if (interfaces.isEmpty) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+    return SliverList(
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final iface = interfaces[index];
+        final deviceName = iface['deviceName'] ?? '';
+        final radioName = iface['radioName'] ?? '';
+        final ssid = iface['ssid'] ?? '';
+        final name = iface['interfaceName'] ?? '';
+        // Use the stored values for key generation
+        final keyStr = _interfaceKeyForWireless(
+          ssid: ssid,
+          radioName: radioName,
+          deviceName: deviceName,
+          name: name,
         );
-      },
+        final key = _interfaceKeys.putIfAbsent(keyStr, () => GlobalKey());
+        final displayName = ssid.toString().isNotEmpty
+            ? ssid.toString()
+            : deviceName.toString();
+
+        // Check if this is the target interface for expansion
+        final isTargetInterface =
+            _targetInterface != null &&
+            (_normalizeInterfaceKey(ssid) ==
+                    _normalizeInterfaceKey(_targetInterface!) ||
+                _normalizeInterfaceKey(deviceName) ==
+                    _normalizeInterfaceKey(_targetInterface!) ||
+                _normalizeInterfaceKey(name) ==
+                    _normalizeInterfaceKey(_targetInterface!));
+
+        final shouldExpand =
+            isTargetInterface || _expandedInterface == keyStr;
+        return Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16.0,
+            vertical: 8.0,
+          ),
+          child: _UnifiedNetworkCard(
+            key: key,
+            name: displayName,
+            subtitle: iface['subtitle'],
+            isUp: iface['isEnabled'],
+            icon: Icons.wifi,
+            details: _buildGenericDetails(context, iface['details']),
+            initiallyExpanded: shouldExpand,
+          ),
+        );
+      }, childCount: interfaces.length),
     );
   }
 
@@ -713,50 +702,44 @@ class _InterfacesScreenState extends State<InterfacesScreen> {
     BuildContext context,
     String interfaceName,
   ) {
-    return Selector<AppState, Map<String, dynamic>?>(
-      selector: (_, state) {
-        final wireguardData =
-            state.dashboardData?['wireguard'] as Map<String, dynamic>?;
-        final result = wireguardData?[interfaceName];
-        return result;
-      },
-      builder: (context, peerData, _) {
-        if (peerData == null) {
-          return const SizedBox.shrink();
-        }
-        final peers = peerData['peers'] as Map<String, dynamic>?;
-        if (peers == null || peers.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
+    final appState = ref.watch(appStateProvider);
+    final wireguardData =
+        appState.dashboardData?['wireguard'] as Map<String, dynamic>?;
+    final peerData = wireguardData?[interfaceName];
+    if (peerData == null) {
+      return const SizedBox.shrink();
+    }
+    final peers = peerData['peers'] as Map<String, dynamic>?;
+    if (peers == null || peers.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16.0,
+          vertical: 8.0,
+        ),
+        child: const Divider(
+          height: 24,
+          thickness: 1,
+          indent: 0,
+          endIndent: 0,
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(height: 1, thickness: 1, indent: 0, endIndent: 0),
+          const SizedBox(height: 8),
+          ...peers.values.map(
+            (peer) => _buildCohesivePeerRow(
+              context,
+              peer as Map<String, dynamic>,
             ),
-            child: const Divider(
-              height: 24,
-              thickness: 1,
-              indent: 0,
-              endIndent: 0,
-            ),
-          );
-        }
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Divider(height: 1, thickness: 1, indent: 0, endIndent: 0),
-              const SizedBox(height: 8),
-              ...peers.values.map(
-                (peer) => _buildCohesivePeerRow(
-                  context,
-                  peer as Map<String, dynamic>,
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
           ),
-        );
-      },
+          const SizedBox(height: 8),
+        ],
+      ),
     );
   }
 

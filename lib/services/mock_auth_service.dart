@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:luci_mobile/services/interfaces/auth_service_interface.dart';
 
 class MockAuthService implements IAuthService {
@@ -19,7 +20,7 @@ class MockAuthService implements IAuthService {
   bool get isAuthenticated => _isAuthenticated;
 
   @override
-  Future<void> login(String ipAddress, String username, String password, bool useHttps) async {
+  Future<void> login(String ipAddress, String username, String password, bool useHttps, {BuildContext? context}) async {
     // Simulate a short delay for realism
     await Future.delayed(const Duration(milliseconds: 500));
     
@@ -31,7 +32,7 @@ class MockAuthService implements IAuthService {
   }
 
   @override
-  Future<bool> tryAutoLogin(String? ipAddress, String? username, String? password, bool? useHttps) async {
+  Future<bool> tryAutoLogin(String? ipAddress, String? username, String? password, bool? useHttps, {BuildContext? context}) async {
     // Simulate a short delay for realism
     await Future.delayed(const Duration(milliseconds: 300));
     
@@ -50,7 +51,7 @@ class MockAuthService implements IAuthService {
   }
 
   @override
-  Future<bool> checkRouterAvailability(String ipAddress, bool useHttps) async {
+  Future<bool> checkRouterAvailability(String ipAddress, bool useHttps, {BuildContext? context}) async {
     // Simulate a short delay for realism
     await Future.delayed(const Duration(milliseconds: 200));
     

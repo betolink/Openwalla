@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/models/client.dart';
-import 'package:luci_mobile/state/app_state.dart';
+import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 import 'package:luci_mobile/design/luci_design_system.dart';
 import 'package:luci_mobile/widgets/luci_loading_states.dart';
 import 'package:luci_mobile/widgets/luci_refresh_components.dart';
 import 'package:luci_mobile/widgets/luci_animation_system.dart';
 
-class ClientsScreen extends StatefulWidget {
+class ClientsScreen extends ConsumerStatefulWidget {
   const ClientsScreen({super.key});
 
   @override
-  State<ClientsScreen> createState() => _ClientsScreenState();
+  ConsumerState<ClientsScreen> createState() => _ClientsScreenState();
 }
 
-class _ClientsScreenState extends State<ClientsScreen>
+class _ClientsScreenState extends ConsumerState<ClientsScreen>
     with SingleTickerProviderStateMixin {
   String _searchQuery = '';
   final Set<int> _expandedClientIndices = {};
@@ -49,7 +49,7 @@ class _ClientsScreenState extends State<ClientsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final appState = Provider.of<AppState>(context, listen: false);
+    final appState = ref.read(appStateProvider);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -62,15 +62,13 @@ class _ClientsScreenState extends State<ClientsScreen>
           body: Stack(
             children: [
               LuciPullToRefresh(
-            onRefresh: () => appState.fetchDashboardData(),
-            child: Selector<AppState, (bool, String?, Map<String, dynamic>?)>(
-              selector: (_, state) => (
-                state.isDashboardLoading,
-                state.dashboardError,
-                state.dashboardData?['dhcpLeases'] as Map<String, dynamic>?,
-              ),
-              builder: (context, data, _) {
-                final (isLoading, dashboardError, dhcpData) = data;
+            onRefresh: () => ref.read(appStateProvider).fetchDashboardData(),
+            child: Builder(
+              builder: (context) {
+                final appState = ref.watch(appStateProvider);
+                final isLoading = appState.isDashboardLoading;
+                final dashboardError = appState.dashboardError;
+                final dhcpData = appState.dashboardData?['dhcpLeases'] as Map<String, dynamic>?;
 
                 if (isLoading && dhcpData == null) {
                   return Padding(
@@ -109,7 +107,7 @@ class _ClientsScreenState extends State<ClientsScreen>
                     message:
                         'Could not connect to the router. Please check your network connection and the router\'s IP address.',
                     actionLabel: 'Retry',
-                    onAction: () => appState.fetchDashboardData(),
+                    onAction: () => ref.read(appStateProvider).fetchDashboardData(),
                     icon: Icons.wifi_off_rounded,
                   );
                 }

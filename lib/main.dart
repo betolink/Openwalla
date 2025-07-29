@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:luci_mobile/state/app_state.dart';
 import 'package:luci_mobile/screens/login_screen.dart';
@@ -10,19 +10,20 @@ import 'package:luci_mobile/screens/settings_screen.dart';
 import 'package:luci_mobile/screens/splash_screen.dart';
 
 void main() {
-  runApp(const LuCIApp());
+  runApp(ProviderScope(
+    child: const LuCIApp(),
+  ));
 }
 
-class LuCIApp extends StatelessWidget {
+final appStateProvider = ChangeNotifierProvider<AppState>((ref) => AppState.instance);
+
+class LuCIApp extends ConsumerWidget {
   const LuCIApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => AppState(),
-      child: Consumer<AppState>(
-        builder: (context, appState, _) {
-          return MaterialApp(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final appState = ref.watch(appStateProvider);
+    return MaterialApp(
             title: 'LuCI Mobile',
             theme: ThemeData(
               colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
@@ -57,9 +58,6 @@ class LuCIApp extends StatelessWidget {
               '/': (context) => const MainScreen(),
               '/settings': (context) => const SettingsScreen(),
             },
-          );
-        },
-      ),
     );
   }
 }

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:luci_mobile/state/app_state.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
-import 'package:luci_mobile/config/app_config.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
   
-  void _showReviewerModeResetDialog(BuildContext context, AppState appState) {
+  void _showReviewerModeResetDialog(BuildContext context, WidgetRef ref) {
+    final appState = ref.read(appStateProvider);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -38,14 +38,15 @@ class SettingsScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: const LuciAppBar(title: 'Settings', showBack: true),
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8.0),
         children: [
-          Consumer<AppState>(
-            builder: (context, appState, _) {
+          Builder(
+            builder: (context) {
+              final appState = ref.watch(appStateProvider);
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -88,7 +89,7 @@ class SettingsScreen extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       child: FilledButton.icon(
-                        onPressed: () => _showReviewerModeResetDialog(context, appState),
+                        onPressed: () => _showReviewerModeResetDialog(context, ref),
                         icon: const Icon(Icons.exit_to_app),
                         label: const Text('Exit Reviewer Mode'),
                         style: FilledButton.styleFrom(

@@ -10,7 +10,7 @@ import 'package:http/http.dart' as http;
 /// 
 /// Example: [0, {"hostname": "router", "model": "TP-Link"}]
 abstract class IApiService {
-  Future<String> login(String ipAddress, String username, String password, bool useHttps);
+  Future<String> login(String ipAddress, String username, String password, bool useHttps, {BuildContext? context});
   Future<dynamic> call(String ipAddress, String sysauth, bool useHttps, {required String object, required String method, Map<String, dynamic>? params, BuildContext? context});
   // Simplified call method for reviewer mode
   Future<dynamic> callSimple(String object, String method, Map<String, dynamic> params);

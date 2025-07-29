@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:luci_mobile/state/app_state.dart';
+import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 import 'package:luci_mobile/widgets/luci_animation_system.dart';
 import 'package:luci_mobile/models/router.dart' as model;
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   final ScrollController _wirelessScrollController = ScrollController();
   bool _showWirelessLeftArrow = false;
   bool _showWirelessRightArrow = false;
@@ -26,7 +27,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<AppState>(context, listen: false).fetchDashboardData();
+      ref.read(appStateProvider).fetchDashboardData();
       // Initialize arrows after layout
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _updateWirelessArrows();
@@ -734,10 +735,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 borderRadius: BorderRadius.circular(18),
                 onLongPress: () {
                   // Navigate to interfaces tab with the specific interface name
-                  final appState = Provider.of<AppState>(
-                    context,
-                    listen: false,
-                  );
+                  final appState = ref.read(appStateProvider);
                   appState.requestTab(2, interfaceToScroll: deviceName);
                 },
                 child: Padding(
@@ -906,7 +904,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             borderRadius: BorderRadius.circular(18),
             onLongPress: () {
               // Navigate to interfaces tab with the specific interface name
-              final appState = Provider.of<AppState>(context, listen: false);
+              final appState = ref.read(appStateProvider);
               appState.requestTab(2, interfaceToScroll: name);
             },
             child: Padding(
@@ -1091,8 +1089,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AppState>(
-      builder: (context, appState, child) {
+    final appState = ref.watch(appStateProvider);
         final List<model.Router> routers = appState.routers;
         final model.Router? selected = appState.selectedRouter;
         final boardInfo =
@@ -1101,7 +1098,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final headerText = (hostname != null && hostname.isNotEmpty)
             ? hostname
             : (selected?.ipAddress ?? 'Loading...');
-        return Scaffold(
+    return Scaffold(
           appBar: LuciAppBar(
             centerTitle: true,
             title: null, // Always use titleWidget now
@@ -1345,8 +1342,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
         );
-      },
-    );
   }
 
   Widget _buildBody(AppState appState) {
