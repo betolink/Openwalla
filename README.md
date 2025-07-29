@@ -1,6 +1,10 @@
 # LuCI Mobile
 
 <div align="center">
+  <a href="https://play.google.com/store/apps/details?id=com.cogwheel.LuCIMobile">
+    <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" width="200"/>
+  </a>
+  &nbsp;&nbsp;&nbsp;
   <a href="https://apt.izzysoft.de/fdroid/index/apk/com.cogwheel.LuCIMobile">
     <img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" alt="Get it on IzzyOnDroid" width="200"/>
   </a>
@@ -27,7 +31,7 @@
 - **Client Management:** See all connected devices, connection type, MAC/IP, vendor, DHCP lease, and more.
 - **System Control:** Remote reboot, settings, and theme customization (light/dark mode).
 - **Modern UI/UX:** Material Design 3, responsive layout, and intuitive navigation.
-- **Open Source:** GPLv3 licensed and available on [IzzyOnDroid](https://apt.izzysoft.de/fdroid/index/apk/com.cogwheel.LuCIMobile).
+- **Open Source:** GPLv3 licensed and available on [Google Play](https://play.google.com/store/apps/details?id=com.cogwheel.LuCIMobile) and [IzzyOnDroid](https://apt.izzysoft.de/fdroid/index/apk/com.cogwheel.LuCIMobile).
 
 ---
 
@@ -52,7 +56,7 @@
 
 ## ⚡ Installation
 
-**Get it on [IzzyOnDroid](https://apt.izzysoft.de/fdroid/index/apk/com.cogwheel.LuCIMobile)** or build from source:
+**Get it on [Google Play](https://play.google.com/store/apps/details?id=com.cogwheel.LuCIMobile)** or **[IzzyOnDroid](https://apt.izzysoft.de/fdroid/index/apk/com.cogwheel.LuCIMobile)**, or build from source:
 
 ```bash
 git clone https://github.com/cogwheel0/luci-mobile.git
