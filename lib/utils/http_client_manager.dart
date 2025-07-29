@@ -46,17 +46,12 @@ class HttpClientManager {
     httpClient.badCertificateCallback = (cert, certHost, port) {
       final certKey = '$certHost:$port';
       
-      // In debug mode, allow self-signed certificates for development
-      if (kDebugMode) {
-        return true;
-      }
-      
       // Check if user has already accepted this certificate
       if (_userAcceptedCerts[certKey] == true) {
         return true;
       }
       
-      // Certificate not accepted yet
+      // Certificate not accepted yet - require user consent in both debug and release
       return false;
     };
 
@@ -167,7 +162,7 @@ class HttpClientManager {
     
     // Apply the same certificate validation logic
     testClient.badCertificateCallback = (cert, certHost, port) {
-      return kDebugMode || _userAcceptedCerts['$certHost:$port'] == true;
+      return _userAcceptedCerts['$certHost:$port'] == true;
     };
     
     try {

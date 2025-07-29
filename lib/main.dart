@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -28,12 +27,11 @@ class LuCIApp extends ConsumerWidget {
             theme: ThemeData(
               colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
               useMaterial3: true,
-              // Handle edge-to-edge display properly
+              // Edge-to-edge display handled natively in MainActivity
               appBarTheme: const AppBarTheme(
-                systemOverlayStyle: SystemUiOverlayStyle(
-                  statusBarColor: Colors.transparent,
-                  statusBarIconBrightness: Brightness.dark,
-                ),
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                scrolledUnderElevation: 0,
               ),
             ),
             darkTheme: ThemeData(
@@ -42,12 +40,11 @@ class LuCIApp extends ConsumerWidget {
                 brightness: Brightness.dark,
               ),
               useMaterial3: true,
-              // Handle edge-to-edge display properly for dark theme
+              // Edge-to-edge display handled natively in MainActivity
               appBarTheme: const AppBarTheme(
-                systemOverlayStyle: SystemUiOverlayStyle(
-                  statusBarColor: Colors.transparent,
-                  statusBarIconBrightness: Brightness.light,
-                ),
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                scrolledUnderElevation: 0,
               ),
             ),
             themeMode: appState.themeMode,

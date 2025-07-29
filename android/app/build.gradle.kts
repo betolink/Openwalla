@@ -73,6 +73,7 @@ android {
 
 dependencies {
     implementation("androidx.core:core:1.12.0")
+    implementation("androidx.activity:activity:1.8.2")
 }
 
 flutter {
