@@ -4,6 +4,7 @@ Designed for both power users and network enthusiasts, LuCI Mobile simplifies ro
 
 <b>Key Features:</b>
 
+* <b>Multiple Router Management:</b> Add, switch, and manage any number of OpenWrt routers. Each router’s data is kept separate and secure.
 * <b>Real-Time Dashboard:</b> Instantly view system status, performance metrics, and uptime with interactive charts.
 * <b>Complete Network Management:</b> Monitor all wired and wireless interfaces, track bandwidth usage, and check IP configurations.
 * <b>Detailed Client Oversight:</b> See a live list of all connected devices with their IP/MAC addresses, hostnames, and active connection times.
@@ -25,7 +26,7 @@ LuCI Mobile is an open-source project. For support, to report issues, or to view
 
 https://github.com/cogwheel0/luci-mobile
 
-Email: luci-mobile.defection525@passmail.net
+Email: cogwheel@cogwheel.app
 
 -----
 

@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -24,7 +23,7 @@ class HttpClientManager {
   /// In debug builds, self-signed certificates can be allowed automatically
   http.Client getClient(String host, bool useHttps, {BuildContext? context}) {
     final key = '$host-$useHttps';
-    
+
     if (_clients.containsKey(key)) {
       return _clients[key]!;
     }
@@ -34,23 +33,27 @@ class HttpClientManager {
     return client;
   }
 
-  http.Client _createSecureClient(String host, bool useHttps, {BuildContext? context}) {
+  http.Client _createSecureClient(
+    String host,
+    bool useHttps, {
+    BuildContext? context,
+  }) {
     if (!useHttps) {
       return http.Client();
     }
 
     final httpClient = HttpClient();
     httpClient.connectionTimeout = const Duration(seconds: 10);
-    
+
     // Certificate validation callback
     httpClient.badCertificateCallback = (cert, certHost, port) {
       final certKey = '$certHost:$port';
-      
+
       // Check if user has already accepted this certificate
       if (_userAcceptedCerts[certKey] == true) {
         return true;
       }
-      
+
       // Certificate not accepted yet - require user consent in both debug and release
       return false;
     };
@@ -76,12 +79,15 @@ class HttpClientManager {
       // Ignore errors loading certificates
     }
   }
-  
+
   /// Save accepted certificates to secure storage
   Future<void> _saveAcceptedCertificates() async {
     try {
       final storage = const FlutterSecureStorage();
-      await storage.write(key: _acceptedCertsKey, value: jsonEncode(_userAcceptedCerts));
+      await storage.write(
+        key: _acceptedCertsKey,
+        value: jsonEncode(_userAcceptedCerts),
+      );
     } catch (e) {
       // Ignore errors saving certificates
     }
@@ -102,18 +108,18 @@ class HttpClientManager {
     _clients.clear();
     // Don't clear accepted certificates on dispose
   }
-  
+
   /// Clear accepted certificates (useful for logout or security reset)
   Future<void> clearAcceptedCertificates() async {
     // Clear in-memory certificates
     _userAcceptedCerts.clear();
-    
+
     // Clear all cached HTTP clients
     for (final client in _clients.values) {
       client.close();
     }
     _clients.clear();
-    
+
     // Delete from secure storage
     try {
       final storage = const FlutterSecureStorage();
@@ -122,24 +128,26 @@ class HttpClientManager {
       // Ignore errors
     }
   }
-  
+
   /// Clear certificates for a specific host
   Future<void> clearCertificatesForHost(String host) async {
     // Remove certificates for this host on port 443
     final certKey = '$host:443';
     _userAcceptedCerts.remove(certKey);
-    
+
     // Close and remove cached HTTP clients for this host
-    final keysToRemove = _clients.keys.where((key) => key.startsWith(host)).toList();
+    final keysToRemove = _clients.keys
+        .where((key) => key.startsWith(host))
+        .toList();
     for (final key in keysToRemove) {
       _clients[key]?.close();
       _clients.remove(key);
     }
-    
+
     // Save the updated certificates
     await _saveAcceptedCertificates();
   }
-  
+
   /// Prompts user to accept certificate for a given host
   /// Returns true if user accepts, false otherwise
   Future<bool> promptForCertificateAcceptance({
@@ -149,22 +157,22 @@ class HttpClientManager {
   }) async {
     if (!useHttps) return true; // Non-HTTPS doesn't need certificate acceptance
     if (!context.mounted) return false;
-    
+
     // Check if already accepted
     final certKey = '$host:443';
     if (_userAcceptedCerts[certKey] == true) {
       return true;
     }
-    
+
     // Try to make a test connection to trigger certificate validation
     final testClient = HttpClient();
     testClient.connectionTimeout = const Duration(seconds: 5);
-    
+
     // Apply the same certificate validation logic
     testClient.badCertificateCallback = (cert, certHost, port) {
       return _userAcceptedCerts['$certHost:$port'] == true;
     };
-    
+
     try {
       final uri = Uri.parse('https://$host');
       final request = await testClient.getUrl(uri);
@@ -198,10 +206,14 @@ class HttpClientManager {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.3),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.errorContainer.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.error.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Row(
@@ -215,9 +227,10 @@ class HttpClientManager {
                         Expanded(
                           child: Text(
                             'Only proceed if you trust this router and understand the security implications.',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.error,
-                            ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
                           ),
                         ),
                       ],
@@ -241,7 +254,7 @@ class HttpClientManager {
               ],
             ),
           );
-          
+
           if (result == true) {
             // Store acceptance persistently
             _userAcceptedCerts['$host:443'] = true;
@@ -253,7 +266,7 @@ class HttpClientManager {
     } finally {
       testClient.close();
     }
-    
+
     return false;
   }
 }
@@ -275,7 +288,7 @@ class CertificateWarningDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     return AlertDialog(
       icon: Icon(
         Icons.warning_amber_rounded,
@@ -314,10 +327,16 @@ class CertificateWarningDialog extends StatelessWidget {
                   const SizedBox(height: 8),
                   _buildCertDetail('Subject', certificate.subject),
                   _buildCertDetail('Issuer', certificate.issuer),
-                  _buildCertDetail('Valid From', 
-                    certificate.startValidity.toLocal().toString().split('.')[0]),
-                  _buildCertDetail('Valid Until', 
-                    certificate.endValidity.toLocal().toString().split('.')[0]),
+                  _buildCertDetail(
+                    'Valid From',
+                    certificate.startValidity.toLocal().toString().split(
+                      '.',
+                    )[0],
+                  ),
+                  _buildCertDetail(
+                    'Valid Until',
+                    certificate.endValidity.toLocal().toString().split('.')[0],
+                  ),
                 ],
               ),
             ),
@@ -333,11 +352,7 @@ class CertificateWarningDialog extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.info_outline,
-                    color: colorScheme.error,
-                    size: 20,
-                  ),
+                  Icon(Icons.info_outline, color: colorScheme.error, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -380,19 +395,13 @@ class CertificateWarningDialog extends StatelessWidget {
             width: 80,
             child: Text(
               '$label:',
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 12,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                fontSize: 12,
-                fontFamily: 'monospace',
-              ),
+              style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
             ),
           ),
         ],

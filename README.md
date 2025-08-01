@@ -4,7 +4,6 @@
   <a href="https://play.google.com/store/apps/details?id=com.cogwheel.LuCIMobile">
     <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" width="200"/>
   </a>
-  &nbsp;&nbsp;&nbsp;
   <a href="https://apt.izzysoft.de/fdroid/index/apk/com.cogwheel.LuCIMobile">
     <img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" alt="Get it on IzzyOnDroid" width="200"/>
   </a>
@@ -13,7 +12,7 @@
     <img src="https://shields.rbtlog.dev/simple/com.cogwheel.LuCIMobile" alt="RB shield"/>
   </a>
   <br><br>
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/dashboard-screen.png" width="500"/>
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/flutter_01.png" width="300"/>
 </div>
 
 <br>
@@ -22,7 +21,7 @@
 
 ---
 
-## 🚀 Features
+## Features
 
 - **Multiple Router Management:** Add, switch, and manage any number of OpenWrt routers. Each router’s data is kept separate and secure.
 - **Secure Login:** HTTP/HTTPS support, self-signed certificate handling, and secure credential storage.
@@ -35,7 +34,7 @@
 
 ---
 
-## 📱 Multiple Router Functionality
+## Multiple Router Functionality
 
 - **Add Unlimited Routers:** Each with its own credentials and settings.
 - **Quick Switch:** Instantly switch routers from the dashboard dropdown or "Manage Routers" screen.
@@ -46,15 +45,15 @@
 
 ---
 
-## 🖼️ Screenshots
+## Screenshots
 
 | Login | Dashboard | Clients | Interfaces |
 |-------|-----------|---------|------------|
-| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/login-screen.png" width="200"/> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/dashboard-screen.png" width="200"/> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/clients-screen.png" width="200"/> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/interfaces-screen-wired.png" width="200"/> |
+| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/flutter_02.png" width="200"/> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/flutter_01.png" width="200"/> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/flutter_03.png" width="200"/> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/flutter_05.png" width="200"/> |
 
 ---
 
-## ⚡ Installation
+## Installation
 
 **Get it on [Google Play](https://play.google.com/store/apps/details?id=com.cogwheel.LuCIMobile)** or **[IzzyOnDroid](https://apt.izzysoft.de/fdroid/index/apk/com.cogwheel.LuCIMobile)**, or build from source:
 
@@ -71,7 +70,7 @@ flutter run
 
 ---
 
-## 🛠️ Project Structure
+## Project Structure
 
 ```
 lib/
@@ -86,17 +85,7 @@ lib/
 
 ---
 
-## 🔑 Key Dependencies
-- **provider**: State management
-- **http**: Network communication
-- **flutter_secure_storage**: Secure credential storage
-- **fl_chart**: Data visualization
-- **package_info_plus**: App info
-- **url_launcher**: External links
-
----
-
-## 🧑‍💻 Development & Contribution
+## Development & Contribution
 
 - Run in dev mode: `flutter run`
 - Build for release: `flutter build apk --release` or `flutter build ios --release`
@@ -106,14 +95,14 @@ lib/
 
 ---
 
-## 🛡️ Security & Privacy
+## Security & Privacy
 - All credentials are stored securely on-device
 - HTTPS and self-signed certificate support
 - No analytics or tracking
 
 ---
 
-## ❓ Troubleshooting
+## Troubleshooting
 
 - **Connection Failed:** Check router IP, LuCI web interface, firewall, and try both HTTP/HTTPS.
 - **Authentication Failed:** Verify credentials and admin privileges.
@@ -121,13 +110,13 @@ lib/
 
 ---
 
-## 📄 License
+## License
 
 GPL v3.0. See [LICENSE](LICENSE).
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 - OpenWrt community for LuCI
 - Flutter team
 - [OpenWrtManager](https://github.com/hagaygo/OpenWrtManager) inspiration
