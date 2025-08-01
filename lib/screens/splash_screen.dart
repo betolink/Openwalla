@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:luci_mobile/services/secure_storage_service.dart';
 import 'package:luci_mobile/config/app_config.dart';
@@ -34,12 +36,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     final secureStorage = SecureStorageService();
     final reviewerModeEnabled = await secureStorage.readValue(AppConfig.reviewerModeKey);
     
-    if (reviewerModeEnabled == 'true') {
+    if (reviewerModeEnabled == 'true' && mounted) {
       // Navigate directly to main screen in reviewer mode
-      Navigator.of(context).pushReplacementNamed('/');
-    } else {
+      unawaited(Navigator.of(context).pushReplacementNamed('/'));
+    } else if (mounted) {
       // Normal flow - go to login screen
-      Navigator.of(context).pushReplacementNamed('/login');
+      unawaited(Navigator.of(context).pushReplacementNamed('/login'));
     }
   }
 
@@ -77,7 +79,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 child: Icon(
                   Icons.router,
                   size: 100,
-                  color: Colors.white,
+                  color: colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 32),

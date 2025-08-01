@@ -74,7 +74,7 @@ class RealApiService implements IApiService {
       Logger.exception('Login failed', e, stack);
       
       // Check if this is a certificate error and we have context to show dialog
-      if (useHttps && context != null && e.toString().contains('CERTIFICATE_VERIFY_FAILED')) {
+      if (useHttps && context != null && context.mounted && e.toString().contains('CERTIFICATE_VERIFY_FAILED')) {
         // Try to prompt for certificate acceptance
         final accepted = await _httpClientManager.promptForCertificateAcceptance(
           context: context,
@@ -82,7 +82,7 @@ class RealApiService implements IApiService {
           useHttps: useHttps,
         );
         
-        if (accepted) {
+        if (accepted && context.mounted) {
           // Create a new client and retry the login
           final retryClient = _createHttpClient(useHttps, ipAddress, context: context);
           try {
@@ -277,7 +277,7 @@ class RealApiService implements IApiService {
                   sysauth: sysauth,
                   useHttps: useHttps,
                   interface: ifname,
-                  context: context,
+                  context: context?.mounted == true ? context : null,
                 );
                 if (stations.isNotEmpty) {
                   result[ifname] = stations.toSet();

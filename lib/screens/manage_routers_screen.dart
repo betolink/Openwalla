@@ -117,7 +117,7 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                     );
                                     if (!context.mounted) return;
                                     if (confirm == true) {
-                                      appState.removeRouter(router.id);
+                                      await appState.removeRouter(router.id);
                                     }
                                   },
                                 ),

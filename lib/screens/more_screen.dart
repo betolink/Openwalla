@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
@@ -10,6 +12,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 import 'package:luci_mobile/config/app_config.dart';
 import 'package:luci_mobile/screens/manage_routers_screen.dart';
 import 'package:luci_mobile/utils/http_client_manager.dart';
+import 'package:luci_mobile/state/app_state.dart';
 
 class _MoreScreenSection extends StatelessWidget {
   final List<Widget> tiles;
@@ -42,6 +45,7 @@ class MoreScreen extends ConsumerStatefulWidget {
 }
 
 class _MoreScreenState extends ConsumerState<MoreScreen> {
+  AppState? _appState;
 
   @override
   void initState() {
@@ -52,14 +56,14 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final appState = ref.read(appStateProvider);
-    appState.onRouterBackOnline = _showRouterBackOnlineMessage;
+    _appState = ref.read(appStateProvider);
+    _appState!.onRouterBackOnline = _showRouterBackOnlineMessage;
   }
 
   @override
   void dispose() {
-    final appState = ref.read(appStateProvider);
-    appState.onRouterBackOnline = null;
+    // Clear the callback before calling super.dispose()
+    _appState?.onRouterBackOnline = null;
     super.dispose();
   }
 
@@ -123,10 +127,12 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                 appState.logout();
                 // Clear all accepted certificates on logout
                 await HttpClientManager().clearAcceptedCertificates();
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (Route<dynamic> route) => false,
-                );
+                if (context.mounted) {
+                  unawaited(Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const LoginScreen()),
+                    (Route<dynamic> route) => false,
+                  ));
+                }
               },
             ),
           ],
@@ -214,7 +220,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     final info = await PackageInfo.fromPlatform();
     if (!context.mounted) return;
 
-    showDialog(
+    unawaited(showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
@@ -281,7 +287,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
           ],
         );
       },
-    );
+    ));
   }
 
   @override

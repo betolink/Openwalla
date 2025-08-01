@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../design/luci_design_system.dart';
@@ -84,10 +86,10 @@ class _LuciPullToRefreshState extends State<LuciPullToRefresh>
     if (!_hasTriggeredHaptic) {
       await HapticFeedback.mediumImpact();
       _hasTriggeredHaptic = true;
-      _hapticController.forward().then((_) {
+      unawaited(_hapticController.forward().then((_) {
         _hapticController.reset();
         _hasTriggeredHaptic = false;
-      });
+      }));
     }
 
     try {

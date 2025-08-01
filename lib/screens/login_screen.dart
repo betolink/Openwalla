@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,10 +49,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
     
     if (reviewerModeEnabled == 'true' && mounted) {
       // Navigate directly to main screen in reviewer mode
-      Navigator.of(context).pushReplacementNamed('/');
+      unawaited(Navigator.of(context).pushReplacementNamed('/'));
     } else {
       // Try auto login
-      _tryAutoLogin();
+      unawaited(_tryAutoLogin());
     }
   }
 
@@ -136,7 +137,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
     await appState.setReviewerMode(true);
     
     if (mounted) {
-      Navigator.of(context).pushReplacementNamed('/');
+      unawaited(Navigator.of(context).pushReplacementNamed('/'));
     }
   }
 
@@ -155,7 +156,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
     final appState = ref.read(appStateProvider);
     final success = await appState.tryAutoLogin(context: context);
     if (success && mounted) {
-      Navigator.of(context).pushReplacementNamed('/');
+      unawaited(Navigator.of(context).pushReplacementNamed('/'));
     } else {
       if (mounted) {
         setState(() {
@@ -182,7 +183,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
       );
 
       if (success && mounted) {
-        Navigator.of(context).pushReplacementNamed('/');
+        unawaited(Navigator.of(context).pushReplacementNamed('/'));
       }
     }
   }

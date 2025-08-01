@@ -201,11 +201,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildTitleWithTimestamp(String title, AppState appState) {
-    final lastUpdated = appState.dashboardData?['_lastUpdated'] as int?;
-    final updateTime = lastUpdated != null 
-        ? DateTime.fromMillisecondsSinceEpoch(lastUpdated)
-        : DateTime.now();
-    
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -216,14 +211,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
-        if (lastUpdated != null)
-          Text(
-            'Updated ${DateTime.now().difference(updateTime).inSeconds}s ago',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-              fontSize: 11,
-            ),
-          ),
       ],
     );
   }
@@ -471,7 +458,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           show: true,
           gradient: LinearGradient(
             colors: gradientColors
-                .map((color) => color.withOpacity(0.1))
+                .map((color) => color.withValues(alpha: 0.1))
                 .toList(),
           ),
         ),
@@ -1277,52 +1264,43 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               },
                             );
                             if (selectedId != null &&
-                                selectedId != selected?.id) {
-                              appState.selectRouter(selectedId, context: context);
+                                selectedId != selected?.id &&
+                                context.mounted) {
+                              await appState.selectRouter(selectedId, context: context);
                             }
                           },
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12.0,
-                              vertical: 4.0,
+                            padding: const EdgeInsets.only(
+                              left: 16.0,
+                              right: 8.0,
+                              top: 4.0,
+                              bottom: 4.0,
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      headerText,
-                                      style:
-                                          Theme.of(
-                                            context,
-                                          ).appBarTheme.titleTextStyle ??
-                                          Theme.of(
-                                            context,
-                                          ).textTheme.titleLarge?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: Theme.of(
-                                              context,
-                                            ).appBarTheme.titleTextStyle?.color,
-                                          ),
-                                      overflow: TextOverflow.ellipsis,
-                                      textAlign: TextAlign.center,
-                                    ),
-                                    if (appState.dashboardData?['_lastUpdated'] != null)
-                                      Text(
-                                        'Updated ${DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(appState.dashboardData!['_lastUpdated'] as int)).inSeconds}s ago',
-                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                                          fontSize: 11,
-                                        ),
+                                Text(
+                                  headerText,
+                                  style:
+                                      Theme.of(
+                                        context,
+                                      ).appBarTheme.titleTextStyle ??
+                                      Theme.of(
+                                        context,
+                                      ).textTheme.titleLarge?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: Theme.of(
+                                          context,
+                                        ).appBarTheme.titleTextStyle?.color,
                                       ),
-                                  ],
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
                                 ),
+                                const SizedBox(width: 2),
                                 Icon(
                                   Icons.arrow_drop_down,
-                                  size: 22,
+                                  size: 20,
                                   color: Theme.of(
                                     context,
                                   ).colorScheme.onSurfaceVariant,

@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart' as http;
 import 'package:luci_mobile/services/secure_storage_service.dart';
 import 'package:luci_mobile/services/router_service.dart';
 import 'package:luci_mobile/services/throughput_service.dart';
@@ -34,6 +37,8 @@ class AppState extends ChangeNotifier {
 
   Timer? _throughputTimer;
   Timer? _pollingTimer;
+  int _pollAttempts = 0;
+  static const int _maxPollAttempts = 40; // Max 40 attempts = ~5 minutes with backoff
 
   // Add rebooting state
   bool _isRebooting = false;
@@ -510,7 +515,7 @@ class AppState extends ChangeNotifier {
         _updateThroughputOnly();
       });
       
-    } catch (e, stack) {
+    } catch (e) {
       final errorMessage = e.toString();
       if (errorMessage.contains('Access denied')) {
         _dashboardError = 'Access Denied: Check RPC permissions for this user.';
@@ -518,7 +523,7 @@ class AppState extends ChangeNotifier {
         _dashboardError = 'Failed to fetch dashboard data: $e';
       }
       // Log error with stack trace for debugging
-      print('Dashboard fetch error: $e\n$stack');
+      // print('Dashboard fetch error: $e\n$stack');
       // Clear dashboard data when there's an error so we don't show stale data
       _dashboardData = null;
     } finally {
@@ -574,8 +579,8 @@ class AppState extends ChangeNotifier {
           }
         }
       }
-    } catch (e, stack) {
-      print('WAN data extraction error: $e\n$stack');
+    } catch (e) {
+      // print('WAN data extraction error: $e');
       return null;
     }
     return null;
@@ -584,6 +589,10 @@ class AppState extends ChangeNotifier {
 
   void _startThroughputTimer() {
     _throughputTimer?.cancel();
+    // Don't start timer if we're rebooting
+    if (_isRebooting) {
+      return;
+    }
     _throughputTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       _updateThroughputOnly();
     });
@@ -591,6 +600,11 @@ class AppState extends ChangeNotifier {
 
   /// Updates only throughput data without refetching the entire dashboard
   Future<void> _updateThroughputOnly() async {
+    // Don't try to update throughput during reboot
+    if (_isRebooting) {
+      return;
+    }
+    
     if (_reviewerModeEnabled) {
       // For reviewer mode, get network devices data only
       try {
@@ -661,6 +675,9 @@ class AppState extends ChangeNotifier {
   Future<bool> reboot({BuildContext? context}) async {
     if (_authService?.sysauth == null || _authService?.ipAddress == null) return false;
 
+    // Cancel throughput timer before starting reboot to prevent "client closed" errors
+    _cancelThroughputTimer();
+    
     _isRebooting = true;
     notifyListeners();
 
@@ -671,8 +688,9 @@ class AppState extends ChangeNotifier {
         _authService!.useHttps,
         context: context,
       );
-      // Wait 15 seconds before starting to poll for router availability
-      Future.delayed(const Duration(seconds: 15), () {
+      // Wait 30 seconds before starting to poll for router availability
+      // Some routers take longer to reboot
+      Future.delayed(const Duration(seconds: 30), () {
         _pollRouterAvailability();
       });
       return result;
@@ -684,19 +702,62 @@ class AppState extends ChangeNotifier {
   }
 
   void _pollRouterAvailability() {
-    // Poll every 3 seconds until router is available, then force relogin
+    // Reset poll attempts
+    _pollAttempts = 0;
     _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+    
+    // Start polling with exponential backoff
+    _scheduleNextPoll();
+  }
+  
+  void _scheduleNextPoll() {
+    if (_pollAttempts >= _maxPollAttempts) {
+      // Max attempts reached, stop polling
+      _isRebooting = false;
+      notifyListeners();
+      // print('[Reboot] Timeout: Router did not come back online after $_maxPollAttempts attempts');
+      
+      // Show a user-friendly message
+      if (onRouterBackOnline != null) {
+        // Reuse the callback to show timeout message
+        onRouterBackOnline!();
+      }
+      return;
+    }
+    
+    // Calculate delay with exponential backoff: 3s, 3s, 5s, 8s, 12s, 18s, then 20s intervals
+    int delaySeconds;
+    if (_pollAttempts < 2) {
+      delaySeconds = 3;
+    } else if (_pollAttempts < 4) {
+      delaySeconds = 5;
+    } else if (_pollAttempts < 6) {
+      delaySeconds = 8;
+    } else if (_pollAttempts < 8) {
+      delaySeconds = 12;
+    } else if (_pollAttempts < 10) {
+      delaySeconds = 18;
+    } else {
+      delaySeconds = 20; // Cap at 20 seconds for remaining attempts
+    }
+    
+    _pollingTimer = Timer(Duration(seconds: delaySeconds), () async {
+      _pollAttempts++;
       final available = await _pingRouter();
+      
       if (available) {
-        timer.cancel();
+        // Router is back online
+        _pollingTimer?.cancel();
         _pollingTimer = null;
         _isRebooting = false;
+        _pollAttempts = 0;
         notifyListeners();
+        
         // Notify UI that router is back online
         if (onRouterBackOnline != null) {
           onRouterBackOnline!();
         }
+        
         // Force relogin
         if (_routerService?.selectedRouter != null) {
           await login(
@@ -706,31 +767,84 @@ class AppState extends ChangeNotifier {
             _routerService!.selectedRouter!.useHttps,
           );
         }
+      } else {
+        // Schedule next poll
+        _scheduleNextPoll();
       }
     });
   }
 
   Future<bool> _pingRouter() async {
     if (_authService?.ipAddress == null) return false;
-    try {
-      // Try a simple HTTP GET to the router's root URL
-      final scheme = _authService!.useHttps ? 'https' : 'http';
-      final uri = Uri.parse('$scheme://${_authService!.ipAddress}/');
-      final client = _apiService!.createHttpClient();
-      try {
-        final response = await client
-            .get(uri)
-            .timeout(const Duration(seconds: 2));
-        return response.statusCode == 200 ||
-            response.statusCode == 401 ||
-            response.statusCode == 403;
-      } finally {
-        client.close();
-      }
-    } catch (e, stack) {
-      print('Router ping error: $e\n$stack');
-      return false;
+    
+    // Clear cached HTTP clients for this host to avoid stale connections
+    if (_pollAttempts == 0) {
+      _httpClientManager.disposeClient(_authService!.ipAddress!, _authService!.useHttps);
     }
+    
+    // Try multiple endpoints in order
+    final scheme = _authService!.useHttps ? 'https' : 'http';
+    final endpoints = [
+      '/',  // Root
+      '/cgi-bin/luci/',  // LuCI login page
+      '/cgi-bin/luci/admin',  // Admin page
+    ];
+    
+    for (final endpoint in endpoints) {
+      try {
+        final uri = Uri.parse('$scheme://${_authService!.ipAddress}$endpoint');
+        
+        // Create a fresh HTTP client for pinging to avoid certificate/connection issues
+        http.Client client;
+        if (_authService!.useHttps) {
+          // For HTTPS, create a client that accepts any certificate during ping
+          final httpClient = HttpClient();
+          httpClient.connectionTimeout = const Duration(seconds: 5);
+          httpClient.badCertificateCallback = (cert, host, port) => true; // Accept any cert for ping
+          client = http.IOClient(httpClient);
+        } else {
+          client = http.Client();
+        }
+        
+        try {
+          // print('[Ping] Attempt $_pollAttempts: Checking $uri');
+          final response = await client
+              .get(uri)
+              .timeout(const Duration(seconds: 5));
+          
+          // print('[Ping] Response from $endpoint: ${response.statusCode}');
+          
+          // Accept various status codes as "alive"
+          final isAlive = response.statusCode >= 200 && response.statusCode < 500;
+          
+          if (isAlive) {
+            if (_pollAttempts > 5) {
+              // If we've been polling for a while and get a response,
+              // wait a bit more to ensure services are fully started
+              // print('[Ping] Router appears online, waiting for services to stabilize...');
+              await Future.delayed(const Duration(seconds: 5));
+            }
+            return true;
+          }
+        } finally {
+          client.close();
+        }
+      } catch (e) {
+        // Try next endpoint
+        if (endpoint == endpoints.last) {
+          // print('[Ping] All endpoints failed on attempt $_pollAttempts');
+          // print('[Ping] Last error: ${e.toString()}');
+          
+          if (e is SocketException) {
+            // print('[Ping] Socket error: ${e.message}, OS Error: ${e.osError}');
+          } else if (e is HandshakeException) {
+            // print('[Ping] SSL handshake error - router may still be starting');
+          }
+        }
+      }
+    }
+    
+    return false;
   }
 
   Future<bool> checkRouterAvailability() async {
@@ -768,7 +882,7 @@ class AppState extends ChangeNotifier {
         _authService!.sysauth!,
         _authService!.useHttps,
         config: 'wireless',
-        context: context,
+        context: context?.mounted == true ? context : null,
       );
 
       // 3. Reload wifi to apply changes
@@ -777,7 +891,7 @@ class AppState extends ChangeNotifier {
         _authService!.sysauth!,
         _authService!.useHttps,
         command: 'wifi reload',
-        context: context,
+        context: context?.mounted == true ? context : null,
       );
 
       // Refresh dashboard data to reflect the change
@@ -834,6 +948,8 @@ class AppState extends ChangeNotifier {
   void dispose() {
     _throughputTimer?.cancel();
     _pollingTimer?.cancel();
+    _pollAttempts = 0;
+    _isRebooting = false;
     super.dispose();
   }
 }

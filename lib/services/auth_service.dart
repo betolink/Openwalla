@@ -69,7 +69,7 @@ class RealAuthService implements IAuthService {
     final useHttps = credentials['useHttps'] == 'true';
 
     if (ip != null && user != null && pass != null) {
-      return await _login(ip, user, pass, useHttps, context: context);
+      return await _login(ip, user, pass, useHttps, context: context?.mounted == true ? context : null);
     }
 
     return false;

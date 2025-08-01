@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
@@ -27,7 +29,7 @@ class SettingsScreen extends ConsumerWidget {
               await appState.setReviewerMode(false);
               appState.logout();
               if (context.mounted) {
-                Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                unawaited(Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false));
               }
             },
             child: const Text('Exit'),
