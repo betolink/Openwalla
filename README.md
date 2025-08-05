@@ -4,6 +4,9 @@
   <a href="https://play.google.com/store/apps/details?id=com.cogwheel.LuCIMobile">
     <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" width="200"/>
   </a>
+  <a href="https://apps.apple.com/app/luci-mobile/id6749455847">
+    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" width="175"/>
+  </a>
   <a href="https://apt.izzysoft.de/fdroid/index/apk/com.cogwheel.LuCIMobile">
     <img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" alt="Get it on IzzyOnDroid" width="200"/>
   </a>
@@ -55,7 +58,7 @@
 
 ## Installation
 
-**Get it on [Google Play](https://play.google.com/store/apps/details?id=com.cogwheel.LuCIMobile)** or **[IzzyOnDroid](https://apt.izzysoft.de/fdroid/index/apk/com.cogwheel.LuCIMobile)**, or build from source:
+**Get it on [Google Play](https://play.google.com/store/apps/details?id=com.cogwheel.LuCIMobile)**, **[Apple App Store](https://apps.apple.com/app/luci-mobile/id6749455847)**, or **[IzzyOnDroid](https://apt.izzysoft.de/fdroid/index/apk/com.cogwheel.LuCIMobile)**, or build from source:
 
 ```bash
 git clone https://github.com/cogwheel0/luci-mobile.git
