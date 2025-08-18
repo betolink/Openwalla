@@ -9,8 +9,8 @@ class DashboardPreferences {
     Set<String>? enabledWiredInterfaces,
     this.primaryThroughputInterface,
     this.showAllThroughput = true,
-  })  : enabledWirelessInterfaces = enabledWirelessInterfaces ?? {},
-        enabledWiredInterfaces = enabledWiredInterfaces ?? {};
+  }) : enabledWirelessInterfaces = enabledWirelessInterfaces ?? {},
+       enabledWiredInterfaces = enabledWiredInterfaces ?? {};
 
   DashboardPreferences copyWith({
     Set<String>? enabledWirelessInterfaces,
@@ -19,24 +19,31 @@ class DashboardPreferences {
     bool? showAllThroughput,
   }) {
     return DashboardPreferences(
-      enabledWirelessInterfaces: enabledWirelessInterfaces ?? this.enabledWirelessInterfaces,
-      enabledWiredInterfaces: enabledWiredInterfaces ?? this.enabledWiredInterfaces,
-      primaryThroughputInterface: primaryThroughputInterface ?? this.primaryThroughputInterface,
+      enabledWirelessInterfaces:
+          enabledWirelessInterfaces ?? this.enabledWirelessInterfaces,
+      enabledWiredInterfaces:
+          enabledWiredInterfaces ?? this.enabledWiredInterfaces,
+      primaryThroughputInterface:
+          primaryThroughputInterface ?? this.primaryThroughputInterface,
       showAllThroughput: showAllThroughput ?? this.showAllThroughput,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'enabledWirelessInterfaces': enabledWirelessInterfaces.toList(),
-        'enabledWiredInterfaces': enabledWiredInterfaces.toList(),
-        'primaryThroughputInterface': primaryThroughputInterface,
-        'showAllThroughput': showAllThroughput,
-      };
+    'enabledWirelessInterfaces': enabledWirelessInterfaces.toList(),
+    'enabledWiredInterfaces': enabledWiredInterfaces.toList(),
+    'primaryThroughputInterface': primaryThroughputInterface,
+    'showAllThroughput': showAllThroughput,
+  };
 
   factory DashboardPreferences.fromJson(Map<String, dynamic> json) {
     return DashboardPreferences(
-      enabledWirelessInterfaces: Set<String>.from(json['enabledWirelessInterfaces'] ?? []),
-      enabledWiredInterfaces: Set<String>.from(json['enabledWiredInterfaces'] ?? []),
+      enabledWirelessInterfaces: Set<String>.from(
+        json['enabledWirelessInterfaces'] ?? [],
+      ),
+      enabledWiredInterfaces: Set<String>.from(
+        json['enabledWiredInterfaces'] ?? [],
+      ),
       primaryThroughputInterface: json['primaryThroughputInterface'],
       showAllThroughput: json['showAllThroughput'] ?? true,
     );

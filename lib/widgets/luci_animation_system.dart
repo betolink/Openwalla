@@ -5,26 +5,36 @@ import '../design/luci_design_system.dart';
 /// Part of Phase 3: Enhanced Animations & Micro-interactions
 class LuciAdvancedAnimations {
   // Enhanced animation durations for specific use cases
-  static const Duration microInteraction = Duration(milliseconds: 150);  // Button press, toggle
-  static const Duration quickTransition = Duration(milliseconds: 250);   // Small movements, color changes
-  static const Duration smoothTransition = Duration(milliseconds: 350);  // Card flips, content reveals
-  static const Duration pageTransition = Duration(milliseconds: 500);    // Screen transitions
-  static const Duration complexAnimation = Duration(milliseconds: 750);  // Multi-step animations
-  
+  static const Duration microInteraction = Duration(
+    milliseconds: 150,
+  ); // Button press, toggle
+  static const Duration quickTransition = Duration(
+    milliseconds: 250,
+  ); // Small movements, color changes
+  static const Duration smoothTransition = Duration(
+    milliseconds: 350,
+  ); // Card flips, content reveals
+  static const Duration pageTransition = Duration(
+    milliseconds: 500,
+  ); // Screen transitions
+  static const Duration complexAnimation = Duration(
+    milliseconds: 750,
+  ); // Multi-step animations
+
   // Advanced curves for specific interactions
   static const Curve bounceIn = Curves.elasticOut;
   static const Curve smoothEase = Curves.easeInOutCubic;
   static const Curve quickSnap = Curves.easeOutBack;
   static const Curve gentleFloat = Curves.easeInOutSine;
   static const Curve sharpPop = Curves.easeOutExpo;
-  
+
   // Spring physics for natural feeling animations
   static const SpringDescription gentleSpring = SpringDescription(
     mass: 1.0,
     stiffness: 180.0,
     damping: 12.0,
   );
-  
+
   static const SpringDescription snappySpring = SpringDescription(
     mass: 0.7,
     stiffness: 400.0,
@@ -67,7 +77,7 @@ class _LuciFadeTransitionState extends State<LuciFadeTransition>
     super.initState();
     _controller = AnimationController(duration: widget.duration, vsync: this);
     _animation = CurvedAnimation(parent: _controller, curve: widget.curve);
-    
+
     if (widget.delay > Duration.zero) {
       Future.delayed(widget.delay, () {
         if (mounted) _startAnimation();
@@ -101,10 +111,7 @@ class _LuciFadeTransitionState extends State<LuciFadeTransition>
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _animation,
-      child: widget.child,
-    );
+    return FadeTransition(opacity: _animation, child: widget.child);
   }
 }
 
@@ -145,7 +152,7 @@ class _LuciSlideTransitionState extends State<LuciSlideTransition>
   void initState() {
     super.initState();
     _controller = AnimationController(duration: widget.duration, vsync: this);
-    
+
     // Determine slide offset based on direction
     Offset beginOffset;
     switch (widget.direction) {
@@ -162,23 +169,22 @@ class _LuciSlideTransitionState extends State<LuciSlideTransition>
         beginOffset = Offset(-widget.distance / 100, 0);
         break;
     }
-    
-    _slideAnimation = Tween<Offset>(
-      begin: beginOffset,
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: widget.bounce ? Curves.elasticOut : widget.curve,
-    ));
-    
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
-    ));
-    
+
+    _slideAnimation = Tween<Offset>(begin: beginOffset, end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _controller,
+            curve: widget.bounce ? Curves.elasticOut : widget.curve,
+          ),
+        );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+      ),
+    );
+
     if (widget.delay > Duration.zero) {
       Future.delayed(widget.delay, () {
         if (mounted) _controller.forward();
@@ -198,10 +204,7 @@ class _LuciSlideTransitionState extends State<LuciSlideTransition>
   Widget build(BuildContext context) {
     return SlideTransition(
       position: _slideAnimation,
-      child: FadeTransition(
-        opacity: _fadeAnimation,
-        child: widget.child,
-      ),
+      child: FadeTransition(opacity: _fadeAnimation, child: widget.child),
     );
   }
 }
@@ -240,25 +243,22 @@ class _LuciScaleTransitionState extends State<LuciScaleTransition>
   void initState() {
     super.initState();
     _controller = AnimationController(duration: widget.duration, vsync: this);
-    
+
     if (widget.useSpringPhysics) {
       _scaleAnimation = Tween<double>(
         begin: widget.initialScale,
         end: widget.finalScale,
-      ).animate(CurvedAnimation(
-        parent: _controller,
-        curve: Curves.elasticOut,
-      ));
+      ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
     } else {
-      _scaleAnimation = Tween<double>(
-        begin: widget.initialScale,
-        end: widget.finalScale,
-      ).animate(CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOutBack,
-      ));
+      _scaleAnimation =
+          Tween<double>(
+            begin: widget.initialScale,
+            end: widget.finalScale,
+          ).animate(
+            CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
+          );
     }
-    
+
     if (widget.delay > Duration.zero) {
       Future.delayed(widget.delay, () {
         if (mounted) _controller.forward();
@@ -317,7 +317,7 @@ class _LuciStaggeredAnimationState extends State<LuciStaggeredAnimation> {
         final delay = Duration(
           milliseconds: widget.staggerDelay.inMilliseconds * index,
         );
-        
+
         Widget animatedChild;
         switch (widget.animationType) {
           case LuciStaggerType.slideUp:
@@ -347,7 +347,7 @@ class _LuciStaggeredAnimationState extends State<LuciStaggeredAnimation> {
             );
             break;
         }
-        
+
         return animatedChild;
       }),
     );
@@ -402,11 +402,8 @@ class _LuciInteractiveButtonState extends State<LuciInteractiveButton>
     _scaleAnimation = Tween<double>(
       begin: 1.0,
       end: widget.pressScale,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
-    
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+
     _colorAnimation = ColorTween(
       begin: widget.backgroundColor,
       end: widget.pressedColor,
@@ -464,7 +461,9 @@ class _LuciInteractiveButtonState extends State<LuciInteractiveButton>
             child: Container(
               decoration: BoxDecoration(
                 color: _colorAnimation.value ?? widget.backgroundColor,
-                borderRadius: widget.borderRadius ?? BorderRadius.circular(LuciSpacing.sm),
+                borderRadius:
+                    widget.borderRadius ??
+                    BorderRadius.circular(LuciSpacing.sm),
               ),
               child: widget.child,
             ),
@@ -488,19 +487,19 @@ class LuciPageTransition extends PageRouteBuilder {
     this.duration = const Duration(milliseconds: 400),
     this.curve = Curves.easeInOutCubic,
   }) : super(
-    pageBuilder: (context, animation, secondaryAnimation) => child,
-    transitionDuration: duration,
-    reverseTransitionDuration: duration,
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      return _buildTransition(
-        child: child,
-        animation: animation,
-        secondaryAnimation: secondaryAnimation,
-        transitionType: transitionType,
-        curve: curve,
-      );
-    },
-  );
+         pageBuilder: (context, animation, secondaryAnimation) => child,
+         transitionDuration: duration,
+         reverseTransitionDuration: duration,
+         transitionsBuilder: (context, animation, secondaryAnimation, child) {
+           return _buildTransition(
+             child: child,
+             animation: animation,
+             secondaryAnimation: secondaryAnimation,
+             transitionType: transitionType,
+             curve: curve,
+           );
+         },
+       );
 
   static Widget _buildTransition({
     required Widget child,
@@ -510,7 +509,7 @@ class LuciPageTransition extends PageRouteBuilder {
     required Curve curve,
   }) {
     final curvedAnimation = CurvedAnimation(parent: animation, curve: curve);
-    
+
     switch (transitionType) {
       case LuciTransitionType.slideRight:
         return SlideTransition(
@@ -540,26 +539,14 @@ class LuciPageTransition extends PageRouteBuilder {
         return FadeTransition(
           opacity: curvedAnimation,
           child: ScaleTransition(
-            scale: Tween<double>(
-              begin: 0.8,
-              end: 1.0,
-            ).animate(curvedAnimation),
+            scale: Tween<double>(begin: 0.8, end: 1.0).animate(curvedAnimation),
             child: child,
           ),
         );
       case LuciTransitionType.fade:
-        return FadeTransition(
-          opacity: curvedAnimation,
-          child: child,
-        );
+        return FadeTransition(opacity: curvedAnimation, child: child);
     }
   }
 }
 
-enum LuciTransitionType {
-  slideRight,
-  slideLeft,
-  slideUp,
-  fadeScale,
-  fade,
-}
+enum LuciTransitionType { slideRight, slideLeft, slideUp, fadeScale, fade }

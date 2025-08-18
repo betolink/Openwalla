@@ -34,13 +34,9 @@ class _LuciSkeletonState extends State<LuciSkeleton>
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
-    _animation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
     _animationController.repeat(reverse: true);
   }
 
@@ -65,13 +61,16 @@ class _LuciSkeletonState extends State<LuciSkeleton>
         builder: (context, child) {
           return Container(
             decoration: BoxDecoration(
-              borderRadius: widget.borderRadius ?? LuciCardStyles.standardRadius,
+              borderRadius:
+                  widget.borderRadius ?? LuciCardStyles.standardRadius,
               gradient: LinearGradient(
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
                 colors: [
                   Theme.of(context).colorScheme.surfaceContainerHighest,
-                  Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                   Theme.of(context).colorScheme.surfaceContainerHighest,
                 ],
                 stops: [
@@ -107,7 +106,9 @@ class LuciCardSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: LuciCardStyles.standardRadius),
+      shape: RoundedRectangleBorder(
+        borderRadius: LuciCardStyles.standardRadius,
+      ),
       child: Padding(
         padding: EdgeInsets.all(LuciSpacing.md),
         child: Column(
@@ -133,7 +134,8 @@ class LuciCardSkeleton extends StatelessWidget {
                 return Padding(
                   padding: EdgeInsets.only(bottom: isLast ? 0 : LuciSpacing.sm),
                   child: LuciSkeleton(
-                    width: MediaQuery.of(context).size.width * 
+                    width:
+                        MediaQuery.of(context).size.width *
                         (isLast ? 0.3 : 0.8), // Make last line shorter
                     height: 14,
                   ),
@@ -161,11 +163,13 @@ class LuciListItemSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: showLeading ? const LuciSkeleton(
-        width: 40,
-        height: 40,
-        borderRadius: BorderRadius.all(Radius.circular(20)),
-      ) : null,
+      leading: showLeading
+          ? const LuciSkeleton(
+              width: 40,
+              height: 40,
+              borderRadius: BorderRadius.all(Radius.circular(20)),
+            )
+          : null,
       title: LuciSkeleton(
         width: MediaQuery.of(context).size.width * 0.5,
         height: 16,
@@ -175,21 +179,20 @@ class LuciListItemSkeleton extends StatelessWidget {
         height: 14,
         margin: EdgeInsets.only(top: LuciSpacing.xs),
       ),
-      trailing: showTrailing ? const LuciSkeleton(
-        width: 24,
-        height: 24,
-        borderRadius: BorderRadius.all(Radius.circular(12)),
-      ) : null,
+      trailing: showTrailing
+          ? const LuciSkeleton(
+              width: 24,
+              height: 24,
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+            )
+          : null,
     );
   }
 }
 
 /// Skeleton loading for chart areas
 class LuciChartSkeleton extends StatelessWidget {
-  const LuciChartSkeleton({
-    super.key,
-    this.height = 200,
-  });
+  const LuciChartSkeleton({super.key, this.height = 200});
 
   final double height;
 
@@ -212,7 +215,9 @@ class LuciChartSkeleton extends StatelessWidget {
               decoration: BoxDecoration(
                 borderRadius: LuciCardStyles.standardRadius,
                 border: Border.all(
-                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.outline.withValues(alpha: 0.2),
                 ),
               ),
               child: Stack(
@@ -223,10 +228,7 @@ class LuciChartSkeleton extends StatelessWidget {
                       left: LuciSpacing.md,
                       right: LuciSpacing.md,
                       bottom: LuciSpacing.md + (index * (height - 80) / 5),
-                      child: LuciSkeleton(
-                        width: double.infinity,
-                        height: 2,
-                      ),
+                      child: LuciSkeleton(width: double.infinity, height: 2),
                     );
                   }),
                   // Data points simulation
@@ -262,10 +264,7 @@ class LuciChartSkeleton extends StatelessWidget {
                 height: 12,
                 margin: EdgeInsets.only(right: LuciSpacing.md),
               ),
-              LuciSkeleton(
-                width: 60,
-                height: 12,
-              ),
+              LuciSkeleton(width: 60, height: 12),
             ],
           ),
         ],

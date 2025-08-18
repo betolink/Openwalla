@@ -8,7 +8,7 @@ import 'package:luci_mobile/screens/dashboard_customization_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
-  
+
   void _showReviewerModeResetDialog(BuildContext context, WidgetRef ref) {
     final appState = ref.read(appStateProvider);
     showDialog(
@@ -30,7 +30,11 @@ class SettingsScreen extends ConsumerWidget {
               await appState.setReviewerMode(false);
               appState.logout();
               if (context.mounted) {
-                unawaited(Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false));
+                unawaited(
+                  Navigator.of(
+                    context,
+                  ).pushNamedAndRemoveUntil('/login', (route) => false),
+                );
               }
             },
             child: const Text('Exit'),
@@ -55,25 +59,34 @@ class SettingsScreen extends ConsumerWidget {
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 28, 16, 8),
-                    child: Text('Theme', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    child: Text(
+                      'Theme',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                  RadioListTile<ThemeMode>(
-                    title: const Text('System Default'),
-                    value: ThemeMode.system,
+                  RadioGroup<ThemeMode>(
                     groupValue: appState.themeMode,
-                    onChanged: (mode) => appState.setThemeMode(mode!),
-                  ),
-                  RadioListTile<ThemeMode>(
-                    title: const Text('Light'),
-                    value: ThemeMode.light,
-                    groupValue: appState.themeMode,
-                    onChanged: (mode) => appState.setThemeMode(mode!),
-                  ),
-                  RadioListTile<ThemeMode>(
-                    title: const Text('Dark'),
-                    value: ThemeMode.dark,
-                    groupValue: appState.themeMode,
-                    onChanged: (mode) => appState.setThemeMode(mode!),
+                    onChanged: (mode) {
+                      if (mode != null) appState.setThemeMode(mode);
+                    },
+                    child: Column(
+                      children: [
+                        RadioListTile<ThemeMode>(
+                          title: const Text('System Default'),
+                          value: ThemeMode.system,
+                        ),
+                        RadioListTile<ThemeMode>(
+                          title: const Text('Light'),
+                          value: ThemeMode.light,
+                        ),
+                        RadioListTile<ThemeMode>(
+                          title: const Text('Dark'),
+                          value: ThemeMode.dark,
+                        ),
+                      ],
+                    ),
                   ),
                   const Divider(height: 32),
                   Padding(
@@ -93,7 +106,8 @@ class SettingsScreen extends ConsumerWidget {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => const DashboardCustomizationScreen(),
+                          builder: (context) =>
+                              const DashboardCustomizationScreen(),
                         ),
                       );
                     },
@@ -102,10 +116,17 @@ class SettingsScreen extends ConsumerWidget {
                     const Divider(height: 32),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                      child: Text('Reviewer Mode', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      child: Text(
+                        'Reviewer Mode',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
                     ),
                     ListTile(
-                      leading: const Icon(Icons.info_outline, color: Colors.orange),
+                      leading: const Icon(
+                        Icons.info_outline,
+                        color: Colors.orange,
+                      ),
                       title: const Text('Reviewer Mode Active'),
                       subtitle: Text(
                         'Mock data is being used for demonstration',
@@ -113,14 +134,20 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       child: FilledButton.icon(
-                        onPressed: () => _showReviewerModeResetDialog(context, ref),
+                        onPressed: () =>
+                            _showReviewerModeResetDialog(context, ref),
                         icon: const Icon(Icons.exit_to_app),
                         label: const Text('Exit Reviewer Mode'),
                         style: FilledButton.styleFrom(
                           backgroundColor: Theme.of(context).colorScheme.error,
-                          foregroundColor: Theme.of(context).colorScheme.onError,
+                          foregroundColor: Theme.of(
+                            context,
+                          ).colorScheme.onError,
                         ),
                       ),
                     ),

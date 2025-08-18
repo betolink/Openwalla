@@ -101,7 +101,8 @@ class RealApiService implements IApiService {
         username,
         password,
         true, // Try with HTTPS
-        context: context,
+        // Do not pass BuildContext across async gaps to avoid lints
+        context: null,
         checkRedirect: false,
       );
 

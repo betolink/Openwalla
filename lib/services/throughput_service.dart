@@ -4,12 +4,12 @@ import 'dart:math';
 class ThroughputService {
   final Queue<double> _rxHistory = Queue<double>();
   final Queue<double> _txHistory = Queue<double>();
-  
+
   double _currentRxRate = 0;
   double _currentTxRate = 0;
   Map<String, dynamic>? _lastStats;
   DateTime? _lastTimestamp;
-  
+
   // Per-interface tracking
   final Map<String, Queue<double>> _rxHistoryPerInterface = {};
   final Map<String, Queue<double>> _txHistoryPerInterface = {};
@@ -17,7 +17,7 @@ class ThroughputService {
   final Map<String, double> _currentTxRatePerInterface = {};
   final Map<String, Map<String, dynamic>?> _lastStatsPerInterface = {};
   final Map<String, DateTime?> _lastTimestampPerInterface = {};
-  
+
   static const int _maxHistoryLength = 50;
   static const double _maxRate = 1000.0 * 1024.0 * 1024.0; // 1 GB/s
   static const double _minElapsedSeconds = 0.1;
@@ -26,20 +26,20 @@ class ThroughputService {
   List<double> get txHistory => _txHistory.toList();
   double get currentRxRate => _currentRxRate;
   double get currentTxRate => _currentTxRate;
-  
+
   // Interface-specific getters
   List<double> getRxHistoryForInterface(String interface) {
     return _rxHistoryPerInterface[interface]?.toList() ?? [];
   }
-  
+
   List<double> getTxHistoryForInterface(String interface) {
     return _txHistoryPerInterface[interface]?.toList() ?? [];
   }
-  
+
   double getCurrentRxRateForInterface(String interface) {
     return _currentRxRatePerInterface[interface] ?? 0.0;
   }
-  
+
   double getCurrentTxRateForInterface(String interface) {
     return _currentTxRatePerInterface[interface] ?? 0.0;
   }
@@ -50,22 +50,22 @@ class ThroughputService {
     String? specificInterface,
   }) {
     final now = DateTime.now();
-    
+
     // Update per-interface throughput
     if (networkData != null) {
       networkData.forEach((devName, devData) {
         _updateInterfaceThroughput(devName, devData, now);
       });
     }
-    
+
     // Update overall throughput
     if (specificInterface != null) {
       // If specific interface requested, use only that interface's data
       if (networkData != null && networkData.containsKey(specificInterface)) {
         _updateSpecificInterfaceThroughput(
-          specificInterface, 
-          networkData[specificInterface], 
-          now
+          specificInterface,
+          networkData[specificInterface],
+          now,
         );
       }
     } else {
@@ -78,14 +78,31 @@ class ThroughputService {
         return;
       }
 
-      final elapsedSeconds = now.difference(_lastTimestamp!).inMilliseconds / 1000.0;
+      final elapsedSeconds =
+          now.difference(_lastTimestamp!).inMilliseconds / 1000.0;
 
       // Only calculate throughput if we have a reasonable time difference
       if (elapsedSeconds >= _minElapsedSeconds) {
-        final lastRx = _calculateTotalBytes(_lastStats, 'rx_bytes', wanDeviceNames: wanDeviceNames);
-        final lastTx = _calculateTotalBytes(_lastStats, 'tx_bytes', wanDeviceNames: wanDeviceNames);
-        final currentRx = _calculateTotalBytes(networkData, 'rx_bytes', wanDeviceNames: wanDeviceNames);
-        final currentTx = _calculateTotalBytes(networkData, 'tx_bytes', wanDeviceNames: wanDeviceNames);
+        final lastRx = _calculateTotalBytes(
+          _lastStats,
+          'rx_bytes',
+          wanDeviceNames: wanDeviceNames,
+        );
+        final lastTx = _calculateTotalBytes(
+          _lastStats,
+          'tx_bytes',
+          wanDeviceNames: wanDeviceNames,
+        );
+        final currentRx = _calculateTotalBytes(
+          networkData,
+          'rx_bytes',
+          wanDeviceNames: wanDeviceNames,
+        );
+        final currentTx = _calculateTotalBytes(
+          networkData,
+          'tx_bytes',
+          wanDeviceNames: wanDeviceNames,
+        );
 
         // Calculate rates with a reasonable maximum to prevent spikes
         final rxRate = max(0, (currentRx - lastRx) / elapsedSeconds);
@@ -102,17 +119,21 @@ class ThroughputService {
       _lastTimestamp = now;
     }
   }
-  
-  void _updateInterfaceThroughput(String interface, dynamic devData, DateTime now) {
+
+  void _updateInterfaceThroughput(
+    String interface,
+    dynamic devData,
+    DateTime now,
+  ) {
     if (devData == null || devData is! Map<String, dynamic>) return;
-    
+
     final lastStats = _lastStatsPerInterface[interface];
     final lastTimestamp = _lastTimestampPerInterface[interface];
-    
+
     if (lastStats == null || lastTimestamp == null) {
       _lastStatsPerInterface[interface] = devData;
       _lastTimestampPerInterface[interface] = now;
-      
+
       // Initialize history for this interface
       _rxHistoryPerInterface.putIfAbsent(interface, () => Queue<double>());
       _txHistoryPerInterface.putIfAbsent(interface, () => Queue<double>());
@@ -120,41 +141,50 @@ class ThroughputService {
       _txHistoryPerInterface[interface]!.add(0.0);
       return;
     }
-    
-    final elapsedSeconds = now.difference(lastTimestamp).inMilliseconds / 1000.0;
-    
+
+    final elapsedSeconds =
+        now.difference(lastTimestamp).inMilliseconds / 1000.0;
+
     if (elapsedSeconds >= _minElapsedSeconds) {
       final lastRx = (lastStats['stats']?['rx_bytes'] ?? 0) as num;
       final lastTx = (lastStats['stats']?['tx_bytes'] ?? 0) as num;
       final currentRx = (devData['stats']?['rx_bytes'] ?? 0) as num;
       final currentTx = (devData['stats']?['tx_bytes'] ?? 0) as num;
-      
+
       final rxRate = max(0, (currentRx - lastRx) / elapsedSeconds);
       final txRate = max(0, (currentTx - lastTx) / elapsedSeconds);
-      
+
       _currentRxRatePerInterface[interface] = min(rxRate.toDouble(), _maxRate);
       _currentTxRatePerInterface[interface] = min(txRate.toDouble(), _maxRate);
-      
-      _addToInterfaceHistory(interface, _currentRxRatePerInterface[interface]!, _currentTxRatePerInterface[interface]!);
+
+      _addToInterfaceHistory(
+        interface,
+        _currentRxRatePerInterface[interface]!,
+        _currentTxRatePerInterface[interface]!,
+      );
     }
-    
+
     _lastStatsPerInterface[interface] = devData;
     _lastTimestampPerInterface[interface] = now;
   }
-  
-  void _updateSpecificInterfaceThroughput(String interface, dynamic devData, DateTime now) {
+
+  void _updateSpecificInterfaceThroughput(
+    String interface,
+    dynamic devData,
+    DateTime now,
+  ) {
     if (devData == null || devData is! Map<String, dynamic>) return;
-    
+
     final rxRate = _currentRxRatePerInterface[interface] ?? 0.0;
     final txRate = _currentTxRatePerInterface[interface] ?? 0.0;
-    
+
     _currentRxRate = rxRate;
     _currentTxRate = txRate;
-    
+
     // Use the interface's history for the main display
     final rxHist = _rxHistoryPerInterface[interface];
     final txHist = _txHistoryPerInterface[interface];
-    
+
     if (rxHist != null && txHist != null) {
       _rxHistory.clear();
       _txHistory.clear();
@@ -162,14 +192,20 @@ class ThroughputService {
       _txHistory.addAll(txHist);
     }
   }
-  
+
   void _addToInterfaceHistory(String interface, double rxRate, double txRate) {
-    final rxHist = _rxHistoryPerInterface.putIfAbsent(interface, () => Queue<double>());
-    final txHist = _txHistoryPerInterface.putIfAbsent(interface, () => Queue<double>());
-    
+    final rxHist = _rxHistoryPerInterface.putIfAbsent(
+      interface,
+      () => Queue<double>(),
+    );
+    final txHist = _txHistoryPerInterface.putIfAbsent(
+      interface,
+      () => Queue<double>(),
+    );
+
     rxHist.add(rxRate);
     txHist.add(txRate);
-    
+
     // Maintain fixed queue size
     if (rxHist.length > _maxHistoryLength) {
       rxHist.removeFirst();
@@ -182,7 +218,7 @@ class ThroughputService {
   void _addToHistory(double rxRate, double txRate) {
     _rxHistory.add(rxRate);
     _txHistory.add(txRate);
-    
+
     // Maintain fixed queue size for O(1) performance
     if (_rxHistory.length > _maxHistoryLength) {
       _rxHistory.removeFirst();
@@ -220,7 +256,7 @@ class ThroughputService {
     _currentTxRate = 0;
     _lastStats = null;
     _lastTimestamp = null;
-    
+
     // Clear per-interface data
     _rxHistoryPerInterface.clear();
     _txHistoryPerInterface.clear();

@@ -41,22 +41,21 @@ class _LuciErrorCardState extends State<LuciErrorCard>
       duration: LuciAnimations.standard,
       vsync: this,
     );
-    
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, -1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: LuciAnimations.easeOut,
-    ));
-    
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: LuciAnimations.easeOut,
-    ));
+
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, -1), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: LuciAnimations.easeOut,
+          ),
+        );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: LuciAnimations.easeOut,
+      ),
+    );
 
     if (widget.showAnimation) {
       _animationController.forward();
@@ -94,10 +93,7 @@ class _LuciErrorCardState extends State<LuciErrorCard>
           elevation: 4,
           shape: RoundedRectangleBorder(
             borderRadius: LuciCardStyles.standardRadius,
-            side: BorderSide(
-              color: errorConfig.borderColor,
-              width: 1,
-            ),
+            side: BorderSide(color: errorConfig.borderColor, width: 1),
           ),
           color: errorConfig.backgroundColor,
           child: Padding(
@@ -117,9 +113,9 @@ class _LuciErrorCardState extends State<LuciErrorCard>
                     Expanded(
                       child: Text(
                         widget.title,
-                        style: LuciTextStyles.cardTitle(context).copyWith(
-                          color: errorConfig.titleColor,
-                        ),
+                        style: LuciTextStyles.cardTitle(
+                          context,
+                        ).copyWith(color: errorConfig.titleColor),
                       ),
                     ),
                     if (widget.onDismiss != null)
@@ -218,12 +214,7 @@ class _LuciErrorCardState extends State<LuciErrorCard>
 }
 
 /// Error types for consistent styling
-enum LuciErrorType {
-  error,
-  warning,
-  info,
-  success,
-}
+enum LuciErrorType { error, warning, info, success }
 
 /// Configuration for error styling
 class _ErrorConfig {
@@ -278,22 +269,14 @@ class _LuciInlineErrorState extends State<LuciInlineError>
       duration: LuciAnimations.fast,
       vsync: this,
     );
-    
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOut,
-    ));
-    
-    _scaleAnimation = Tween<double>(
-      begin: 0.8,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOut,
-    ));
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
 
     if (widget.showAnimation) {
       _animationController.forward();
@@ -325,26 +308,19 @@ class _LuciInlineErrorState extends State<LuciInlineError>
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(LuciSpacing.xs),
-            border: Border.all(
-              color: color.withValues(alpha: 0.3),
-              width: 1,
-            ),
+            border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                _getErrorIcon(widget.type),
-                size: 16,
-                color: color,
-              ),
+              Icon(_getErrorIcon(widget.type), size: 16, color: color),
               SizedBox(width: LuciSpacing.xs),
               Flexible(
                 child: Text(
                   widget.message,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: color,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: color),
                 ),
               ),
             ],
@@ -394,7 +370,7 @@ class LuciErrorSnackbar {
   }) {
     final colorScheme = Theme.of(context).colorScheme;
     final color = _getSnackbarColor(type, colorScheme);
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Column(

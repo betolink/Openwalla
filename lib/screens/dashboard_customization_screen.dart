@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/models/dashboard_preferences.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
-import 'package:luci_mobile/widgets/luci_loading_states.dart';
 
 class DashboardCustomizationScreen extends ConsumerStatefulWidget {
   const DashboardCustomizationScreen({super.key});
@@ -29,18 +28,18 @@ class _DashboardCustomizationScreenState
 
   Future<void> _loadPreferences() async {
     final appState = ref.read(appStateProvider);
-    
+
     // Fetch dashboard data if not available
     if (appState.dashboardData == null) {
       await appState.fetchDashboardData();
     }
-    
+
     // Load current preferences
     _preferences = appState.dashboardPreferences;
-    
+
     // Extract available interfaces
     _extractAvailableInterfaces(appState.dashboardData);
-    
+
     setState(() => _isLoading = false);
   }
 
@@ -51,7 +50,7 @@ class _DashboardCustomizationScreenState
     final wirelessRadios = dashboardData['wireless'] as Map<String, dynamic>?;
     final uciWirelessConfig = dashboardData['uciWirelessConfig'];
     final runtimeInterfaces = <String>{};
-    
+
     // Extract runtime wireless interfaces
     if (wirelessRadios != null) {
       wirelessRadios.forEach((radioName, radioData) {
@@ -63,11 +62,11 @@ class _DashboardCustomizationScreenState
             final ssid = iwinfo['ssid'] ?? config['ssid'];
             final deviceName = config['device'] ?? radioName;
             final uciName = interface['section'] as String?;
-            
+
             if (uciName != null) {
               runtimeInterfaces.add(uciName);
             }
-            
+
             if (ssid != null && ssid.toString().isNotEmpty) {
               final interfaceId = '$ssid ($deviceName)';
               _availableWirelessInterfaces.add(interfaceId);
@@ -82,14 +81,15 @@ class _DashboardCustomizationScreenState
         }
       });
     }
-    
+
     // Extract UCI-configured wireless interfaces that aren't running
     if (uciWirelessConfig != null) {
       final uciValues = uciWirelessConfig['values'] as Map?;
       if (uciValues != null) {
         uciValues.forEach((key, value) {
           final typedValue = value as Map?;
-          if (typedValue?['.type'] == 'wifi-iface' && !runtimeInterfaces.contains(key)) {
+          if (typedValue?['.type'] == 'wifi-iface' &&
+              !runtimeInterfaces.contains(key)) {
             final ssid = typedValue?['ssid'];
             final device = typedValue?['device'];
             if (ssid != null && ssid.toString().isNotEmpty) {
@@ -106,12 +106,13 @@ class _DashboardCustomizationScreenState
     }
 
     // Extract ALL wired interfaces from interface dump
-    final interfaces = dashboardData['interfaceDump']?['interface'] as List<dynamic>?;
+    final interfaces =
+        dashboardData['interfaceDump']?['interface'] as List<dynamic>?;
     if (interfaces != null) {
       for (var item in interfaces) {
         final interface = item as Map<String, dynamic>;
         final name = interface['interface'] as String? ?? '';
-        
+
         // Include ALL interfaces (not just wan/lan/vpn)
         if (name.isNotEmpty) {
           _availableWiredInterfaces.add(name);
@@ -122,10 +123,6 @@ class _DashboardCustomizationScreenState
 
     // Sort interfaces for better UX
     _allInterfaces.sort();
-  }
-
-  List<String> _getAllInterfaces() {
-    return _allInterfaces;
   }
 
   Widget _buildThroughputSection() {
@@ -142,39 +139,50 @@ class _DashboardCustomizationScreenState
         subtitle: const Text('Configure which interfaces to monitor'),
         initiallyExpanded: true,
         children: [
-          RadioListTile<bool>(
-            title: const Text('Show All Interfaces Combined'),
-            subtitle: const Text('Display total throughput across all interfaces'),
-            value: true,
+          RadioGroup<bool>(
             groupValue: _preferences.showAllThroughput,
             onChanged: (value) {
+              if (value == null) return;
               setState(() {
-                _preferences = _preferences.copyWith(
-                  showAllThroughput: true,
-                  primaryThroughputInterface: null,
-                );
+                if (value) {
+                  _preferences = _preferences.copyWith(
+                    showAllThroughput: true,
+                    primaryThroughputInterface: null,
+                  );
+                } else {
+                  _preferences = _preferences.copyWith(
+                    showAllThroughput: false,
+                    primaryThroughputInterface: interfaces.isNotEmpty
+                        ? interfaces.first
+                        : null,
+                  );
+                }
               });
             },
-          ),
-          RadioListTile<bool>(
-            title: const Text('Show Specific Interface'),
-            subtitle: const Text('Monitor throughput for a single interface'),
-            value: false,
-            groupValue: _preferences.showAllThroughput,
-            onChanged: (value) {
-              setState(() {
-                _preferences = _preferences.copyWith(
-                  showAllThroughput: false,
-                  primaryThroughputInterface: interfaces.isNotEmpty ? interfaces.first : null,
-                );
-              });
-            },
+            child: Column(
+              children: [
+                RadioListTile<bool>(
+                  title: const Text('Show All Interfaces Combined'),
+                  subtitle: const Text(
+                    'Display total throughput across all interfaces',
+                  ),
+                  value: true,
+                ),
+                RadioListTile<bool>(
+                  title: const Text('Show Specific Interface'),
+                  subtitle: const Text(
+                    'Monitor throughput for a single interface',
+                  ),
+                  value: false,
+                ),
+              ],
+            ),
           ),
           if (!_preferences.showAllThroughput)
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: DropdownButtonFormField<String>(
-                value: _preferences.primaryThroughputInterface,
+                initialValue: _preferences.primaryThroughputInterface,
                 decoration: InputDecoration(
                   labelText: 'Select Interface',
                   border: OutlineInputBorder(
@@ -186,10 +194,7 @@ class _DashboardCustomizationScreenState
                 items: interfaces.map((iface) {
                   return DropdownMenuItem(
                     value: iface,
-                    child: Text(
-                      iface,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    child: Text(iface, overflow: TextOverflow.ellipsis),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -232,7 +237,9 @@ class _DashboardCustomizationScreenState
                   );
                 } else {
                   _preferences = _preferences.copyWith(
-                    enabledWirelessInterfaces: Set.from(_availableWirelessInterfaces),
+                    enabledWirelessInterfaces: Set.from(
+                      _availableWirelessInterfaces,
+                    ),
                   );
                 }
               });
@@ -240,9 +247,10 @@ class _DashboardCustomizationScreenState
           ),
           const Divider(height: 1),
           ..._availableWirelessInterfaces.map((interface) {
-            final isEnabled = _preferences.enabledWirelessInterfaces.isEmpty ||
+            final isEnabled =
+                _preferences.enabledWirelessInterfaces.isEmpty ||
                 _preferences.enabledWirelessInterfaces.contains(interface);
-            
+
             return CheckboxListTile(
               title: Text(interface),
               value: isEnabled,
@@ -251,7 +259,9 @@ class _DashboardCustomizationScreenState
                   ? null
                   : (value) {
                       setState(() {
-                        final newSet = Set<String>.from(_preferences.enabledWirelessInterfaces);
+                        final newSet = Set<String>.from(
+                          _preferences.enabledWirelessInterfaces,
+                        );
                         if (value ?? false) {
                           newSet.add(interface);
                         } else {
@@ -303,9 +313,10 @@ class _DashboardCustomizationScreenState
           ),
           const Divider(height: 1),
           ..._availableWiredInterfaces.map((interface) {
-            final isEnabled = _preferences.enabledWiredInterfaces.isEmpty ||
+            final isEnabled =
+                _preferences.enabledWiredInterfaces.isEmpty ||
                 _preferences.enabledWiredInterfaces.contains(interface);
-            
+
             return CheckboxListTile(
               title: Text(interface.toUpperCase()),
               subtitle: _getInterfaceDescription(interface),
@@ -315,7 +326,9 @@ class _DashboardCustomizationScreenState
                   ? null
                   : (value) {
                       setState(() {
-                        final newSet = Set<String>.from(_preferences.enabledWiredInterfaces);
+                        final newSet = Set<String>.from(
+                          _preferences.enabledWiredInterfaces,
+                        );
                         if (value ?? false) {
                           newSet.add(interface);
                         } else {
@@ -340,13 +353,15 @@ class _DashboardCustomizationScreenState
       return const Text('Wide Area Network');
     } else if (lowerInterface.startsWith('lan')) {
       return const Text('Local Area Network');
-    } else if (lowerInterface.contains('wireguard') || lowerInterface.startsWith('wg')) {
+    } else if (lowerInterface.contains('wireguard') ||
+        lowerInterface.startsWith('wg')) {
       return const Text('WireGuard VPN');
     } else if (lowerInterface.contains('openvpn')) {
       return const Text('OpenVPN');
     } else if (lowerInterface.contains('pppoe')) {
       return const Text('PPPoE Connection');
-    } else if (lowerInterface.startsWith('br-') || lowerInterface.contains('bridge')) {
+    } else if (lowerInterface.startsWith('br-') ||
+        lowerInterface.contains('bridge')) {
       return const Text('Network Bridge');
     } else if (lowerInterface.startsWith('eth')) {
       return const Text('Ethernet Interface');
@@ -372,10 +387,10 @@ class _DashboardCustomizationScreenState
 
   Future<void> _savePreferences() async {
     final appState = ref.read(appStateProvider);
-    
+
     try {
       await appState.saveDashboardPreferences(_preferences);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -409,13 +424,8 @@ class _DashboardCustomizationScreenState
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        appBar: LuciAppBar(
-          title: 'Dashboard Customization',
-          showBack: true,
-        ),
-        body: Center(
-          child: LuciLoadingWidget(),
-        ),
+        appBar: LuciAppBar(title: 'Dashboard Customization', showBack: true),
+        body: Center(child: LuciLoadingWidget()),
       );
     }
 

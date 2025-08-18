@@ -57,7 +57,10 @@ class SecureStorageService {
       await _storage.deleteAll();
       // Restore reviewer mode flag if it was set
       if (reviewerMode != null) {
-        await _storage.write(key: AppConfig.reviewerModeKey, value: reviewerMode);
+        await _storage.write(
+          key: AppConfig.reviewerModeKey,
+          value: reviewerMode,
+        );
       }
     } catch (e, stack) {
       Logger.exception('Failed to clear credentials', e, stack);
@@ -121,7 +124,7 @@ class SecureStorageService {
       final routers = await getRouters();
       final updated = [
         for (final r in routers)
-          if (r.id == router.id) router else r
+          if (r.id == router.id) router else r,
       ];
       await saveRouters(updated);
     } catch (e, stack) {

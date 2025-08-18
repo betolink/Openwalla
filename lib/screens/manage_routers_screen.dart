@@ -497,8 +497,9 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                                       }
                                                                       // Do NOT addRouter here; login already adds it if needed
                                                                       if (!context
-                                                                          .mounted)
+                                                                          .mounted) {
                                                                         return;
+                                                                      }
                                                                       Navigator.pop(
                                                                         context,
                                                                       );

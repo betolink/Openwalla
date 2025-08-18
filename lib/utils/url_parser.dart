@@ -30,9 +30,7 @@ class UrlParser {
       int? port = uri.hasPort ? uri.port : null;
 
       // If no explicit port, use defaults
-      if (port == null) {
-        port = useHttps ? defaultHttpsPort : defaultHttpPort;
-      }
+      port ??= useHttps ? defaultHttpsPort : defaultHttpPort;
 
       return ParsedUrl(
         host: host,

@@ -27,13 +27,13 @@ class Router {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'ipAddress': ipAddress,
-        'username': username,
-        'password': password,
-        'useHttps': useHttps,
-        if (lastKnownHostname != null) 'lastKnownHostname': lastKnownHostname,
-      };
+    'id': id,
+    'ipAddress': ipAddress,
+    'username': username,
+    'password': password,
+    'useHttps': useHttps,
+    if (lastKnownHostname != null) 'lastKnownHostname': lastKnownHostname,
+  };
 
   Router copyWith({
     String? id,

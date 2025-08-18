@@ -104,9 +104,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     }
   }
 
-  Future<void> _showLogoutDialog(
-    BuildContext context,
-  ) async {
+  Future<void> _showLogoutDialog(BuildContext context) async {
     final appState = ref.read(appStateProvider);
     return showDialog<void>(
       context: context,
@@ -128,10 +126,14 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                 // Clear all accepted certificates on logout
                 await HttpClientManager().clearAcceptedCertificates();
                 if (context.mounted) {
-                  unawaited(Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (context) => const LoginScreen()),
-                    (Route<dynamic> route) => false,
-                  ));
+                  unawaited(
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (context) => const LoginScreen(),
+                      ),
+                      (Route<dynamic> route) => false,
+                    ),
+                  );
                 }
               },
             ),
@@ -141,9 +143,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     );
   }
 
-  Future<void> _showRebootDialog(
-    BuildContext context,
-  ) async {
+  Future<void> _showRebootDialog(BuildContext context) async {
     final appState = ref.read(appStateProvider);
     return showDialog<void>(
       context: context,
@@ -220,74 +220,76 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     final info = await PackageInfo.fromPlatform();
     if (!context.mounted) return;
 
-    unawaited(showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Row(
-            children: [
-              const Icon(Icons.router, size: 32),
-              const SizedBox(width: 12),
-              const Text('LuCI Mobile'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Version ${info.version}'),
-              const SizedBox(height: 16),
-              const Text('A mobile client for OpenWrt routers.'),
-              const SizedBox(height: 16),
-              const Text('Open source and free to use.'),
-              const SizedBox(height: 16),
-              InkWell(
-                onTap: () async {
-                  final url = AppConfig.githubRepositoryUrl;
-                  final success = await launchUrlString(
-                    url,
-                    mode: LaunchMode.externalApplication,
-                  );
-                  if (!success && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text('Could not open repository'),
-                        backgroundColor: Theme.of(context).colorScheme.error,
-                      ),
+    unawaited(
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.router, size: 32),
+                const SizedBox(width: 12),
+                const Text('LuCI Mobile'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Version ${info.version}'),
+                const SizedBox(height: 16),
+                const Text('A mobile client for OpenWrt routers.'),
+                const SizedBox(height: 16),
+                const Text('Open source and free to use.'),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () async {
+                    final url = AppConfig.githubRepositoryUrl;
+                    final success = await launchUrlString(
+                      url,
+                      mode: LaunchMode.externalApplication,
                     );
-                  }
-                },
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.link,
-                      size: 16,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'GitHub Repository',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.primary,
-                          decoration: TextDecoration.underline,
+                    if (!success && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('Could not open repository'),
+                          backgroundColor: Theme.of(context).colorScheme.error,
+                        ),
+                      );
+                    }
+                  },
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.link,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'GitHub Repository',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                            decoration: TextDecoration.underline,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
               ),
             ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    ));
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -302,7 +304,9 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
             const LuciSectionHeader('Device Management'),
             Builder(
               builder: (context) {
-                final isRebooting = ref.watch(appStateProvider.select((state) => state.isRebooting));
+                final isRebooting = ref.watch(
+                  appStateProvider.select((state) => state.isRebooting),
+                );
                 return _MoreScreenSection(
                   tiles: [
                     _buildMoreTile(

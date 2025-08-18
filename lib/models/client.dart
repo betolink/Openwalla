@@ -1,8 +1,4 @@
-enum ConnectionType {
-  wired,
-  wireless,
-  unknown,
-}
+enum ConnectionType { wired, wireless, unknown }
 
 class Client {
   final String ipAddress;
@@ -39,54 +35,80 @@ class Client {
     if (lease['signal'] != null || lease['noise'] != null) {
       return ConnectionType.wireless;
     }
-    
+
     // Check for wired-specific fields
-    if (lease['port'] != null || lease['ifname']?.toString().startsWith('eth') == true) {
+    if (lease['port'] != null ||
+        lease['ifname']?.toString().startsWith('eth') == true) {
       return ConnectionType.wired;
     }
-    
+
     // Check hostname for common wireless indicators
     final hostname = (lease['hostname'] ?? '').toString().toLowerCase();
-    if (hostname.contains('android') || 
-        hostname.contains('iphone') || 
+    if (hostname.contains('android') ||
+        hostname.contains('iphone') ||
         hostname.contains('ipad') ||
         hostname.contains('wireless') ||
         hostname.contains('wifi') ||
         hostname.contains('wl')) {
       return ConnectionType.wireless;
     }
-    
+
     // Check MAC address OUI for common wireless vendors
     final mac = (lease['macaddr'] ?? '').toString().toLowerCase();
     if (mac.isNotEmpty) {
       // Common wireless MAC OUI prefixes
       const wirelessOuis = [
-        '00:1e:2a', '00:23:69', '00:26:5e', '00:26:5f', '00:26:ab', '00:26:b8', '00:26:f2',
-        '00:1d:0f', '00:1e:2a', '00:21:29', '00:22:3f', '00:22:5f', '00:23:08', '00:23:15',
+        '00:1e:2a',
+        '00:23:69',
+        '00:26:5e',
+        '00:26:5f',
+        '00:26:ab',
+        '00:26:b8',
+        '00:26:f2',
+        '00:1d:0f',
+        '00:1e:2a',
+        '00:21:29',
+        '00:22:3f',
+        '00:22:5f',
+        '00:23:08',
+        '00:23:15',
         'a4:4c:c8', 'a4:4c:c9', 'a4:4c:ca', 'a4:4c:cb', 'a4:83:e7', // Apple
         '90:72:40', 'f8:0f:f9', 'f8:95:ea', // Google
         '4c:57:ca', // TP-Link
-        'a0:14:3d', '00:1a:11', '00:1d:60', '00:25:9e', '00:26:5a', '00:50:43', // Microsoft
+        'a0:14:3d',
+        '00:1a:11',
+        '00:1d:60',
+        '00:25:9e',
+        '00:26:5a',
+        '00:50:43', // Microsoft
         '34:ab:37', // Amazon
       ];
-      
+
       final oui = mac.length > 8 ? mac.substring(0, 8) : '';
       if (wirelessOuis.any((prefix) => oui.startsWith(prefix.toLowerCase()))) {
         return ConnectionType.wireless;
       }
-      
+
       // If MAC starts with common wired OUI, mark as wired
       const wiredOuis = [
         '00:1d:60', '00:25:9e', '00:26:5a', '00:50:43', // Dell
         '00:1a:4d', '00:1a:4e', '00:1a:4f', // ASUS
-        '00:1b:21', '00:1b:fc', '00:24:8c', '00:26:18', '00:26:5e', '00:26:5f', '00:26:ab', '00:26:b8', '00:26:f2' // Intel
+        '00:1b:21',
+        '00:1b:fc',
+        '00:24:8c',
+        '00:26:18',
+        '00:26:5e',
+        '00:26:5f',
+        '00:26:ab',
+        '00:26:b8',
+        '00:26:f2', // Intel
       ];
-      
+
       if (wiredOuis.any((prefix) => oui.startsWith(prefix.toLowerCase()))) {
         return ConnectionType.wired;
       }
     }
-    
+
     return ConnectionType.unknown;
   }
 
@@ -105,7 +127,9 @@ class Client {
       return null;
     }
 
-    final expires = toIntValue(lease['expires']); // This is the remaining lease time in seconds
+    final expires = toIntValue(
+      lease['expires'],
+    ); // This is the remaining lease time in seconds
     final activetime = toIntValue(lease['activetime']);
 
     // 'expires' from the API is the time remaining on the lease in seconds.
@@ -116,17 +140,24 @@ class Client {
     // We can calculate the absolute expiration timestamp for display purposes if needed.
     int? expiresAtTimestamp;
     if (expires != null && expires > 0) {
-      expiresAtTimestamp = (DateTime.now().millisecondsSinceEpoch ~/ 1000) + expires;
+      expiresAtTimestamp =
+          (DateTime.now().millisecondsSinceEpoch ~/ 1000) + expires;
     }
 
     List<String>? ipv6Addresses;
     if (lease['ipv6addrs'] != null && lease['ipv6addrs'] is List) {
-      ipv6Addresses = (lease['ipv6addrs'] as List).map((e) => e.toString()).toList();
+      ipv6Addresses = (lease['ipv6addrs'] as List)
+          .map((e) => e.toString())
+          .toList();
     } else if (lease['ipv6addr'] != null) {
       // Some APIs may use a single string or a comma-separated string
       final v6 = lease['ipv6addr'];
       if (v6 is String) {
-        ipv6Addresses = v6.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+        ipv6Addresses = v6
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
       } else if (v6 is List) {
         ipv6Addresses = v6.map((e) => e.toString()).toList();
       }
@@ -135,7 +166,10 @@ class Client {
     return Client(
       ipAddress: toStringValue(lease['ipaddr']) ?? 'N/A',
       macAddress: toStringValue(lease['macaddr']) ?? 'N/A',
-      hostname: toStringValue(lease['hostname']) ?? toStringValue(lease['name']) ?? 'Unknown',
+      hostname:
+          toStringValue(lease['hostname']) ??
+          toStringValue(lease['name']) ??
+          'Unknown',
       hostId: toStringValue(lease['hostid']),
       leaseTime: remainingLeaseTime, // Use the 'expires' value directly
       vendor: toStringValue(lease['vendor']),
@@ -147,14 +181,14 @@ class Client {
       ipv6Addresses: ipv6Addresses,
     );
   }
-  
+
   // Get formatted lease time (e.g., "2d 4h 30m")
   String get formattedLeaseTime {
     if (leaseTime == null || leaseTime == 0) return 'Unlimited';
     if (leaseTime! < 0) return 'Expired';
     return Client.formatDuration(leaseTime!);
   }
-  
+
   // Get formatted active time
   String get formattedActiveTime {
     if (activeTime == null) return 'N/A';
@@ -167,22 +201,22 @@ class Client {
     final date = DateTime.fromMillisecondsSinceEpoch(expiresAt! * 1000);
     return '${date.toLocal()}';
   }
-  
+
   // Static helper to format duration in seconds to a human-readable string
   static String formatDuration(int totalSeconds) {
     if (totalSeconds <= 0) return '0m';
-    
+
     final days = totalSeconds ~/ (24 * 3600);
     totalSeconds %= (24 * 3600);
     final hours = totalSeconds ~/ 3600;
     totalSeconds %= 3600;
     final minutes = totalSeconds ~/ 60;
-    
+
     final parts = <String>[];
     if (days > 0) parts.add('${days}d');
     if (hours > 0) parts.add('${hours}h');
     if (minutes > 0 || parts.isEmpty) parts.add('${minutes}m');
-    
+
     return parts.join(' ');
   }
 

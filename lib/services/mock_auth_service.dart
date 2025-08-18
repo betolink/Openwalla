@@ -20,10 +20,16 @@ class MockAuthService implements IAuthService {
   bool get isAuthenticated => _isAuthenticated;
 
   @override
-  Future<void> login(String ipAddress, String username, String password, bool useHttps, {BuildContext? context}) async {
+  Future<void> login(
+    String ipAddress,
+    String username,
+    String password,
+    bool useHttps, {
+    BuildContext? context,
+  }) async {
     // Simulate a short delay for realism
     await Future.delayed(const Duration(milliseconds: 500));
-    
+
     // Always succeed for mock authentication
     _ipAddress = ipAddress;
     _useHttps = useHttps;
@@ -32,10 +38,16 @@ class MockAuthService implements IAuthService {
   }
 
   @override
-  Future<bool> tryAutoLogin(String? ipAddress, String? username, String? password, bool? useHttps, {BuildContext? context}) async {
+  Future<bool> tryAutoLogin(
+    String? ipAddress,
+    String? username,
+    String? password,
+    bool? useHttps, {
+    BuildContext? context,
+  }) async {
     // Simulate a short delay for realism
     await Future.delayed(const Duration(milliseconds: 300));
-    
+
     // Always succeed for mock auto-login
     _ipAddress = ipAddress ?? '192.168.1.1';
     _useHttps = useHttps ?? false;
@@ -51,10 +63,14 @@ class MockAuthService implements IAuthService {
   }
 
   @override
-  Future<bool> checkRouterAvailability(String ipAddress, bool useHttps, {BuildContext? context}) async {
+  Future<bool> checkRouterAvailability(
+    String ipAddress,
+    bool useHttps, {
+    BuildContext? context,
+  }) async {
     // Simulate a short delay for realism
     await Future.delayed(const Duration(milliseconds: 200));
-    
+
     // Always return true for mock router availability
     return true;
   }

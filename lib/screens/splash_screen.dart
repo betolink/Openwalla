@@ -11,7 +11,8 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _logoScale;
 
@@ -29,13 +30,15 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   Future<void> _checkReviewerMode() async {
     await Future.delayed(const Duration(seconds: 2));
-    
+
     if (!mounted) return;
-    
+
     // Check if reviewer mode is enabled
     final secureStorage = SecureStorageService();
-    final reviewerModeEnabled = await secureStorage.readValue(AppConfig.reviewerModeKey);
-    
+    final reviewerModeEnabled = await secureStorage.readValue(
+      AppConfig.reviewerModeKey,
+    );
+
     if (reviewerModeEnabled == 'true' && mounted) {
       // Navigate directly to main screen in reviewer mode
       unawaited(Navigator.of(context).pushReplacementNamed('/'));
@@ -107,4 +110,4 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       ),
     );
   }
-} 
+}

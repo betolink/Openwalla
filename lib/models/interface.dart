@@ -39,11 +39,11 @@ class NetworkInterface {
     if (routeList is List && routeList.isNotEmpty && routeList.first is Map) {
       route = routeList.first;
     }
-    
+
     // Extract gateway, but ignore if it's 0.0.0.0 which is not a real gateway
     String? gatewayIp;
     if (route?['nexthop'] != null && route?['nexthop'] != '0.0.0.0') {
-        gatewayIp = route?['nexthop'];
+      gatewayIp = route?['nexthop'];
     }
 
     // Defensive parsing for dns-server
@@ -52,7 +52,7 @@ class NetworkInterface {
     if (dnsList is List) {
       dnsServers = dnsList.map((e) => e.toString()).toList();
     }
-    
+
     // Defensive parsing for statistics
     final statsMap = json['stats'];
     Map<String, dynamic> stats = {};

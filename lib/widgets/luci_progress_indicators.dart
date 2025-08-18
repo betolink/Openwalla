@@ -18,7 +18,7 @@ class LuciEnhancedLoadingWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     switch (mode) {
       case LuciLoadingMode.spinner:
         return _buildSpinner(context, colorScheme);
@@ -83,10 +83,7 @@ class LuciEnhancedLoadingWidget extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _LoadingPulse(
-            color: colorScheme.primary,
-            size: size ?? 32,
-          ),
+          _LoadingPulse(color: colorScheme.primary, size: size ?? 32),
           if (message != null) ...[
             SizedBox(height: LuciSpacing.md),
             Text(
@@ -104,11 +101,7 @@ class LuciEnhancedLoadingWidget extends StatelessWidget {
 }
 
 /// Loading modes for different contexts
-enum LuciLoadingMode {
-  spinner,
-  dots,
-  pulse,
-}
+enum LuciLoadingMode { spinner, dots, pulse }
 
 /// Animated loading dots
 class _LoadingDots extends StatefulWidget {
@@ -136,9 +129,10 @@ class _LoadingDotsState extends State<_LoadingDots>
     });
 
     _animations = _controllers.map((controller) {
-      return Tween<double>(begin: 0.4, end: 1.0).animate(
-        CurvedAnimation(parent: controller, curve: Curves.easeInOut),
-      );
+      return Tween<double>(
+        begin: 0.4,
+        end: 1.0,
+      ).animate(CurvedAnimation(parent: controller, curve: Curves.easeInOut));
     }).toList();
 
     _startAnimations();
@@ -188,10 +182,7 @@ class _LoadingDotsState extends State<_LoadingDots>
 
 /// Animated loading pulse
 class _LoadingPulse extends StatefulWidget {
-  const _LoadingPulse({
-    required this.color,
-    required this.size,
-  });
+  const _LoadingPulse({required this.color, required this.size});
 
   final Color color;
   final double size;
@@ -212,9 +203,10 @@ class _LoadingPulseState extends State<_LoadingPulse>
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
-    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _animation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
     _controller.repeat(reverse: true);
   }
 
@@ -233,7 +225,9 @@ class _LoadingPulseState extends State<_LoadingPulse>
           width: widget.size,
           height: widget.size,
           decoration: BoxDecoration(
-            color: widget.color.withValues(alpha: 0.3 + (_animation.value * 0.7)),
+            color: widget.color.withValues(
+              alpha: 0.3 + (_animation.value * 0.7),
+            ),
             borderRadius: BorderRadius.circular(widget.size / 2),
           ),
           child: Center(

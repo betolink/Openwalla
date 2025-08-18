@@ -86,10 +86,12 @@ class _LuciPullToRefreshState extends State<LuciPullToRefresh>
     if (!_hasTriggeredHaptic) {
       await HapticFeedback.mediumImpact();
       _hasTriggeredHaptic = true;
-      unawaited(_hapticController.forward().then((_) {
-        _hapticController.reset();
-        _hasTriggeredHaptic = false;
-      }));
+      unawaited(
+        _hapticController.forward().then((_) {
+          _hapticController.reset();
+          _hasTriggeredHaptic = false;
+        }),
+      );
     }
 
     try {
@@ -205,17 +207,17 @@ class LuciListPullToRefresh extends StatelessWidget {
                   SizedBox(height: LuciSpacing.md),
                   Text(
                     emptyMessage,
-                    style: LuciTextStyles.cardTitle(context).copyWith(
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
+                    style: LuciTextStyles.cardTitle(
+                      context,
+                    ).copyWith(color: Theme.of(context).colorScheme.outline),
                     textAlign: TextAlign.center,
                   ),
                   SizedBox(height: LuciSpacing.sm),
                   Text(
                     'Pull down to refresh',
-                    style: LuciTextStyles.cardSubtitle(context).copyWith(
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
+                    style: LuciTextStyles.cardSubtitle(
+                      context,
+                    ).copyWith(color: Theme.of(context).colorScheme.outline),
                   ),
                 ],
               ),
@@ -247,9 +249,6 @@ class LuciListPullToRefresh extends StatelessWidget {
       );
     }
 
-    return LuciPullToRefresh(
-      onRefresh: onRefresh,
-      child: listView,
-    );
+    return LuciPullToRefresh(onRefresh: onRefresh, child: listView);
   }
 }

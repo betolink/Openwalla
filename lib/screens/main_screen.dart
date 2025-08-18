@@ -106,7 +106,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       ),
       bottomNavigationBar: Builder(
         builder: (context) {
-          final isRebooting = ref.watch(appStateProvider.select((state) => state.isRebooting));
+          final isRebooting = ref.watch(
+            appStateProvider.select((state) => state.isRebooting),
+          );
           Color? getTabColor(int index) =>
               (isRebooting && index != 3) ? Colors.grey.withAlpha(128) : null;
           double getTabOpacity(int index) =>

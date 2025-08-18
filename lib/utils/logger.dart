@@ -40,7 +40,11 @@ class Logger {
   }
 
   /// Log exceptions with context
-  static void exception(String context, Object exception, StackTrace stackTrace) {
+  static void exception(
+    String context,
+    Object exception,
+    StackTrace stackTrace,
+  ) {
     error('$context: $exception', exception, stackTrace);
   }
 }

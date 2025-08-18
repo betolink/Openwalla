@@ -9,12 +9,12 @@ import 'package:luci_mobile/screens/settings_screen.dart';
 import 'package:luci_mobile/screens/splash_screen.dart';
 
 void main() {
-  runApp(ProviderScope(
-    child: const LuCIApp(),
-  ));
+  runApp(ProviderScope(child: const LuCIApp()));
 }
 
-final appStateProvider = ChangeNotifierProvider<AppState>((ref) => AppState.instance);
+final appStateProvider = ChangeNotifierProvider<AppState>(
+  (ref) => AppState.instance,
+);
 
 class LuCIApp extends ConsumerWidget {
   const LuCIApp({super.key});
@@ -23,38 +23,38 @@ class LuCIApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final appState = ref.watch(appStateProvider);
     return MaterialApp(
-            title: 'LuCI Mobile',
-            theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-              useMaterial3: true,
-              // Edge-to-edge display handled natively in MainActivity
-              appBarTheme: const AppBarTheme(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                scrolledUnderElevation: 0,
-              ),
-            ),
-            darkTheme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: Colors.blue,
-                brightness: Brightness.dark,
-              ),
-              useMaterial3: true,
-              // Edge-to-edge display handled natively in MainActivity
-              appBarTheme: const AppBarTheme(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                scrolledUnderElevation: 0,
-              ),
-            ),
-            themeMode: appState.themeMode,
-            initialRoute: '/splash',
-            routes: {
-              '/splash': (context) => const SplashScreen(),
-              '/login': (context) => const LoginScreen(),
-              '/': (context) => const MainScreen(),
-              '/settings': (context) => const SettingsScreen(),
-            },
+      title: 'LuCI Mobile',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        useMaterial3: true,
+        // Edge-to-edge display handled natively in MainActivity
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+        ),
+      ),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+        // Edge-to-edge display handled natively in MainActivity
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+        ),
+      ),
+      themeMode: appState.themeMode,
+      initialRoute: '/splash',
+      routes: {
+        '/splash': (context) => const SplashScreen(),
+        '/login': (context) => const LoginScreen(),
+        '/': (context) => const MainScreen(),
+        '/settings': (context) => const SettingsScreen(),
+      },
     );
   }
 }

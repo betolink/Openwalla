@@ -339,77 +339,77 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
         child: Stack(
           children: [
             LuciPullToRefresh(
-          onRefresh: () => appState.fetchDashboardData(),
-          child: Builder(
-            builder: (context) {
-              final watchedAppState = ref.watch(appStateProvider);
-              final isLoading = watchedAppState.isDashboardLoading;
-              final dashboardError = watchedAppState.dashboardError;
-              final dashboardData = watchedAppState.dashboardData;
+              onRefresh: () => appState.fetchDashboardData(),
+              child: Builder(
+                builder: (context) {
+                  final watchedAppState = ref.watch(appStateProvider);
+                  final isLoading = watchedAppState.isDashboardLoading;
+                  final dashboardError = watchedAppState.dashboardError;
+                  final dashboardData = watchedAppState.dashboardData;
 
-              if (isLoading && dashboardData == null) {
-                return Padding(
-                  padding: EdgeInsets.symmetric(horizontal: LuciSpacing.md),
-                  child: Column(
-                    children: [
-                      SizedBox(height: LuciSpacing.md),
-                      // Interface cards skeleton
-                      Expanded(
-                        child: ListView.separated(
-                          itemCount: 4,
-                          separatorBuilder: (context, index) =>
-                              SizedBox(height: LuciSpacing.md),
-                          itemBuilder: (context, index) => LuciCardSkeleton(
-                            showTitle: true,
-                            showSubtitle: true,
-                            contentLines: 3,
+                  if (isLoading && dashboardData == null) {
+                    return Padding(
+                      padding: EdgeInsets.symmetric(horizontal: LuciSpacing.md),
+                      child: Column(
+                        children: [
+                          SizedBox(height: LuciSpacing.md),
+                          // Interface cards skeleton
+                          Expanded(
+                            child: ListView.separated(
+                              itemCount: 4,
+                              separatorBuilder: (context, index) =>
+                                  SizedBox(height: LuciSpacing.md),
+                              itemBuilder: (context, index) => LuciCardSkeleton(
+                                showTitle: true,
+                                showSubtitle: true,
+                                contentLines: 3,
+                              ),
+                            ),
                           ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  if (dashboardError != null && dashboardData == null) {
+                    return LuciErrorDisplay(
+                      title: 'Failed to Load Interfaces',
+                      message:
+                          'Could not connect to the router. Please check your network connection and router settings.',
+                      actionLabel: 'Retry',
+                      onAction: () => appState.fetchDashboardData(),
+                      icon: Icons.wifi_off_rounded,
+                    );
+                  }
+
+                  if (dashboardData == null) {
+                    return LuciEmptyState(
+                      title: 'No Interface Data',
+                      message:
+                          'Unable to fetch interface information. Pull down to refresh or tap the button below.',
+                      icon: Icons.device_hub_outlined,
+                      actionLabel: 'Fetch Data',
+                      onAction: () => appState.fetchDashboardData(),
+                    );
+                  }
+
+                  return CustomScrollView(
+                    controller: _scrollController,
+                    slivers: [
+                      SliverToBoxAdapter(child: LuciSectionHeader('Wired')),
+                      _buildWiredInterfacesList(),
+                      SliverToBoxAdapter(child: LuciSectionHeader('Wireless')),
+                      _buildWirelessInterfacesList(),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.only(bottom: 16),
+                          child: SizedBox.shrink(),
                         ),
                       ),
                     ],
-                  ),
-                );
-              }
-
-              if (dashboardError != null && dashboardData == null) {
-                return LuciErrorDisplay(
-                  title: 'Failed to Load Interfaces',
-                  message:
-                      'Could not connect to the router. Please check your network connection and router settings.',
-                  actionLabel: 'Retry',
-                  onAction: () => appState.fetchDashboardData(),
-                  icon: Icons.wifi_off_rounded,
-                );
-              }
-
-              if (dashboardData == null) {
-                return LuciEmptyState(
-                  title: 'No Interface Data',
-                  message:
-                      'Unable to fetch interface information. Pull down to refresh or tap the button below.',
-                  icon: Icons.device_hub_outlined,
-                  actionLabel: 'Fetch Data',
-                  onAction: () => appState.fetchDashboardData(),
-                );
-              }
-
-              return CustomScrollView(
-                controller: _scrollController,
-                slivers: [
-                  SliverToBoxAdapter(child: LuciSectionHeader('Wired')),
-                  _buildWiredInterfacesList(),
-                  SliverToBoxAdapter(child: LuciSectionHeader('Wireless')),
-                  _buildWirelessInterfacesList(),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.only(bottom: 16),
-                      child: SizedBox.shrink(),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -428,30 +428,29 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
         detailedData['interface'] is List &&
         statsDataSource is Map) {
       final List<dynamic> interfaceDataList = detailedData['interface'];
-      final Map<String, dynamic> networkStatsMap =
-          Map<String, dynamic>.from(statsDataSource);
+      final Map<String, dynamic> networkStatsMap = Map<String, dynamic>.from(
+        statsDataSource,
+      );
 
-      interfacesList = interfaceDataList
-          .whereType<Map<String, dynamic>>()
-          .map((detailedInterfaceMap) {
-            final stats = detailedInterfaceMap['stats'];
-            if (stats == null || (stats is Map && stats.isEmpty)) {
-              final String? deviceName =
-                  detailedInterfaceMap['l3_device'] ??
-                  detailedInterfaceMap['device'];
-              if (deviceName != null) {
-                final statsContainer = networkStatsMap[deviceName];
-                if (statsContainer is Map &&
-                    statsContainer['stats'] is Map) {
-                  detailedInterfaceMap['stats'] = statsContainer['stats'];
-                }
-              }
+      interfacesList = interfaceDataList.whereType<Map<String, dynamic>>().map((
+        detailedInterfaceMap,
+      ) {
+        final stats = detailedInterfaceMap['stats'];
+        if (stats == null || (stats is Map && stats.isEmpty)) {
+          final String? deviceName =
+              detailedInterfaceMap['l3_device'] ??
+              detailedInterfaceMap['device'];
+          if (deviceName != null) {
+            final statsContainer = networkStatsMap[deviceName];
+            if (statsContainer is Map && statsContainer['stats'] is Map) {
+              detailedInterfaceMap['stats'] = statsContainer['stats'];
             }
-            return NetworkInterface.fromJson(detailedInterfaceMap);
-          })
-          .toList();
+          }
+        }
+        return NetworkInterface.fromJson(detailedInterfaceMap);
+      }).toList();
     }
-    
+
     final interfaces = interfacesList;
     if (interfaces.isEmpty) {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
@@ -466,10 +465,7 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
         final keyStr = _interfaceKey(name: iface.name);
         final key = _interfaceKeys.putIfAbsent(keyStr, () => GlobalKey());
         return Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16.0,
-            vertical: 8.0,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: _UnifiedNetworkCard(
             key: key,
             name: iface.name.toUpperCase(),
@@ -488,8 +484,7 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
   Widget _buildWirelessInterfacesList() {
     final appState = ref.watch(appStateProvider);
     final dashboardData = appState.dashboardData;
-    final wirelessData =
-        dashboardData?['wireless'] as Map<String, dynamic>?;
+    final wirelessData = dashboardData?['wireless'] as Map<String, dynamic>?;
     final uciWirelessConfig = dashboardData?['uciWirelessConfig'];
     final interfacesList = <Map<String, dynamic>>[];
 
@@ -565,8 +560,7 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
         final name = config['ssid'] ?? 'Unnamed';
         interfacesList.add({
           'name': config['ssid'] ?? 'Unnamed',
-          'subtitle':
-              '${config['mode']?.toUpperCase() ?? 'N/A'} • Disabled',
+          'subtitle': '${config['mode']?.toUpperCase() ?? 'N/A'} • Disabled',
           'isEnabled': isEnabled,
           'deviceName': radioName,
           'radioName': radioName,
@@ -617,13 +611,9 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
                 _normalizeInterfaceKey(name) ==
                     _normalizeInterfaceKey(_targetInterface!));
 
-        final shouldExpand =
-            isTargetInterface || _expandedInterface == keyStr;
+        final shouldExpand = isTargetInterface || _expandedInterface == keyStr;
         return Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16.0,
-            vertical: 8.0,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: _UnifiedNetworkCard(
             key: key,
             name: displayName,
@@ -712,16 +702,8 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
     final peers = peerData['peers'] as Map<String, dynamic>?;
     if (peers == null || peers.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16.0,
-          vertical: 8.0,
-        ),
-        child: const Divider(
-          height: 24,
-          thickness: 1,
-          indent: 0,
-          endIndent: 0,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        child: const Divider(height: 24, thickness: 1, indent: 0, endIndent: 0),
       );
     }
     return Padding(
@@ -732,10 +714,8 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
           const Divider(height: 1, thickness: 1, indent: 0, endIndent: 0),
           const SizedBox(height: 8),
           ...peers.values.map(
-            (peer) => _buildCohesivePeerRow(
-              context,
-              peer as Map<String, dynamic>,
-            ),
+            (peer) =>
+                _buildCohesivePeerRow(context, peer as Map<String, dynamic>),
           ),
           const SizedBox(height: 8),
         ],

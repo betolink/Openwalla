@@ -666,8 +666,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         FutureBuilder<PackageInfo>(
                           future: PackageInfo.fromPlatform(),
                           builder: (context, snapshot) {
-                            if (!snapshot.hasData)
+                            if (!snapshot.hasData) {
                               return const SizedBox.shrink();
+                            }
                             final info = snapshot.data!;
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 8.0),

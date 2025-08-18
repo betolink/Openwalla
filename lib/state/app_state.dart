@@ -142,7 +142,9 @@ class AppState extends ChangeNotifier {
 
   Future<void> loadDashboardPreferences() async {
     try {
-      final json = await _secureStorageService.readValue('dashboard_preferences');
+      final json = await _secureStorageService.readValue(
+        'dashboard_preferences',
+      );
       if (json != null && json.isNotEmpty) {
         _dashboardPreferences = DashboardPreferences.fromJson(jsonDecode(json));
         notifyListeners();
@@ -392,12 +394,17 @@ class AppState extends ChangeNotifier {
         // Update throughput data with mock network data for reviewer mode
         if (_throughputService != null) {
           final networkData = results[2][1] as Map<String, dynamic>?;
-          final wanDeviceNames = {'eth0', 'wlan0', 'br-lan'}; // Mock all devices
-          
+          final wanDeviceNames = {
+            'eth0',
+            'wlan0',
+            'br-lan',
+          }; // Mock all devices
+
           // Check if we should track specific interface
           final prefs = _dashboardPreferences;
           String? specificInterface;
-          if (!prefs.showAllThroughput && prefs.primaryThroughputInterface != null) {
+          if (!prefs.showAllThroughput &&
+              prefs.primaryThroughputInterface != null) {
             // Extract device name from interface ID (format: "SSID (deviceName)" or just "deviceName")
             final interfaceId = prefs.primaryThroughputInterface!;
             if (interfaceId.contains('(')) {
@@ -409,9 +416,9 @@ class AppState extends ChangeNotifier {
               specificInterface = interfaceId;
             }
           }
-          
+
           _throughputService!.updateThroughput(
-            networkData, 
+            networkData,
             wanDeviceNames,
             specificInterface: specificInterface,
           );
@@ -602,7 +609,8 @@ class AppState extends ChangeNotifier {
       // Check if we should track specific interface
       final prefs = _dashboardPreferences;
       String? specificInterface;
-      if (!prefs.showAllThroughput && prefs.primaryThroughputInterface != null) {
+      if (!prefs.showAllThroughput &&
+          prefs.primaryThroughputInterface != null) {
         // Extract device name from interface ID (format: "SSID (deviceName)" or just "deviceName")
         final interfaceId = prefs.primaryThroughputInterface!;
         if (interfaceId.contains('(')) {
@@ -614,9 +622,9 @@ class AppState extends ChangeNotifier {
           specificInterface = interfaceId;
         }
       }
-      
+
       _throughputService?.updateThroughput(
-        networkData, 
+        networkData,
         wanDeviceNames,
         specificInterface: specificInterface,
       );
@@ -742,11 +750,12 @@ class AppState extends ChangeNotifier {
         final result = await _apiService!.callSimple('network', 'device', {});
         final networkData = result[1] as Map<String, dynamic>?;
         final wanDeviceNames = {'eth0'}; // Mock WAN device
-        
+
         // Check if we should track specific interface
         final prefs = _dashboardPreferences;
         String? specificInterface;
-        if (!prefs.showAllThroughput && prefs.primaryThroughputInterface != null) {
+        if (!prefs.showAllThroughput &&
+            prefs.primaryThroughputInterface != null) {
           // Extract device name from interface ID (format: "SSID (deviceName)" or just "deviceName")
           final interfaceId = prefs.primaryThroughputInterface!;
           if (interfaceId.contains('(')) {
@@ -758,9 +767,9 @@ class AppState extends ChangeNotifier {
             specificInterface = interfaceId;
           }
         }
-        
+
         _throughputService?.updateThroughput(
-          networkData, 
+          networkData,
           wanDeviceNames,
           specificInterface: specificInterface,
         );
@@ -813,11 +822,12 @@ class AppState extends ChangeNotifier {
             }
           }
         }
-        
+
         // Check if we should track specific interface
         final prefs = _dashboardPreferences;
         String? specificInterface;
-        if (!prefs.showAllThroughput && prefs.primaryThroughputInterface != null) {
+        if (!prefs.showAllThroughput &&
+            prefs.primaryThroughputInterface != null) {
           // Extract device name from interface ID (format: "SSID (deviceName)" or just "deviceName")
           final interfaceId = prefs.primaryThroughputInterface!;
           if (interfaceId.contains('(')) {
@@ -831,7 +841,7 @@ class AppState extends ChangeNotifier {
         }
 
         _throughputService?.updateThroughput(
-          networkData, 
+          networkData,
           wanDeviceNames,
           specificInterface: specificInterface,
         );
@@ -848,8 +858,9 @@ class AppState extends ChangeNotifier {
   }
 
   Future<bool> reboot({BuildContext? context}) async {
-    if (_authService?.sysauth == null || _authService?.ipAddress == null)
+    if (_authService?.sysauth == null || _authService?.ipAddress == null) {
       return false;
+    }
 
     // Cancel throughput timer before starting reboot to prevent "client closed" errors
     _cancelThroughputTimer();
@@ -1050,8 +1061,9 @@ class AppState extends ChangeNotifier {
       return true;
     }
 
-    if (_authService?.sysauth == null || _authService?.ipAddress == null)
+    if (_authService?.sysauth == null || _authService?.ipAddress == null) {
       return false;
+    }
 
     try {
       // 1. Set the disabled state

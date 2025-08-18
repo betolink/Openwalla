@@ -62,201 +62,212 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen>
           body: Stack(
             children: [
               LuciPullToRefresh(
-            onRefresh: () => ref.read(appStateProvider).fetchDashboardData(),
-            child: Builder(
-              builder: (context) {
-                final appState = ref.watch(appStateProvider);
-                final isLoading = appState.isDashboardLoading;
-                final dashboardError = appState.dashboardError;
-                final dhcpData = appState.dashboardData?['dhcpLeases'] as Map<String, dynamic>?;
+                onRefresh: () =>
+                    ref.read(appStateProvider).fetchDashboardData(),
+                child: Builder(
+                  builder: (context) {
+                    final appState = ref.watch(appStateProvider);
+                    final isLoading = appState.isDashboardLoading;
+                    final dashboardError = appState.dashboardError;
+                    final dhcpData =
+                        appState.dashboardData?['dhcpLeases']
+                            as Map<String, dynamic>?;
 
-                if (isLoading && dhcpData == null) {
-                  return Padding(
-                    padding: EdgeInsets.symmetric(horizontal: LuciSpacing.md),
-                    child: Column(
-                      children: [
-                        SizedBox(height: LuciSpacing.md),
-                        // Search bar skeleton
-                        LuciSkeleton(
-                          width: double.infinity,
-                          height: 56,
-                          borderRadius: BorderRadius.circular(LuciSpacing.sm),
+                    if (isLoading && dhcpData == null) {
+                      return Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: LuciSpacing.md,
                         ),
-                        SizedBox(height: LuciSpacing.md),
-                        // Client list skeletons
-                        Expanded(
-                          child: ListView.separated(
-                            itemCount: 6,
-                            separatorBuilder: (context, index) =>
-                                SizedBox(height: LuciSpacing.sm),
-                            itemBuilder: (context, index) =>
-                                LuciListItemSkeleton(
-                                  showLeading: true,
-                                  showTrailing: true,
-                                ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                if (dashboardError != null && dhcpData == null) {
-                  return LuciErrorDisplay(
-                    title: 'Failed to Load Clients',
-                    message:
-                        'Could not connect to the router. Please check your network connection and the router\'s IP address.',
-                    actionLabel: 'Retry',
-                    onAction: () => ref.read(appStateProvider).fetchDashboardData(),
-                    icon: Icons.wifi_off_rounded,
-                  );
-                }
-
-                final leases = dhcpData?['dhcp_leases'] as List<dynamic>? ?? [];
-                final clients = leases.map((lease) {
-                  final client = Client.fromLease(
-                    lease as Map<String, dynamic>,
-                  );
-                  final clientMac = normalizeMac(client.macAddress);
-                  final isWireless = wirelessMacs.any(
-                    (mac) => normalizeMac(mac) == clientMac,
-                  );
-                  return client.copyWith(
-                    connectionType: isWireless
-                        ? ConnectionType.wireless
-                        : ConnectionType.wired,
-                  );
-                }).toList();
-
-                // Sort: wireless > wired > unknown, then by hostname
-                clients.sort((a, b) {
-                  int typeOrder(ConnectionType t) {
-                    switch (t) {
-                      case ConnectionType.wireless:
-                        return 0;
-                      case ConnectionType.wired:
-                        return 1;
-                      default:
-                        return 2;
-                    }
-                  }
-
-                  final cmpType = typeOrder(
-                    a.connectionType,
-                  ).compareTo(typeOrder(b.connectionType));
-                  if (cmpType != 0) return cmpType;
-                  return a.hostname.toLowerCase().compareTo(
-                    b.hostname.toLowerCase(),
-                  );
-                });
-
-                final filteredClients = clients.where((client) {
-                  final query = _searchQuery.toLowerCase();
-                  return client.hostname.toLowerCase().contains(query) ||
-                      client.ipAddress.toLowerCase().contains(query) ||
-                      client.macAddress.toLowerCase().contains(query) ||
-                      (client.vendor != null &&
-                          client.vendor!.toLowerCase().contains(query)) ||
-                      (client.dnsName != null &&
-                          client.dnsName!.toLowerCase().contains(query));
-                }).toList();
-
-                return Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16.0,
-                        vertical: 8.0,
-                      ),
-                      child: TextField(
-                        autofocus: false,
-                        onChanged: (value) {
-                          // No need to setState here, listener handles it
-                        },
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Search by name, IP, MAC, vendor...',
-                          prefixIcon: const Icon(Icons.search),
-                          suffixIcon: _searchQuery.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () {
-                                    setState(() {
-                                      _searchController.clear();
-                                    });
-                                  },
-                                  tooltip: 'Clear search',
-                                )
-                              : null,
-                          filled: true,
-                          fillColor: colorScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.8),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24.0),
-                            borderSide: BorderSide.none,
-                          ),
-                          hintStyle: TextStyle(
-                            color: colorScheme.onSurfaceVariant.withValues(
-                              alpha: 0.7,
+                        child: Column(
+                          children: [
+                            SizedBox(height: LuciSpacing.md),
+                            // Search bar skeleton
+                            LuciSkeleton(
+                              width: double.infinity,
+                              height: 56,
+                              borderRadius: BorderRadius.circular(
+                                LuciSpacing.sm,
+                              ),
                             ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: filteredClients.isEmpty
-                          ? LuciEmptyState(
-                              title: _searchQuery.isEmpty
-                                  ? 'No Active Clients Found'
-                                  : 'No Matching Clients',
-                              message: _searchQuery.isEmpty
-                                  ? 'No clients are currently connected to the router. Pull down to refresh the list.'
-                                  : 'No clients match your search criteria. Try a different search term.',
-                              icon: Icons.people_outline,
-                            )
-                          : ListView.separated(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              separatorBuilder: (context, idx) =>
-                                  const SizedBox(height: 4),
-                              itemCount: filteredClients.length,
-                              itemBuilder: (context, index) {
-                                final client = filteredClients[index];
-                                final isExpanded = _expandedClientIndices
-                                    .contains(index);
-
-                                return LuciSlideTransition(
-                                  direction: LuciSlideDirection.up,
-                                  delay: Duration(milliseconds: index * 50),
-                                  distance: 30,
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16.0,
-                                      vertical: 8.0,
+                            SizedBox(height: LuciSpacing.md),
+                            // Client list skeletons
+                            Expanded(
+                              child: ListView.separated(
+                                itemCount: 6,
+                                separatorBuilder: (context, index) =>
+                                    SizedBox(height: LuciSpacing.sm),
+                                itemBuilder: (context, index) =>
+                                    LuciListItemSkeleton(
+                                      showLeading: true,
+                                      showTrailing: true,
                                     ),
-                                    child: _UnifiedClientCard(
-                                      client: client,
-                                      isExpanded: isExpanded,
-                                      onTap: () {
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    if (dashboardError != null && dhcpData == null) {
+                      return LuciErrorDisplay(
+                        title: 'Failed to Load Clients',
+                        message:
+                            'Could not connect to the router. Please check your network connection and the router\'s IP address.',
+                        actionLabel: 'Retry',
+                        onAction: () =>
+                            ref.read(appStateProvider).fetchDashboardData(),
+                        icon: Icons.wifi_off_rounded,
+                      );
+                    }
+
+                    final leases =
+                        dhcpData?['dhcp_leases'] as List<dynamic>? ?? [];
+                    final clients = leases.map((lease) {
+                      final client = Client.fromLease(
+                        lease as Map<String, dynamic>,
+                      );
+                      final clientMac = normalizeMac(client.macAddress);
+                      final isWireless = wirelessMacs.any(
+                        (mac) => normalizeMac(mac) == clientMac,
+                      );
+                      return client.copyWith(
+                        connectionType: isWireless
+                            ? ConnectionType.wireless
+                            : ConnectionType.wired,
+                      );
+                    }).toList();
+
+                    // Sort: wireless > wired > unknown, then by hostname
+                    clients.sort((a, b) {
+                      int typeOrder(ConnectionType t) {
+                        switch (t) {
+                          case ConnectionType.wireless:
+                            return 0;
+                          case ConnectionType.wired:
+                            return 1;
+                          default:
+                            return 2;
+                        }
+                      }
+
+                      final cmpType = typeOrder(
+                        a.connectionType,
+                      ).compareTo(typeOrder(b.connectionType));
+                      if (cmpType != 0) return cmpType;
+                      return a.hostname.toLowerCase().compareTo(
+                        b.hostname.toLowerCase(),
+                      );
+                    });
+
+                    final filteredClients = clients.where((client) {
+                      final query = _searchQuery.toLowerCase();
+                      return client.hostname.toLowerCase().contains(query) ||
+                          client.ipAddress.toLowerCase().contains(query) ||
+                          client.macAddress.toLowerCase().contains(query) ||
+                          (client.vendor != null &&
+                              client.vendor!.toLowerCase().contains(query)) ||
+                          (client.dnsName != null &&
+                              client.dnsName!.toLowerCase().contains(query));
+                    }).toList();
+
+                    return Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16.0,
+                            vertical: 8.0,
+                          ),
+                          child: TextField(
+                            autofocus: false,
+                            onChanged: (value) {
+                              // No need to setState here, listener handles it
+                            },
+                            controller: _searchController,
+                            decoration: InputDecoration(
+                              hintText: 'Search by name, IP, MAC, vendor...',
+                              prefixIcon: const Icon(Icons.search),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear),
+                                      onPressed: () {
                                         setState(() {
-                                          if (isExpanded) {
-                                            _expandedClientIndices.remove(
-                                              index,
-                                            );
-                                          } else {
-                                            _expandedClientIndices.add(index);
-                                          }
+                                          _searchController.clear();
                                         });
                                       },
-                                    ),
-                                  ),
-                                );
-                              },
+                                      tooltip: 'Clear search',
+                                    )
+                                  : null,
+                              filled: true,
+                              fillColor: colorScheme.surfaceContainerHighest
+                                  .withValues(alpha: 0.8),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(24.0),
+                                borderSide: BorderSide.none,
+                              ),
+                              hintStyle: TextStyle(
+                                color: colorScheme.onSurfaceVariant.withValues(
+                                  alpha: 0.7,
+                                ),
+                              ),
                             ),
-                    ),
-                  ],
-                );
-              },
-            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: filteredClients.isEmpty
+                              ? LuciEmptyState(
+                                  title: _searchQuery.isEmpty
+                                      ? 'No Active Clients Found'
+                                      : 'No Matching Clients',
+                                  message: _searchQuery.isEmpty
+                                      ? 'No clients are currently connected to the router. Pull down to refresh the list.'
+                                      : 'No clients match your search criteria. Try a different search term.',
+                                  icon: Icons.people_outline,
+                                )
+                              : ListView.separated(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  separatorBuilder: (context, idx) =>
+                                      const SizedBox(height: 4),
+                                  itemCount: filteredClients.length,
+                                  itemBuilder: (context, index) {
+                                    final client = filteredClients[index];
+                                    final isExpanded = _expandedClientIndices
+                                        .contains(index);
+
+                                    return LuciSlideTransition(
+                                      direction: LuciSlideDirection.up,
+                                      delay: Duration(milliseconds: index * 50),
+                                      distance: 30,
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16.0,
+                                          vertical: 8.0,
+                                        ),
+                                        child: _UnifiedClientCard(
+                                          client: client,
+                                          isExpanded: isExpanded,
+                                          onTap: () {
+                                            setState(() {
+                                              if (isExpanded) {
+                                                _expandedClientIndices.remove(
+                                                  index,
+                                                );
+                                              } else {
+                                                _expandedClientIndices.add(
+                                                  index,
+                                                );
+                                              }
+                                            });
+                                          },
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
             ],
           ),

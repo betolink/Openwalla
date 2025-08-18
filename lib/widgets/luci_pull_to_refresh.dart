@@ -86,10 +86,12 @@ class _LuciPullToRefreshState extends State<LuciPullToRefresh>
     if (!_hasTriggeredHaptic) {
       await HapticFeedback.mediumImpact();
       _hasTriggeredHaptic = true;
-      unawaited(_hapticController.forward().then((_) {
-        _hapticController.reset();
-        _hasTriggeredHaptic = false;
-      }));
+      unawaited(
+        _hapticController.forward().then((_) {
+          _hapticController.reset();
+          _hasTriggeredHaptic = false;
+        }),
+      );
     }
 
     try {

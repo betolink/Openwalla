@@ -53,27 +53,27 @@ class ReviewerModeServiceFactory implements ServiceFactory {
 class ServiceContainer {
   static ServiceContainer? _instance;
   static ServiceContainer get instance => _instance ??= ServiceContainer._();
-  
+
   ServiceContainer._();
 
   ServiceFactory? _factory;
-  
+
   void setFactory(ServiceFactory factory) {
     _factory = factory;
   }
-  
+
   ServiceFactory get factory {
     if (_factory == null) {
-      throw StateError('ServiceFactory not initialized. Call setFactory() first.');
+      throw StateError(
+        'ServiceFactory not initialized. Call setFactory() first.',
+      );
     }
     return _factory!;
   }
-  
+
   static void configure({required bool reviewerMode}) {
     instance.setFactory(
-      reviewerMode 
-        ? ReviewerModeServiceFactory()
-        : ProductionServiceFactory()
+      reviewerMode ? ReviewerModeServiceFactory() : ProductionServiceFactory(),
     );
   }
 }
