@@ -8,6 +8,7 @@ class SecureStorageService {
   final _storage = const FlutterSecureStorage();
 
   static const String _routersKey = 'routers';
+  static const String _selectedRouterKey = 'selectedRouterId';
 
   Future<void> saveCredentials({
     required String ipAddress,
@@ -126,6 +127,28 @@ class SecureStorageService {
     } catch (e, stack) {
       Logger.exception('Failed to update router: ${router.id}', e, stack);
       rethrow;
+    }
+  }
+
+  Future<void> saveSelectedRouterId(String? id) async {
+    try {
+      if (id == null) {
+        await _storage.delete(key: _selectedRouterKey);
+      } else {
+        await _storage.write(key: _selectedRouterKey, value: id);
+      }
+    } catch (e, stack) {
+      Logger.exception('Failed to save selected router ID', e, stack);
+      rethrow;
+    }
+  }
+
+  Future<String?> getSelectedRouterId() async {
+    try {
+      return await _storage.read(key: _selectedRouterKey);
+    } catch (e, stack) {
+      Logger.exception('Failed to get selected router ID', e, stack);
+      return null;
     }
   }
 }
