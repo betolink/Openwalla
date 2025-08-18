@@ -12,6 +12,7 @@
 .swiftpm/
 migrate_working_dir/
 .github/copilot-instructions.md
+AGENTS.md
 
 # IntelliJ related
 *.iml

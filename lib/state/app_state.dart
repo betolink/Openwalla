@@ -13,17 +13,18 @@ import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
 import 'package:luci_mobile/services/service_factory.dart';
 import 'package:luci_mobile/config/app_config.dart';
 import 'package:luci_mobile/utils/http_client_manager.dart';
+import 'package:luci_mobile/utils/logger.dart';
 
 class AppState extends ChangeNotifier {
   static AppState? _instance;
-  
+
   late final SecureStorageService _secureStorageService;
   IApiService? _apiService;
   IAuthService? _authService;
   RouterService? _routerService;
   ThroughputService? _throughputService;
   final HttpClientManager _httpClientManager = HttpClientManager();
-  
+
   // Reviewer mode state
   bool _reviewerModeEnabled = false;
   bool get reviewerModeEnabled => _reviewerModeEnabled;
@@ -38,7 +39,8 @@ class AppState extends ChangeNotifier {
   Timer? _throughputTimer;
   Timer? _pollingTimer;
   int _pollAttempts = 0;
-  static const int _maxPollAttempts = 40; // Max 40 attempts = ~5 minutes with backoff
+  static const int _maxPollAttempts =
+      40; // Max 40 attempts = ~5 minutes with backoff
 
   // Add rebooting state
   bool _isRebooting = false;
@@ -66,31 +68,34 @@ class AppState extends ChangeNotifier {
   AppState._() {
     _initialize();
   }
-  
+
   static AppState get instance {
     return _instance ??= AppState._();
   }
-  
+
   Future<void> _initialize() async {
     await _loadReviewerMode();
     _initializeServices();
     await _loadThemeMode();
     await loadRouters(); // Load routers on app start
   }
-  
+
   Future<void> _loadReviewerMode() async {
     // Initialize secure storage service with default factory first
     ServiceContainer.configure(reviewerMode: false);
-    _secureStorageService = ServiceContainer.instance.factory.createSecureStorageService();
-    
-    final stored = await _secureStorageService.readValue(AppConfig.reviewerModeKey);
+    _secureStorageService = ServiceContainer.instance.factory
+        .createSecureStorageService();
+
+    final stored = await _secureStorageService.readValue(
+      AppConfig.reviewerModeKey,
+    );
     _reviewerModeEnabled = stored == 'true';
   }
-  
+
   void _initializeServices() {
     // Configure the service container based on reviewer mode
     ServiceContainer.configure(reviewerMode: _reviewerModeEnabled);
-    
+
     // Create services using the factory
     final factory = ServiceContainer.instance.factory;
     _authService = factory.createAuthService();
@@ -98,10 +103,13 @@ class AppState extends ChangeNotifier {
     _routerService = factory.createRouterService();
     _throughputService = factory.createThroughputService();
   }
-  
+
   Future<void> setReviewerMode(bool enabled) async {
     _reviewerModeEnabled = enabled;
-    await _secureStorageService.writeValue(AppConfig.reviewerModeKey, enabled.toString());
+    await _secureStorageService.writeValue(
+      AppConfig.reviewerModeKey,
+      enabled.toString(),
+    );
     _initializeServices();
     notifyListeners();
   }
@@ -129,6 +137,11 @@ class AppState extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
+  void setError(String error) {
+    _errorMessage = error;
+    notifyListeners();
+  }
+
   Map<String, dynamic>? get dashboardData => _dashboardData;
   List<double> get rxHistory => _throughputService?.rxHistory ?? [];
   List<double> get txHistory => _throughputService?.txHistory ?? [];
@@ -149,13 +162,16 @@ class AppState extends ChangeNotifier {
 
   Future<void> removeRouter(String id) async {
     if (_routerService == null) return;
-    
+
     // Get the router before removing to clear its certificates
-    final router = _routerService!.routers.firstWhere((r) => r.id == id, orElse: () => throw Exception('Router not found'));
-    
+    final router = _routerService!.routers.firstWhere(
+      (r) => r.id == id,
+      orElse: () => throw Exception('Router not found'),
+    );
+
     // Clear certificates for this specific router
     await _httpClientManager.clearCertificatesForHost(router.ipAddress);
-    
+
     final needsSwitch = await _routerService!.removeRouter(id);
     if (needsSwitch && _routerService!.routers.isNotEmpty) {
       await selectRouter(_routerService!.routers.first.id);
@@ -169,10 +185,10 @@ class AppState extends ChangeNotifier {
 
   Future<void> selectRouter(String id, {BuildContext? context}) async {
     if (_routerService == null || _routerService!.routers.isEmpty) return;
-    
+
     final found = _routerService!.selectRouter(id);
     if (found == null) return;
-    
+
     _isLoading = true;
     _dashboardError = null;
 
@@ -218,19 +234,39 @@ class AppState extends ChangeNotifier {
 
     try {
       await _authService!.login(ip, user, pass, useHttps, context: context);
-      
+
       // Check if authentication was successful
       if (_authService!.isAuthenticated) {
+        // Get the actual protocol used (might be different due to redirect)
+        final actualUseHttps = _authService!.useHttps;
+
         if (!fromRouter) {
-          // If not from router selection, add or update router
+          // If not from router selection, add or update router with detected protocol
           if (_routerService != null) {
-            final router = _routerService!.createRouter(ip, user, pass, useHttps);
-            final idx = _routerService!.routers.indexWhere((r) => r.id == router.id);
+            final router = _routerService!.createRouter(
+              ip,
+              user,
+              pass,
+              actualUseHttps, // Use the detected protocol
+            );
+            final idx = _routerService!.routers.indexWhere(
+              (r) => r.id == router.id,
+            );
             if (idx == -1) {
               await addRouter(router);
             } else {
               await updateRouter(router);
             }
+          }
+        } else if (actualUseHttps != useHttps && _routerService != null) {
+          // If we're logging in from a saved router and the protocol changed, update it
+          final router = _routerService!.selectedRouter;
+          if (router != null) {
+            final updatedRouter = router.copyWith(useHttps: actualUseHttps);
+            await updateRouter(updatedRouter);
+            Logger.info(
+              'Updated router protocol from ${useHttps ? "HTTPS" : "HTTP"} to ${actualUseHttps ? "HTTPS" : "HTTP"}',
+            );
           }
         }
         await fetchDashboardData();
@@ -268,9 +304,11 @@ class AppState extends ChangeNotifier {
       _isDashboardLoading = true;
       _dashboardError = null;
       notifyListeners();
-      
-      await Future.delayed(const Duration(milliseconds: 500)); // Simulate network delay
-      
+
+      await Future.delayed(
+        const Duration(milliseconds: 500),
+      ); // Simulate network delay
+
       try {
         final results = await Future.wait([
           _apiService!.callSimple('system', 'board', {}),
@@ -281,11 +319,11 @@ class AppState extends ChangeNotifier {
           _apiService!.callSimple('luci-rpc', 'getDHCPLeases', {}),
           _apiService!.callSimple('uci', 'get', {'config': 'wireless'}),
         ]);
-        
+
         final interfaceDump = results[3][1] as Map<String, dynamic>;
         final rawDhcpData = results[5][1] as Map<String, dynamic>;
         final processedDhcpData = _processDhcpLeases(rawDhcpData);
-        
+
         _dashboardData = {
           'boardInfo': results[0][1],
           'sysInfo': results[1][1],
@@ -296,24 +334,25 @@ class AppState extends ChangeNotifier {
           'uciWirelessConfig': results[6][1],
           'wan': _extractWanData(interfaceDump),
           'wireguard': <String, dynamic>{}, // Empty for reviewer mode
-          '_lastUpdated': DateTime.now().millisecondsSinceEpoch, // Force UI updates
+          '_lastUpdated':
+              DateTime.now().millisecondsSinceEpoch, // Force UI updates
         };
-        
+
         // Update throughput data with mock network data for reviewer mode
         if (_throughputService != null) {
           final networkData = results[2][1] as Map<String, dynamic>?;
           final wanDeviceNames = {'eth0'}; // Mock WAN device
           _throughputService!.updateThroughput(networkData, wanDeviceNames);
         }
-        
+
         // Start throughput timer for reviewer mode
         _startThroughputTimer();
-        
+
         // Schedule an immediate throughput update to get initial data faster
         Future.delayed(const Duration(milliseconds: 100), () {
           _updateThroughputOnly();
         });
-        
+
         _isDashboardLoading = false;
         notifyListeners();
       } catch (e) {
@@ -323,11 +362,12 @@ class AppState extends ChangeNotifier {
       }
       return;
     }
-    
-    if (_routerService?.selectedRouter == null || _authService?.sysauth == null) {
+
+    if (_routerService?.selectedRouter == null ||
+        _authService?.sysauth == null) {
       return;
     }
-    
+
     // If already loading, don't start another request (but this shouldn't prevent pull-to-refresh)
     // We'll let the new request proceed and the loading state will be handled properly
     final ip = _routerService!.selectedRouter!.ipAddress;
@@ -497,7 +537,8 @@ class AppState extends ChangeNotifier {
         'wan': _extractWanData(interfaceDump),
         'uciWirelessConfig': uciWirelessConfig,
         'wireguard': wireguardData,
-        '_lastUpdated': DateTime.now().millisecondsSinceEpoch, // Force UI updates
+        '_lastUpdated':
+            DateTime.now().millisecondsSinceEpoch, // Force UI updates
       };
 
       // Hybrid approach: update lastKnownHostname for the selected router
@@ -506,15 +547,14 @@ class AppState extends ChangeNotifier {
       if (hostname != null && hostname.isNotEmpty) {
         await _routerService?.updateSelectedRouterHostname(hostname);
       }
-      
+
       // Ensure throughput timer is running
       _startThroughputTimer();
-      
+
       // Schedule an immediate throughput update to get initial data faster
       Future.delayed(const Duration(milliseconds: 100), () {
         _updateThroughputOnly();
       });
-      
     } catch (e) {
       final errorMessage = e.toString();
       if (errorMessage.contains('Access denied')) {
@@ -535,10 +575,10 @@ class AppState extends ChangeNotifier {
   Map<String, dynamic> _processDhcpLeases(Map<String, dynamic> rawDhcpData) {
     final stdout = rawDhcpData['stdout'] as String? ?? '';
     final leases = <Map<String, dynamic>>[];
-    
+
     for (final line in stdout.split('\n')) {
       if (line.trim().isEmpty) continue;
-      
+
       final parts = line.trim().split(' ');
       if (parts.length >= 5) {
         // Format: timestamp mac_address ip_address hostname client_id
@@ -546,7 +586,7 @@ class AppState extends ChangeNotifier {
         final macAddress = parts[1];
         final ipAddress = parts[2];
         final hostname = parts[3];
-        
+
         leases.add({
           'expires': timestamp,
           'macaddr': macAddress,
@@ -557,10 +597,8 @@ class AppState extends ChangeNotifier {
         });
       }
     }
-    
-    return {
-      'dhcp_leases': leases,
-    };
+
+    return {'dhcp_leases': leases};
   }
 
   Map<String, dynamic>? _extractWanData(Map<String, dynamic>? interfaceDump) {
@@ -586,7 +624,6 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
-
   void _startThroughputTimer() {
     _throughputTimer?.cancel();
     // Don't start timer if we're rebooting
@@ -604,7 +641,7 @@ class AppState extends ChangeNotifier {
     if (_isRebooting) {
       return;
     }
-    
+
     if (_reviewerModeEnabled) {
       // For reviewer mode, get network devices data only
       try {
@@ -619,7 +656,8 @@ class AppState extends ChangeNotifier {
       return;
     }
 
-    if (_routerService?.selectedRouter == null || _authService?.sysauth == null) {
+    if (_routerService?.selectedRouter == null ||
+        _authService?.sysauth == null) {
       return;
     }
 
@@ -639,10 +677,11 @@ class AppState extends ChangeNotifier {
 
       if (result is List && result.length > 1 && result[0] == 0) {
         final networkData = result[1] as Map<String, dynamic>?;
-        
+
         // Get WAN device names from cached dashboard data
         final wanDeviceNames = <String>{};
-        final interfaceDump = _dashboardData?['interfaceDump'] as Map<String, dynamic>?;
+        final interfaceDump =
+            _dashboardData?['interfaceDump'] as Map<String, dynamic>?;
         if (interfaceDump != null && interfaceDump['interface'] is List) {
           for (final interface in interfaceDump['interface']) {
             if (interface is Map<String, dynamic>) {
@@ -673,11 +712,12 @@ class AppState extends ChangeNotifier {
   }
 
   Future<bool> reboot({BuildContext? context}) async {
-    if (_authService?.sysauth == null || _authService?.ipAddress == null) return false;
+    if (_authService?.sysauth == null || _authService?.ipAddress == null)
+      return false;
 
     // Cancel throughput timer before starting reboot to prevent "client closed" errors
     _cancelThroughputTimer();
-    
+
     _isRebooting = true;
     notifyListeners();
 
@@ -705,18 +745,18 @@ class AppState extends ChangeNotifier {
     // Reset poll attempts
     _pollAttempts = 0;
     _pollingTimer?.cancel();
-    
+
     // Start polling with exponential backoff
     _scheduleNextPoll();
   }
-  
+
   void _scheduleNextPoll() {
     if (_pollAttempts >= _maxPollAttempts) {
       // Max attempts reached, stop polling
       _isRebooting = false;
       notifyListeners();
       // print('[Reboot] Timeout: Router did not come back online after $_maxPollAttempts attempts');
-      
+
       // Show a user-friendly message
       if (onRouterBackOnline != null) {
         // Reuse the callback to show timeout message
@@ -724,7 +764,7 @@ class AppState extends ChangeNotifier {
       }
       return;
     }
-    
+
     // Calculate delay with exponential backoff: 3s, 3s, 5s, 8s, 12s, 18s, then 20s intervals
     int delaySeconds;
     if (_pollAttempts < 2) {
@@ -740,11 +780,11 @@ class AppState extends ChangeNotifier {
     } else {
       delaySeconds = 20; // Cap at 20 seconds for remaining attempts
     }
-    
+
     _pollingTimer = Timer(Duration(seconds: delaySeconds), () async {
       _pollAttempts++;
       final available = await _pingRouter();
-      
+
       if (available) {
         // Router is back online
         _pollingTimer?.cancel();
@@ -752,12 +792,12 @@ class AppState extends ChangeNotifier {
         _isRebooting = false;
         _pollAttempts = 0;
         notifyListeners();
-        
+
         // Notify UI that router is back online
         if (onRouterBackOnline != null) {
           onRouterBackOnline!();
         }
-        
+
         // Force relogin
         if (_routerService?.selectedRouter != null) {
           await login(
@@ -776,47 +816,52 @@ class AppState extends ChangeNotifier {
 
   Future<bool> _pingRouter() async {
     if (_authService?.ipAddress == null) return false;
-    
+
     // Clear cached HTTP clients for this host to avoid stale connections
     if (_pollAttempts == 0) {
-      _httpClientManager.disposeClient(_authService!.ipAddress!, _authService!.useHttps);
+      _httpClientManager.disposeClient(
+        _authService!.ipAddress!,
+        _authService!.useHttps,
+      );
     }
-    
+
     // Try multiple endpoints in order
     final scheme = _authService!.useHttps ? 'https' : 'http';
     final endpoints = [
-      '/',  // Root
-      '/cgi-bin/luci/',  // LuCI login page
-      '/cgi-bin/luci/admin',  // Admin page
+      '/', // Root
+      '/cgi-bin/luci/', // LuCI login page
+      '/cgi-bin/luci/admin', // Admin page
     ];
-    
+
     for (final endpoint in endpoints) {
       try {
         final uri = Uri.parse('$scheme://${_authService!.ipAddress}$endpoint');
-        
+
         // Create a fresh HTTP client for pinging to avoid certificate/connection issues
         http.Client client;
         if (_authService!.useHttps) {
           // For HTTPS, create a client that accepts any certificate during ping
           final httpClient = HttpClient();
           httpClient.connectionTimeout = const Duration(seconds: 5);
-          httpClient.badCertificateCallback = (cert, host, port) => true; // Accept any cert for ping
+          httpClient.badCertificateCallback = (cert, host, port) =>
+              true; // Accept any cert for ping
           client = http.IOClient(httpClient);
         } else {
           client = http.Client();
         }
-        
+
         try {
           // print('[Ping] Attempt $_pollAttempts: Checking $uri');
           final response = await client
               .get(uri)
               .timeout(const Duration(seconds: 5));
-          
+
           // print('[Ping] Response from $endpoint: ${response.statusCode}');
-          
+
           // Accept various status codes as "alive"
-          final isAlive = response.statusCode >= 200 && response.statusCode < 500;
-          
+          final isAlive =
+              response.statusCode >= 200 && response.statusCode < 500;
+
           if (isAlive) {
             if (_pollAttempts > 5) {
               // If we've been polling for a while and get a response,
@@ -834,7 +879,7 @@ class AppState extends ChangeNotifier {
         if (endpoint == endpoints.last) {
           // print('[Ping] All endpoints failed on attempt $_pollAttempts');
           // print('[Ping] Last error: ${e.toString()}');
-          
+
           if (e is SocketException) {
             // print('[Ping] Socket error: ${e.message}, OS Error: ${e.osError}');
           } else if (e is HandshakeException) {
@@ -843,7 +888,7 @@ class AppState extends ChangeNotifier {
         }
       }
     }
-    
+
     return false;
   }
 
@@ -851,18 +896,26 @@ class AppState extends ChangeNotifier {
     if (_reviewerModeEnabled || _authService?.ipAddress == null) {
       return _reviewerModeEnabled;
     }
-    return await _authService!.checkRouterAvailability(_authService!.ipAddress!, _authService!.useHttps);
+    return await _authService!.checkRouterAvailability(
+      _authService!.ipAddress!,
+      _authService!.useHttps,
+    );
   }
 
-  Future<bool> setWirelessRadioState(String device, bool enabled, {BuildContext? context}) async {
+  Future<bool> setWirelessRadioState(
+    String device,
+    bool enabled, {
+    BuildContext? context,
+  }) async {
     if (_reviewerModeEnabled) {
       // Simulate operation for reviewer mode
       await Future.delayed(const Duration(milliseconds: 500));
       await fetchDashboardData();
       return true;
     }
-    
-    if (_authService?.sysauth == null || _authService?.ipAddress == null) return false;
+
+    if (_authService?.sysauth == null || _authService?.ipAddress == null)
+      return false;
 
     try {
       // 1. Set the disabled state
@@ -907,9 +960,22 @@ class AppState extends ChangeNotifier {
 
   Future<bool> tryAutoLogin({BuildContext? context}) async {
     if (_reviewerModeEnabled) {
-      return await _authService!.tryAutoLogin(null, null, null, null, context: context);
+      return await _authService!.tryAutoLogin(
+        null,
+        null,
+        null,
+        null,
+        context: context,
+      );
     }
-    return await _authService?.tryAutoLogin(null, null, null, null, context: context) ?? false;
+    return await _authService?.tryAutoLogin(
+          null,
+          null,
+          null,
+          null,
+          context: context,
+        ) ??
+        false;
   }
 
   /// Fetch all associated wireless MAC addresses from all wireless interfaces
@@ -924,18 +990,20 @@ class AppState extends ChangeNotifier {
       return macs;
     } else {
       // Use the context-aware method for real API calls
-      if (_routerService?.selectedRouter == null || _authService?.sysauth == null) {
+      if (_routerService?.selectedRouter == null ||
+          _authService?.sysauth == null) {
         return {};
       }
-      
+
       final ip = _routerService!.selectedRouter!.ipAddress;
       final useHttps = _routerService!.selectedRouter!.useHttps;
-      
-      final stationsMap = await _apiService!.fetchAllAssociatedWirelessMacsWithContext(
-        ipAddress: ip,
-        sysauth: _authService!.sysauth!,
-        useHttps: useHttps,
-      );
+
+      final stationsMap = await _apiService!
+          .fetchAllAssociatedWirelessMacsWithContext(
+            ipAddress: ip,
+            sysauth: _authService!.sysauth!,
+            useHttps: useHttps,
+          );
       final macs = <String>{};
       stationsMap.forEach((_, stations) {
         macs.addAll(stations.map((m) => m.toLowerCase()));

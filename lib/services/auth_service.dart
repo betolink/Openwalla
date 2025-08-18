@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
+import 'package:luci_mobile/services/api_service.dart';
 import 'package:luci_mobile/services/secure_storage_service.dart';
 import 'package:luci_mobile/services/interfaces/auth_service_interface.dart';
+import 'package:luci_mobile/utils/logger.dart';
 
 class RealAuthService implements IAuthService {
   final SecureStorageService _secureStorageService = SecureStorageService();
@@ -23,7 +25,13 @@ class RealAuthService implements IAuthService {
   bool get isAuthenticated => _sysauth != null;
 
   @override
-  Future<void> login(String ipAddress, String username, String password, bool useHttps, {BuildContext? context}) async {
+  Future<void> login(
+    String ipAddress,
+    String username,
+    String password,
+    bool useHttps, {
+    BuildContext? context,
+  }) async {
     await _login(ipAddress, username, password, useHttps, context: context);
   }
 
@@ -31,32 +39,88 @@ class RealAuthService implements IAuthService {
     String ip,
     String user,
     String pass,
-    bool useHttps,
-    {BuildContext? context}
-  ) async {
+    bool useHttps, {
+    BuildContext? context,
+  }) async {
     try {
-      final token = await _apiService.login(ip, user, pass, useHttps, context: context);
-      _sysauth = token;
-      _ipAddress = ip;
-      _useHttps = useHttps;
-      
-      await _secureStorageService.saveCredentials(
-        ipAddress: ip,
-        username: user,
-        password: pass,
-        useHttps: useHttps,
-      );
-      
-      return true;
+      // Check if the API service is RealApiService to use protocol detection
+      if (_apiService is RealApiService) {
+        final realApiService = _apiService;
+        final loginResult = await realApiService.loginWithProtocolDetection(
+          ip,
+          user,
+          pass,
+          useHttps,
+          context: context,
+        );
+
+        if (loginResult.token != null) {
+          _sysauth = loginResult.token;
+          _ipAddress = ip;
+          _useHttps = loginResult.actualUseHttps; // Use the detected protocol
+
+          await _secureStorageService.saveCredentials(
+            ipAddress: ip,
+            username: user,
+            password: pass,
+            useHttps: loginResult.actualUseHttps, // Save the detected protocol
+          );
+
+          if (loginResult.actualUseHttps != useHttps) {
+            Logger.info(
+              'Protocol changed from ${useHttps ? "HTTPS" : "HTTP"} to ${loginResult.actualUseHttps ? "HTTPS" : "HTTP"} due to redirect',
+            );
+          }
+
+          return true;
+        }
+        return false;
+      } else {
+        // Fallback for mock service
+        final token = await _apiService.login(
+          ip,
+          user,
+          pass,
+          useHttps,
+          context: context,
+        );
+        _sysauth = token;
+        _ipAddress = ip;
+        _useHttps = useHttps;
+
+        await _secureStorageService.saveCredentials(
+          ipAddress: ip,
+          username: user,
+          password: pass,
+          useHttps: useHttps,
+        );
+
+        return true;
+      }
     } catch (e) {
       return false;
     }
   }
 
   @override
-  Future<bool> tryAutoLogin(String? ipAddress, String? username, String? password, bool? useHttps, {BuildContext? context}) async {
-    if (ipAddress != null && username != null && password != null && useHttps != null) {
-      return await _login(ipAddress, username, password, useHttps, context: context);
+  Future<bool> tryAutoLogin(
+    String? ipAddress,
+    String? username,
+    String? password,
+    bool? useHttps, {
+    BuildContext? context,
+  }) async {
+    if (ipAddress != null &&
+        username != null &&
+        password != null &&
+        useHttps != null) {
+      return await _login(
+        ipAddress,
+        username,
+        password,
+        useHttps,
+        context: context,
+      );
     }
     return await _tryAutoLoginFromStorage(context: context);
   }
@@ -69,7 +133,13 @@ class RealAuthService implements IAuthService {
     final useHttps = credentials['useHttps'] == 'true';
 
     if (ip != null && user != null && pass != null) {
-      return await _login(ip, user, pass, useHttps, context: context?.mounted == true ? context : null);
+      return await _login(
+        ip,
+        user,
+        pass,
+        useHttps,
+        context: context?.mounted == true ? context : null,
+      );
     }
 
     return false;
@@ -77,16 +147,20 @@ class RealAuthService implements IAuthService {
 
   @override
   Future<void> logout() async {
-    _sysauth = null;  
+    _sysauth = null;
     _ipAddress = null;
     _useHttps = false;
     await _secureStorageService.clearCredentials();
   }
 
   @override
-  Future<bool> checkRouterAvailability(String ipAddress, bool useHttps, {BuildContext? context}) async {
+  Future<bool> checkRouterAvailability(
+    String ipAddress,
+    bool useHttps, {
+    BuildContext? context,
+  }) async {
     if (ipAddress.isEmpty) return false;
-    
+
     try {
       final result = await _apiService.call(
         ipAddress,

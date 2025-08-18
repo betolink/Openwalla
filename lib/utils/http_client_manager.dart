@@ -21,8 +21,14 @@ class HttpClientManager {
   /// Creates or returns a cached HTTP client for the given host
   /// In production builds, certificate validation is enforced with user warnings
   /// In debug builds, self-signed certificates can be allowed automatically
-  http.Client getClient(String host, bool useHttps, {BuildContext? context}) {
-    final key = '$host-$useHttps';
+  http.Client getClient(
+    String hostWithPort,
+    bool useHttps, {
+    BuildContext? context,
+  }) {
+    // Extract just the hostname without port for certificate validation
+    final host = _extractHostname(hostWithPort);
+    final key = '$hostWithPort-$useHttps';
 
     if (_clients.containsKey(key)) {
       return _clients[key]!;
@@ -31,6 +37,28 @@ class HttpClientManager {
     final client = _createSecureClient(host, useHttps, context: context);
     _clients[key] = client;
     return client;
+  }
+
+  String _extractHostname(String hostWithPort) {
+    // Remove port if present (handles both IPv4 and IPv6)
+    if (hostWithPort.startsWith('[')) {
+      // IPv6 address
+      final endBracket = hostWithPort.indexOf(']');
+      if (endBracket != -1) {
+        return hostWithPort.substring(0, endBracket + 1);
+      }
+    } else {
+      // IPv4 or hostname
+      final colonIndex = hostWithPort.lastIndexOf(':');
+      if (colonIndex != -1) {
+        // Check if what follows the colon is a port number
+        final portPart = hostWithPort.substring(colonIndex + 1);
+        if (int.tryParse(portPart) != null) {
+          return hostWithPort.substring(0, colonIndex);
+        }
+      }
+    }
+    return hostWithPort;
   }
 
   http.Client _createSecureClient(
@@ -152,14 +180,25 @@ class HttpClientManager {
   /// Returns true if user accepts, false otherwise
   Future<bool> promptForCertificateAcceptance({
     required BuildContext context,
-    required String host,
+    required String hostWithPort,
     required bool useHttps,
   }) async {
     if (!useHttps) return true; // Non-HTTPS doesn't need certificate acceptance
     if (!context.mounted) return false;
 
+    final host = _extractHostname(hostWithPort);
+
+    // Parse the host to get the port if specified
+    int port = 443; // Default HTTPS port
+    if (hostWithPort.contains(':') && !hostWithPort.startsWith('[')) {
+      final parts = hostWithPort.split(':');
+      if (parts.length == 2) {
+        port = int.tryParse(parts[1]) ?? 443;
+      }
+    }
+
     // Check if already accepted
-    final certKey = '$host:443';
+    final certKey = '$host:$port';
     if (_userAcceptedCerts[certKey] == true) {
       return true;
     }
@@ -174,7 +213,7 @@ class HttpClientManager {
     };
 
     try {
-      final uri = Uri.parse('https://$host');
+      final uri = Uri.parse('https://$hostWithPort');
       final request = await testClient.getUrl(uri);
       await request.close();
       // If we get here, certificate is already valid or accepted
@@ -257,7 +296,7 @@ class HttpClientManager {
 
           if (result == true) {
             // Store acceptance persistently
-            _userAcceptedCerts['$host:443'] = true;
+            _userAcceptedCerts['$host:$port'] = true;
             await _saveAcceptedCertificates();
             return true;
           }
