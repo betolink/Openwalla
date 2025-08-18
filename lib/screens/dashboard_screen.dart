@@ -329,6 +329,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           gridData: FlGridData(show: false),
                           titlesData: FlTitlesData(show: false),
                           borderData: FlBorderData(show: false),
+                          minX: 0,
+                          maxX: rxHistory.isNotEmpty 
+                            ? (rxHistory.length < 50 
+                                ? (rxHistory.length - 1).toDouble() 
+                                : 49.0)
+                            : 49.0,
+                          minY: 0,
+                          maxY: () {
+                            // Find the maximum value from both rx and tx histories
+                            final allValues = [...rxHistory, ...txHistory];
+                            if (allValues.isEmpty) return 100.0;
+                            final maxValue = allValues.reduce((a, b) => a > b ? a : b);
+                            // Add 20% padding above the max value to prevent cutoff
+                            return maxValue * 1.2;
+                          }(),
+                          clipData: FlClipData.all(),
                           lineTouchData: LineTouchData(
                             touchTooltipData: LineTouchTooltipData(
                               fitInsideVertically: true,
@@ -373,7 +389,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ],
                         ),
                         duration: const Duration(milliseconds: 800),
-                        curve: Curves.easeInOut,
+                        curve: Curves.easeInOutCubic,
                       )
                     : Center(
                         key: ValueKey('loading_${appState.selectedRouter?.id}'),
