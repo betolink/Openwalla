@@ -10,10 +10,6 @@ class ThroughputService {
   Map<String, dynamic>? _lastStats;
   DateTime? _lastTimestamp;
   
-  // Smoothing variables
-  double _previousRxRate = 0;
-  double _previousTxRate = 0;
-  
   // Per-interface tracking
   final Map<String, Queue<double>> _rxHistoryPerInterface = {};
   final Map<String, Queue<double>> _txHistoryPerInterface = {};
@@ -21,13 +17,10 @@ class ThroughputService {
   final Map<String, double> _currentTxRatePerInterface = {};
   final Map<String, Map<String, dynamic>?> _lastStatsPerInterface = {};
   final Map<String, DateTime?> _lastTimestampPerInterface = {};
-  final Map<String, double> _previousRxRatePerInterface = {};
-  final Map<String, double> _previousTxRatePerInterface = {};
   
   static const int _maxHistoryLength = 50;
   static const double _maxRate = 1000.0 * 1024.0 * 1024.0; // 1 GB/s
   static const double _minElapsedSeconds = 0.1;
-  static const double _smoothingFactor = 0.7; // Lower = more smoothing
 
   List<double> get rxHistory => _rxHistory.toList();
   List<double> get txHistory => _txHistory.toList();
@@ -49,12 +42,6 @@ class ThroughputService {
   
   double getCurrentTxRateForInterface(String interface) {
     return _currentTxRatePerInterface[interface] ?? 0.0;
-  }
-  
-  /// Applies exponential moving average smoothing to reduce data spikes
-  double _smoothValue(double newValue, double previousValue) {
-    if (previousValue == 0) return newValue;
-    return previousValue + _smoothingFactor * (newValue - previousValue);
   }
 
   void updateThroughput(
@@ -101,20 +88,12 @@ class ThroughputService {
         final currentTx = _calculateTotalBytes(networkData, 'tx_bytes', wanDeviceNames: wanDeviceNames);
 
         // Calculate rates with a reasonable maximum to prevent spikes
-        final rawRxRate = max(0, (currentRx - lastRx) / elapsedSeconds);
-        final rawTxRate = max(0, (currentTx - lastTx) / elapsedSeconds);
+        final rxRate = max(0, (currentRx - lastRx) / elapsedSeconds);
+        final txRate = max(0, (currentTx - lastTx) / elapsedSeconds);
 
         // Cap the rates to prevent unrealistic spikes
-        final cappedRxRate = min(rawRxRate.toDouble(), _maxRate);
-        final cappedTxRate = min(rawTxRate.toDouble(), _maxRate);
-        
-        // Apply smoothing to reduce abrupt changes
-        _currentRxRate = _smoothValue(cappedRxRate, _previousRxRate);
-        _currentTxRate = _smoothValue(cappedTxRate, _previousTxRate);
-        
-        // Update previous values for next smoothing calculation
-        _previousRxRate = _currentRxRate;
-        _previousTxRate = _currentTxRate;
+        _currentRxRate = min(rxRate.toDouble(), _maxRate);
+        _currentTxRate = min(txRate.toDouble(), _maxRate);
 
         _addToHistory(_currentRxRate, _currentTxRate);
       }
@@ -150,22 +129,11 @@ class ThroughputService {
       final currentRx = (devData['stats']?['rx_bytes'] ?? 0) as num;
       final currentTx = (devData['stats']?['tx_bytes'] ?? 0) as num;
       
-      final rawRxRate = max(0, (currentRx - lastRx) / elapsedSeconds);
-      final rawTxRate = max(0, (currentTx - lastTx) / elapsedSeconds);
+      final rxRate = max(0, (currentRx - lastRx) / elapsedSeconds);
+      final txRate = max(0, (currentTx - lastTx) / elapsedSeconds);
       
-      final cappedRxRate = min(rawRxRate.toDouble(), _maxRate);
-      final cappedTxRate = min(rawTxRate.toDouble(), _maxRate);
-      
-      // Apply smoothing to interface-specific rates
-      final previousRx = _previousRxRatePerInterface[interface] ?? 0.0;
-      final previousTx = _previousTxRatePerInterface[interface] ?? 0.0;
-      
-      _currentRxRatePerInterface[interface] = _smoothValue(cappedRxRate, previousRx);
-      _currentTxRatePerInterface[interface] = _smoothValue(cappedTxRate, previousTx);
-      
-      // Update previous values for next smoothing calculation
-      _previousRxRatePerInterface[interface] = _currentRxRatePerInterface[interface]!;
-      _previousTxRatePerInterface[interface] = _currentTxRatePerInterface[interface]!;
+      _currentRxRatePerInterface[interface] = min(rxRate.toDouble(), _maxRate);
+      _currentTxRatePerInterface[interface] = min(txRate.toDouble(), _maxRate);
       
       _addToInterfaceHistory(interface, _currentRxRatePerInterface[interface]!, _currentTxRatePerInterface[interface]!);
     }
@@ -253,10 +221,6 @@ class ThroughputService {
     _lastStats = null;
     _lastTimestamp = null;
     
-    // Clear smoothing variables
-    _previousRxRate = 0;
-    _previousTxRate = 0;
-    
     // Clear per-interface data
     _rxHistoryPerInterface.clear();
     _txHistoryPerInterface.clear();
@@ -264,7 +228,5 @@ class ThroughputService {
     _currentTxRatePerInterface.clear();
     _lastStatsPerInterface.clear();
     _lastTimestampPerInterface.clear();
-    _previousRxRatePerInterface.clear();
-    _previousTxRatePerInterface.clear();
   }
 }
