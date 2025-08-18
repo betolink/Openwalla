@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
+import 'package:luci_mobile/screens/dashboard_customization_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -73,6 +74,29 @@ class SettingsScreen extends ConsumerWidget {
                     value: ThemeMode.dark,
                     groupValue: appState.themeMode,
                     onChanged: (mode) => appState.setThemeMode(mode!),
+                  ),
+                  const Divider(height: 32),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                    child: Text(
+                      'Dashboard',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.dashboard_customize),
+                    title: const Text('Customize Dashboard'),
+                    subtitle: const Text('Choose which interfaces to display'),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const DashboardCustomizationScreen(),
+                        ),
+                      );
+                    },
                   ),
                   if (appState.reviewerModeEnabled) ...[
                     const Divider(height: 32),

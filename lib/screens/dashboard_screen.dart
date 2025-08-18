@@ -216,12 +216,37 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildRealtimeThroughputCard(AppState appState) {
+    final prefs = appState.dashboardPreferences;
+    
+    // Determine which throughput data to use
+    List<double> rxHistory;
+    List<double> txHistory;
+    double currentRxRate;
+    double currentTxRate;
+    String throughputLabel = '';
+    
+    if (!prefs.showAllThroughput && prefs.primaryThroughputInterface != null) {
+      // Use specific interface throughput
+      final interface = prefs.primaryThroughputInterface!;
+      rxHistory = appState.getRxHistoryForInterface(interface);
+      txHistory = appState.getTxHistoryForInterface(interface);
+      currentRxRate = appState.getCurrentRxRateForInterface(interface);
+      currentTxRate = appState.getCurrentTxRateForInterface(interface);
+      throughputLabel = ' - $interface';
+    } else {
+      // Use combined throughput
+      rxHistory = appState.rxHistory;
+      txHistory = appState.txHistory;
+      currentRxRate = appState.currentRxRate;
+      currentTxRate = appState.currentTxRate;
+    }
+    
     // Show loading state if we don't have any throughput data yet
     final hasValidData =
-        appState.rxHistory.isNotEmpty ||
-        appState.txHistory.isNotEmpty ||
-        appState.currentRxRate > 0 ||
-        appState.currentTxRate > 0; // Show data as soon as we have any throughput info
+        rxHistory.isNotEmpty ||
+        txHistory.isNotEmpty ||
+        currentRxRate > 0 ||
+        currentTxRate > 0; // Show data as soon as we have any throughput info
     // Only show switching state if we're loading AND no dashboard data is available (true router switch)
     final isSwitchingRouter =
         appState.isLoading && appState.dashboardData == null;
@@ -233,6 +258,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (throughputLabel.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Center(
+                child: Text(
+                  'Throughput$throughputLabel',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: 16.0,
@@ -245,13 +283,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   Icons.arrow_downward,
                   Colors.green,
                   '',
-                  isSwitchingRouter ? 0.0 : appState.currentRxRate,
+                  isSwitchingRouter ? 0.0 : currentRxRate,
                 ),
                 _buildSpeedIndicator(
                   Icons.arrow_upward,
                   Colors.blue,
                   '',
-                  isSwitchingRouter ? 0.0 : appState.currentTxRate,
+                  isSwitchingRouter ? 0.0 : currentTxRate,
                 ),
               ],
             ),
@@ -324,11 +362,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ),
                           ),
                           lineBarsData: [
-                            _buildLineChartBarData(appState.rxHistory, [
+                            _buildLineChartBarData(rxHistory, [
                               Colors.green.shade700,
                               Colors.green.shade400,
                             ]),
-                            _buildLineChartBarData(appState.txHistory, [
+                            _buildLineChartBarData(txHistory, [
                               Colors.blue.shade700,
                               Colors.blue.shade400,
                             ]),
@@ -688,6 +726,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildWirelessNetworksCard(AppState appState) {
+    final prefs = appState.dashboardPreferences;
     final wirelessRadios =
         appState.dashboardData?['wireless'] as Map<String, dynamic>?;
     if (wirelessRadios == null || wirelessRadios.isEmpty) {
@@ -705,6 +744,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           if (ssid == 'N/A') continue;
 
           final deviceName = config['device'] ?? radioName;
+          final interfaceId = '$ssid ($deviceName)';
+          
+          // Check if this interface should be shown based on preferences
+          if (prefs.enabledWirelessInterfaces.isNotEmpty &&
+              !prefs.enabledWirelessInterfaces.contains(interfaceId)) {
+            continue; // Skip this interface
+          }
+          
           final isEnabled = !(config['disabled'] as bool? ?? false);
           final channel = (iwinfo['channel'] ?? config['channel'] ?? 'N/A')
               .toString();
@@ -851,6 +898,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildInterfaceStatusCards(AppState appState) {
+    final prefs = appState.dashboardPreferences;
     final interfaces =
         appState.dashboardData?['interfaceDump']?['interface']
             as List<dynamic>?;
@@ -862,10 +910,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       final interface = item as Map<String, dynamic>;
       final name = interface['interface'] as String? ?? '';
       final proto = interface['proto'] as String? ?? '';
-      return name.startsWith('wan') ||
+      
+      // Check if this is a relevant interface type
+      final isRelevant = name.startsWith('wan') ||
           proto == 'pppoe' ||
           proto == 'wireguard' ||
           proto == 'openvpn';
+      
+      if (!isRelevant) return false;
+      
+      // Check if this interface should be shown based on preferences
+      if (prefs.enabledWiredInterfaces.isNotEmpty &&
+          !prefs.enabledWiredInterfaces.contains(name)) {
+        return false; // Skip this interface
+      }
+      
+      return true;
     }).toList();
 
     if (wanVpnInterfaces.isEmpty) {

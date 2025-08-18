@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -8,6 +9,7 @@ import 'package:luci_mobile/services/secure_storage_service.dart';
 import 'package:luci_mobile/services/router_service.dart';
 import 'package:luci_mobile/services/throughput_service.dart';
 import 'package:luci_mobile/models/router.dart' as model;
+import 'package:luci_mobile/models/dashboard_preferences.dart';
 import 'package:luci_mobile/services/interfaces/auth_service_interface.dart';
 import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
 import 'package:luci_mobile/services/service_factory.dart';
@@ -50,6 +52,10 @@ class AppState extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
   static const String _themeModeKey = 'themeMode';
 
+  // Dashboard preferences state
+  DashboardPreferences _dashboardPreferences = DashboardPreferences();
+  DashboardPreferences get dashboardPreferences => _dashboardPreferences;
+
   List<model.Router> get routers => _routerService?.routers ?? [];
   model.Router? get selectedRouter => _routerService?.selectedRouter;
 
@@ -77,6 +83,7 @@ class AppState extends ChangeNotifier {
     await _loadReviewerMode();
     _initializeServices();
     await _loadThemeMode();
+    await loadDashboardPreferences();
     await loadRouters(); // Load routers on app start
   }
 
@@ -133,6 +140,33 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> loadDashboardPreferences() async {
+    try {
+      final json = await _secureStorageService.readValue('dashboard_preferences');
+      if (json != null && json.isNotEmpty) {
+        _dashboardPreferences = DashboardPreferences.fromJson(jsonDecode(json));
+        notifyListeners();
+      }
+    } catch (e, stack) {
+      Logger.exception('Failed to load dashboard preferences', e, stack);
+      _dashboardPreferences = DashboardPreferences();
+    }
+  }
+
+  Future<void> saveDashboardPreferences(DashboardPreferences prefs) async {
+    try {
+      _dashboardPreferences = prefs;
+      await _secureStorageService.writeValue(
+        'dashboard_preferences',
+        jsonEncode(prefs.toJson()),
+      );
+      notifyListeners();
+    } catch (e, stack) {
+      Logger.exception('Failed to save dashboard preferences', e, stack);
+      rethrow;
+    }
+  }
+
   String? get sysauth => _authService?.sysauth;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -149,6 +183,23 @@ class AppState extends ChangeNotifier {
   double get currentTxRate => _throughputService?.currentTxRate ?? 0.0;
   bool get isDashboardLoading => _isDashboardLoading;
   String? get dashboardError => _dashboardError;
+
+  // Interface-specific throughput getters
+  List<double> getRxHistoryForInterface(String interface) {
+    return _throughputService?.getRxHistoryForInterface(interface) ?? [];
+  }
+
+  List<double> getTxHistoryForInterface(String interface) {
+    return _throughputService?.getTxHistoryForInterface(interface) ?? [];
+  }
+
+  double getCurrentRxRateForInterface(String interface) {
+    return _throughputService?.getCurrentRxRateForInterface(interface) ?? 0.0;
+  }
+
+  double getCurrentTxRateForInterface(String interface) {
+    return _throughputService?.getCurrentTxRateForInterface(interface) ?? 0.0;
+  }
 
   Future<void> loadRouters() async {
     await _routerService?.loadRouters();
@@ -342,7 +393,28 @@ class AppState extends ChangeNotifier {
         if (_throughputService != null) {
           final networkData = results[2][1] as Map<String, dynamic>?;
           final wanDeviceNames = {'eth0'}; // Mock WAN device
-          _throughputService!.updateThroughput(networkData, wanDeviceNames);
+          
+          // Check if we should track specific interface
+          final prefs = _dashboardPreferences;
+          String? specificInterface;
+          if (!prefs.showAllThroughput && prefs.primaryThroughputInterface != null) {
+            // Extract device name from interface ID (format: "SSID (deviceName)" or just "deviceName")
+            final interfaceId = prefs.primaryThroughputInterface!;
+            if (interfaceId.contains('(')) {
+              // Wireless format: "SSID (deviceName)"
+              final match = RegExp(r'\(([^)]+)\)').firstMatch(interfaceId);
+              specificInterface = match?.group(1);
+            } else {
+              // Wired format: just device name
+              specificInterface = interfaceId;
+            }
+          }
+          
+          _throughputService!.updateThroughput(
+            networkData, 
+            wanDeviceNames,
+            specificInterface: specificInterface,
+          );
         }
 
         // Start throughput timer for reviewer mode
@@ -525,7 +597,27 @@ class AppState extends ChangeNotifier {
       }
 
       // Update throughput data using the service
-      _throughputService?.updateThroughput(networkData, wanDeviceNames);
+      // Check if we should track specific interface
+      final prefs = _dashboardPreferences;
+      String? specificInterface;
+      if (!prefs.showAllThroughput && prefs.primaryThroughputInterface != null) {
+        // Extract device name from interface ID (format: "SSID (deviceName)" or just "deviceName")
+        final interfaceId = prefs.primaryThroughputInterface!;
+        if (interfaceId.contains('(')) {
+          // Wireless format: "SSID (deviceName)"
+          final match = RegExp(r'\(([^)]+)\)').firstMatch(interfaceId);
+          specificInterface = match?.group(1);
+        } else {
+          // Wired format: just device name
+          specificInterface = interfaceId;
+        }
+      }
+      
+      _throughputService?.updateThroughput(
+        networkData, 
+        wanDeviceNames,
+        specificInterface: specificInterface,
+      );
 
       _dashboardData = {
         'boardInfo': getData(results[0]),
@@ -648,7 +740,28 @@ class AppState extends ChangeNotifier {
         final result = await _apiService!.callSimple('network', 'device', {});
         final networkData = result[1] as Map<String, dynamic>?;
         final wanDeviceNames = {'eth0'}; // Mock WAN device
-        _throughputService?.updateThroughput(networkData, wanDeviceNames);
+        
+        // Check if we should track specific interface
+        final prefs = _dashboardPreferences;
+        String? specificInterface;
+        if (!prefs.showAllThroughput && prefs.primaryThroughputInterface != null) {
+          // Extract device name from interface ID (format: "SSID (deviceName)" or just "deviceName")
+          final interfaceId = prefs.primaryThroughputInterface!;
+          if (interfaceId.contains('(')) {
+            // Wireless format: "SSID (deviceName)"
+            final match = RegExp(r'\(([^)]+)\)').firstMatch(interfaceId);
+            specificInterface = match?.group(1);
+          } else {
+            // Wired format: just device name
+            specificInterface = interfaceId;
+          }
+        }
+        
+        _throughputService?.updateThroughput(
+          networkData, 
+          wanDeviceNames,
+          specificInterface: specificInterface,
+        );
         notifyListeners();
       } catch (e) {
         // Don't log throughput update errors as they're non-critical
@@ -686,19 +799,39 @@ class AppState extends ChangeNotifier {
           for (final interface in interfaceDump['interface']) {
             if (interface is Map<String, dynamic>) {
               final ifname = interface['interface'] as String?;
-              final proto = interface['proto'] as String?;
-              if (ifname != null &&
-                  (ifname.startsWith('wan') || proto == 'pppoe')) {
-                final device = interface['device'] as String?;
-                if (device != null) {
-                  wanDeviceNames.add(device);
+              final device = interface['device'] as String?;
+              final l3Device = interface['l3_device'] as String?;
+              if (ifname != null && ifname.startsWith('wan')) {
+                if (device != null) wanDeviceNames.add(device);
+                if (l3Device != null && l3Device != device) {
+                  wanDeviceNames.add(l3Device);
                 }
               }
             }
           }
         }
+        
+        // Check if we should track specific interface
+        final prefs = _dashboardPreferences;
+        String? specificInterface;
+        if (!prefs.showAllThroughput && prefs.primaryThroughputInterface != null) {
+          // Extract device name from interface ID (format: "SSID (deviceName)" or just "deviceName")
+          final interfaceId = prefs.primaryThroughputInterface!;
+          if (interfaceId.contains('(')) {
+            // Wireless format: "SSID (deviceName)"
+            final match = RegExp(r'\(([^)]+)\)').firstMatch(interfaceId);
+            specificInterface = match?.group(1);
+          } else {
+            // Wired format: just device name
+            specificInterface = interfaceId;
+          }
+        }
 
-        _throughputService?.updateThroughput(networkData, wanDeviceNames);
+        _throughputService?.updateThroughput(
+          networkData, 
+          wanDeviceNames,
+          specificInterface: specificInterface,
+        );
         notifyListeners();
       }
     } catch (e) {
