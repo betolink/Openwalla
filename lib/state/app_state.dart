@@ -40,7 +40,6 @@ class AppState extends ChangeNotifier {
 
   Timer? _throughputTimer;
   Timer? _pollingTimer;
-  Timer? _dashboardRefreshTimer;
   int _pollAttempts = 0;
   static const int _maxPollAttempts =
       40; // Max 40 attempts = ~5 minutes with backoff
@@ -56,11 +55,6 @@ class AppState extends ChangeNotifier {
   // Dashboard preferences state
   DashboardPreferences _dashboardPreferences = DashboardPreferences();
   DashboardPreferences get dashboardPreferences => _dashboardPreferences;
-  
-  // Dashboard refresh interval in seconds (default 30)
-  int _dashboardRefreshInterval = 30;
-  int get dashboardRefreshInterval => _dashboardRefreshInterval;
-  static const String _dashboardRefreshIntervalKey = 'dashboardRefreshInterval';
 
   List<model.Router> get routers => _routerService?.routers ?? [];
   model.Router? get selectedRouter => _routerService?.selectedRouter;
@@ -89,7 +83,6 @@ class AppState extends ChangeNotifier {
     await _loadReviewerMode();
     _initializeServices();
     await _loadThemeMode();
-    await _loadDashboardRefreshInterval();
     await loadDashboardPreferences();
     await loadRouters(); // Load routers on app start
   }
@@ -139,38 +132,11 @@ class AppState extends ChangeNotifier {
     }
     notifyListeners();
   }
-  
-  Future<void> _loadDashboardRefreshInterval() async {
-    final savedInterval = await _secureStorageService.readValue(_dashboardRefreshIntervalKey);
-    if (savedInterval != null) {
-      try {
-        _dashboardRefreshInterval = int.parse(savedInterval);
-        // Ensure it's within a reasonable range (5 seconds to 5 minutes)
-        if (_dashboardRefreshInterval < 5) _dashboardRefreshInterval = 5;
-        if (_dashboardRefreshInterval > 300) _dashboardRefreshInterval = 300;
-      } catch (e) {
-        _dashboardRefreshInterval = 30; // Default to 30 seconds
-      }
-    }
-  }
 
   ThemeMode get themeMode => _themeMode;
   Future<void> setThemeMode(ThemeMode mode) async {
     _themeMode = mode;
     await _secureStorageService.writeValue(_themeModeKey, mode.name);
-    notifyListeners();
-  }
-  
-  Future<void> setDashboardRefreshInterval(int seconds) async {
-    _dashboardRefreshInterval = seconds;
-    await _secureStorageService.writeValue(_dashboardRefreshIntervalKey, seconds.toString());
-    
-    // Restart the timer with the new interval if it's currently running
-    if (_dashboardRefreshTimer != null) {
-      _dashboardRefreshTimer?.cancel();
-      _startDashboardRefreshTimer();
-    }
-    
     notifyListeners();
   }
 
@@ -762,31 +728,6 @@ class AppState extends ChangeNotifier {
       _updateThroughputOnly();
     });
   }
-  
-  void _startDashboardRefreshTimer() {
-    _dashboardRefreshTimer?.cancel();
-    // Don't start timer if we're rebooting
-    if (_isRebooting) {
-      return;
-    }
-    // Refresh dashboard at the configured interval
-    _dashboardRefreshTimer = Timer.periodic(Duration(seconds: _dashboardRefreshInterval), (timer) {
-      fetchDashboardData();
-    });
-  }
-  
-  void _cancelDashboardRefreshTimer() {
-    _dashboardRefreshTimer?.cancel();
-  }
-  
-  // Public methods for managing dashboard refresh from UI
-  void startDashboardAutoRefresh() {
-    _startDashboardRefreshTimer();
-  }
-  
-  void stopDashboardAutoRefresh() {
-    _cancelDashboardRefreshTimer();
-  }
 
   /// Updates only throughput data without refetching the entire dashboard
   Future<void> _updateThroughputOnly() async {
@@ -1211,7 +1152,6 @@ class AppState extends ChangeNotifier {
   void dispose() {
     _throughputTimer?.cancel();
     _pollingTimer?.cancel();
-    _dashboardRefreshTimer?.cancel();
     _pollAttempts = 0;
     _isRebooting = false;
     super.dispose();

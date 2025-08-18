@@ -27,10 +27,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final appState = ref.read(appStateProvider);
-      appState.fetchDashboardData();
-      // Start auto-refresh when dashboard becomes visible
-      appState.startDashboardAutoRefresh();
+      ref.read(appStateProvider).fetchDashboardData();
       // Initialize arrows after layout
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _updateWirelessArrows();
@@ -44,6 +41,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   void didUpdateWidget(covariant DashboardScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateWirelessArrows();
+      _updateWanArrows();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateWirelessArrows();
       _updateWanArrows();
@@ -74,8 +80,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   void dispose() {
-    // Stop auto-refresh when leaving dashboard
-    ref.read(appStateProvider).stopDashboardAutoRefresh();
     _wirelessScrollController.removeListener(_updateWirelessArrows);
     _wirelessScrollController.dispose();
     _wanScrollController.removeListener(_updateWanArrows);

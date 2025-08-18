@@ -39,66 +39,6 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
   }
-  
-  void _showRefreshIntervalDialog(BuildContext context, WidgetRef ref) {
-    final appState = ref.read(appStateProvider);
-    int selectedInterval = appState.dashboardRefreshInterval;
-    
-    final intervals = [
-      5, 10, 15, 30, 45, 60, 90, 120, 180, 300
-    ];
-    
-    final intervalLabels = {
-      5: '5 seconds',
-      10: '10 seconds',
-      15: '15 seconds',
-      30: '30 seconds',
-      45: '45 seconds',
-      60: '1 minute',
-      90: '1.5 minutes',
-      120: '2 minutes',
-      180: '3 minutes',
-      300: '5 minutes',
-    };
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Dashboard Auto-refresh'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Select how often the dashboard should automatically refresh',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 16),
-            ...intervals.map((interval) => RadioListTile<int>(
-              title: Text(intervalLabels[interval]!),
-              value: interval,
-              groupValue: selectedInterval,
-              onChanged: (value) {
-                Navigator.of(context).pop(value);
-              },
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-            )),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    ).then((value) {
-      if (value != null && value != appState.dashboardRefreshInterval) {
-        appState.setDashboardRefreshInterval(value);
-      }
-    });
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -156,15 +96,6 @@ class SettingsScreen extends ConsumerWidget {
                           builder: (context) => const DashboardCustomizationScreen(),
                         ),
                       );
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.timer),
-                    title: const Text('Auto-refresh Interval'),
-                    subtitle: Text('Refresh every ${appState.dashboardRefreshInterval} seconds'),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () {
-                      _showRefreshIntervalDialog(context, ref);
                     },
                   ),
                   if (appState.reviewerModeEnabled) ...[
