@@ -729,35 +729,45 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final prefs = appState.dashboardPreferences;
     final wirelessRadios =
         appState.dashboardData?['wireless'] as Map<String, dynamic>?;
-    if (wirelessRadios == null || wirelessRadios.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
+    final uciWirelessConfig = appState.dashboardData?['uciWirelessConfig'];
+    
+    // Track which interfaces we've already added from runtime data
+    final addedInterfaces = <String>{};
+    
     List<Widget> networkCardWidgets = [];
-    wirelessRadios.forEach((radioName, radioData) {
-      final interfaces = radioData['interfaces'] as List<dynamic>?;
-      if (interfaces != null) {
-        for (var interface in interfaces) {
-          final config = interface['config'] ?? {};
-          final iwinfo = interface['iwinfo'] ?? {};
-          final ssid = iwinfo['ssid'] ?? config['ssid'] ?? 'N/A';
-          if (ssid == 'N/A') continue;
+    
+    // First, add interfaces from runtime wireless data
+    if (wirelessRadios != null) {
+      wirelessRadios.forEach((radioName, radioData) {
+        final interfaces = radioData['interfaces'] as List<dynamic>?;
+        if (interfaces != null) {
+          for (var interface in interfaces) {
+            final config = interface['config'] ?? {};
+            final iwinfo = interface['iwinfo'] ?? {};
+            final ssid = iwinfo['ssid'] ?? config['ssid'] ?? 'N/A';
+            if (ssid == 'N/A') continue;
 
-          final deviceName = config['device'] ?? radioName;
-          final interfaceId = '$ssid ($deviceName)';
-          
-          // Check if this interface should be shown based on preferences
-          if (prefs.enabledWirelessInterfaces.isNotEmpty &&
-              !prefs.enabledWirelessInterfaces.contains(interfaceId)) {
-            continue; // Skip this interface
-          }
-          
-          final isEnabled = !(config['disabled'] as bool? ?? false);
-          final channel = (iwinfo['channel'] ?? config['channel'] ?? 'N/A')
-              .toString();
-          final signal = iwinfo['signal'] as int?;
+            final deviceName = config['device'] ?? radioName;
+            final interfaceId = '$ssid ($deviceName)';
+            final uciName = interface['section'] as String?;
+            
+            if (uciName != null) {
+              addedInterfaces.add(uciName);
+            }
+            
+            // If preferences are not empty, check if this interface should be shown
+            // Empty preferences means show all interfaces by default
+            if (prefs.enabledWirelessInterfaces.isNotEmpty &&
+                !prefs.enabledWirelessInterfaces.contains(interfaceId)) {
+              continue; // Skip this interface
+            }
+            
+            final isEnabled = !(config['disabled'] as bool? ?? false);
+            final channel = (iwinfo['channel'] ?? config['channel'] ?? 'N/A')
+                .toString();
+            final signal = iwinfo['signal'] as int?;
 
-          networkCardWidgets.add(
+            networkCardWidgets.add(
             Card(
               margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
               elevation: 2,
@@ -788,6 +798,74 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         }
       }
     });
+    }
+    
+    // Now add disabled interfaces from UCI config that aren't in runtime data
+    if (uciWirelessConfig != null) {
+      final uciValues = uciWirelessConfig['values'] as Map?;
+      if (uciValues != null) {
+        final uciRadios = <String, Map>{};
+        final uciInterfaces = <String, Map>{};
+        
+        // Categorize UCI entries
+        uciValues.forEach((key, value) {
+          final typedValue = value as Map?;
+          if (typedValue?['.type'] == 'wifi-device') {
+            uciRadios[key] = typedValue!;
+          } else if (typedValue?['.type'] == 'wifi-iface') {
+            uciInterfaces[key] = typedValue!;
+          }
+        });
+        
+        // Add interfaces that aren't in runtime data
+        uciInterfaces.forEach((uciName, config) {
+          if (!addedInterfaces.contains(uciName)) {
+            final ssid = config['ssid'] ?? 'Unnamed';
+            final device = config['device'] ?? '';
+            final interfaceId = '$ssid ($device)';
+            
+            // Check if this interface should be shown based on preferences
+            if (prefs.enabledWirelessInterfaces.isNotEmpty &&
+                !prefs.enabledWirelessInterfaces.contains(interfaceId)) {
+              return; // Skip this interface
+            }
+            
+            final isRadioEnabled = uciRadios[device]?['disabled'] != '1';
+            final isIfaceEnabled = config['disabled'] != '1';
+            final isEnabled = isRadioEnabled && isIfaceEnabled;
+            
+            networkCardWidgets.add(
+              Card(
+                margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(18),
+                  onLongPress: () {
+                    // Navigate to interfaces tab with the specific interface name
+                    final appState = ref.read(appStateProvider);
+                    appState.requestTab(2, interfaceToScroll: device);
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: _buildWirelessInfoCardContent(
+                      context,
+                      ssid: ssid,
+                      isEnabled: isEnabled,
+                      signal: null, // No signal for disabled interfaces
+                      channel: config['channel']?.toString() ?? 'N/A',
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
+        });
+      }
+    }
 
     if (networkCardWidgets.isEmpty) {
       return const SizedBox.shrink();
@@ -909,23 +987,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final wanVpnInterfaces = interfaces.where((item) {
       final interface = item as Map<String, dynamic>;
       final name = interface['interface'] as String? ?? '';
-      final proto = interface['proto'] as String? ?? '';
       
-      // Check if this is a relevant interface type
-      final isRelevant = name.startsWith('wan') ||
-          proto == 'pppoe' ||
-          proto == 'wireguard' ||
-          proto == 'openvpn';
+      // Skip loopback interface
+      if (name == 'loopback' || name == 'lo') return false;
       
-      if (!isRelevant) return false;
-      
-      // Check if this interface should be shown based on preferences
-      if (prefs.enabledWiredInterfaces.isNotEmpty &&
-          !prefs.enabledWiredInterfaces.contains(name)) {
-        return false; // Skip this interface
+      // If preferences are empty, show all interfaces by default
+      if (prefs.enabledWiredInterfaces.isEmpty) {
+        return true; // Show all interfaces when no specific preferences
       }
       
-      return true;
+      // Otherwise, check if this interface is in the enabled list
+      return prefs.enabledWiredInterfaces.contains(name);
     }).toList();
 
     if (wanVpnInterfaces.isEmpty) {

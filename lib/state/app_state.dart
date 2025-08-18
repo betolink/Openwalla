@@ -392,7 +392,7 @@ class AppState extends ChangeNotifier {
         // Update throughput data with mock network data for reviewer mode
         if (_throughputService != null) {
           final networkData = results[2][1] as Map<String, dynamic>?;
-          final wanDeviceNames = {'eth0'}; // Mock WAN device
+          final wanDeviceNames = {'eth0', 'wlan0', 'br-lan'}; // Mock all devices
           
           // Check if we should track specific interface
           final prefs = _dashboardPreferences;
@@ -577,19 +577,21 @@ class AppState extends ChangeNotifier {
         }
       }
 
-      // Throughput calculation
+      // Throughput calculation - collect ALL interface devices
       final wanDeviceNames = <String>{};
       if (interfaceDump != null && interfaceDump['interface'] is List) {
         for (final interface in interfaceDump['interface']) {
           if (interface is Map<String, dynamic>) {
             final ifname = interface['interface'] as String?;
-            final proto = interface['proto'] as String?;
-            // Identify WAN interfaces by name convention or protocol
-            if (ifname != null &&
-                (ifname.startsWith('wan') || proto == 'pppoe')) {
+            // Skip only loopback interface
+            if (ifname != null && ifname != 'loopback' && ifname != 'lo') {
               final device = interface['device'] as String?;
+              final l3Device = interface['l3_device'] as String?;
               if (device != null) {
                 wanDeviceNames.add(device);
+              }
+              if (l3Device != null && l3Device != device) {
+                wanDeviceNames.add(l3Device);
               }
             }
           }
@@ -791,7 +793,7 @@ class AppState extends ChangeNotifier {
       if (result is List && result.length > 1 && result[0] == 0) {
         final networkData = result[1] as Map<String, dynamic>?;
 
-        // Get WAN device names from cached dashboard data
+        // Get ALL device names from cached dashboard data (except loopback)
         final wanDeviceNames = <String>{};
         final interfaceDump =
             _dashboardData?['interfaceDump'] as Map<String, dynamic>?;
@@ -801,7 +803,8 @@ class AppState extends ChangeNotifier {
               final ifname = interface['interface'] as String?;
               final device = interface['device'] as String?;
               final l3Device = interface['l3_device'] as String?;
-              if (ifname != null && ifname.startsWith('wan')) {
+              // Include all interfaces except loopback
+              if (ifname != null && ifname != 'loopback' && ifname != 'lo') {
                 if (device != null) wanDeviceNames.add(device);
                 if (l3Device != null && l3Device != device) {
                   wanDeviceNames.add(l3Device);

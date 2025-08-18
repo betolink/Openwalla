@@ -47,8 +47,12 @@ class _DashboardCustomizationScreenState
   void _extractAvailableInterfaces(Map<String, dynamic>? dashboardData) {
     if (dashboardData == null) return;
 
-    // Extract wireless interfaces
+    // Extract wireless interfaces (including from UCI config)
     final wirelessRadios = dashboardData['wireless'] as Map<String, dynamic>?;
+    final uciWirelessConfig = dashboardData['uciWirelessConfig'];
+    final runtimeInterfaces = <String>{};
+    
+    // Extract runtime wireless interfaces
     if (wirelessRadios != null) {
       wirelessRadios.forEach((radioName, radioData) {
         final interfaces = radioData['interfaces'] as List<dynamic>?;
@@ -58,9 +62,19 @@ class _DashboardCustomizationScreenState
             final iwinfo = interface['iwinfo'] ?? {};
             final ssid = iwinfo['ssid'] ?? config['ssid'];
             final deviceName = config['device'] ?? radioName;
+            final uciName = interface['section'] as String?;
+            
+            if (uciName != null) {
+              runtimeInterfaces.add(uciName);
+            }
             
             if (ssid != null && ssid.toString().isNotEmpty) {
               final interfaceId = '$ssid ($deviceName)';
+              _availableWirelessInterfaces.add(interfaceId);
+              _allInterfaces.add(interfaceId);
+            } else {
+              // Even interfaces without SSID should be shown
+              final interfaceId = deviceName;
               _availableWirelessInterfaces.add(interfaceId);
               _allInterfaces.add(interfaceId);
             }
@@ -68,22 +82,38 @@ class _DashboardCustomizationScreenState
         }
       });
     }
+    
+    // Extract UCI-configured wireless interfaces that aren't running
+    if (uciWirelessConfig != null) {
+      final uciValues = uciWirelessConfig['values'] as Map?;
+      if (uciValues != null) {
+        uciValues.forEach((key, value) {
+          final typedValue = value as Map?;
+          if (typedValue?['.type'] == 'wifi-iface' && !runtimeInterfaces.contains(key)) {
+            final ssid = typedValue?['ssid'];
+            final device = typedValue?['device'];
+            if (ssid != null && ssid.toString().isNotEmpty) {
+              final interfaceId = '$ssid ($device)';
+              _availableWirelessInterfaces.add(interfaceId);
+              _allInterfaces.add(interfaceId);
+            } else if (device != null) {
+              _availableWirelessInterfaces.add(device);
+              _allInterfaces.add(device);
+            }
+          }
+        });
+      }
+    }
 
-    // Extract wired interfaces
+    // Extract ALL wired interfaces from interface dump
     final interfaces = dashboardData['interfaceDump']?['interface'] as List<dynamic>?;
     if (interfaces != null) {
       for (var item in interfaces) {
         final interface = item as Map<String, dynamic>;
         final name = interface['interface'] as String? ?? '';
-        final proto = interface['proto'] as String? ?? '';
         
-        // Include WAN and LAN interfaces
-        if (name.isNotEmpty && 
-            (name.startsWith('wan') || 
-             name.startsWith('lan') || 
-             proto == 'pppoe' || 
-             proto == 'wireguard' || 
-             proto == 'openvpn')) {
+        // Include ALL interfaces (not just wan/lan/vpn)
+        if (name.isNotEmpty) {
           _availableWiredInterfaces.add(name);
           _allInterfaces.add(name);
         }
@@ -99,7 +129,8 @@ class _DashboardCustomizationScreenState
   }
 
   Widget _buildThroughputSection() {
-    final interfaces = _getAllInterfaces();
+    // Only show wired interfaces for throughput selection
+    final interfaces = _availableWiredInterfaces.toList()..sort();
 
     return Card(
       margin: const EdgeInsets.all(16),
@@ -248,10 +279,10 @@ class _DashboardCustomizationScreenState
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: ExpansionTile(
         title: const Text(
-          'Wired/VPN Interfaces',
+          'Network Interfaces',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        subtitle: const Text('Select which wired/VPN interfaces to display'),
+        subtitle: const Text('Select which network interfaces to display'),
         children: [
           CheckboxListTile(
             title: const Text('Show All'),
@@ -304,16 +335,37 @@ class _DashboardCustomizationScreenState
   }
 
   Widget? _getInterfaceDescription(String interface) {
-    if (interface.startsWith('wan')) {
+    final lowerInterface = interface.toLowerCase();
+    if (lowerInterface.startsWith('wan')) {
       return const Text('Wide Area Network');
-    } else if (interface.startsWith('lan')) {
+    } else if (lowerInterface.startsWith('lan')) {
       return const Text('Local Area Network');
-    } else if (interface.contains('wireguard')) {
+    } else if (lowerInterface.contains('wireguard') || lowerInterface.startsWith('wg')) {
       return const Text('WireGuard VPN');
-    } else if (interface.contains('openvpn')) {
+    } else if (lowerInterface.contains('openvpn')) {
       return const Text('OpenVPN');
-    } else if (interface.contains('pppoe')) {
+    } else if (lowerInterface.contains('pppoe')) {
       return const Text('PPPoE Connection');
+    } else if (lowerInterface.startsWith('br-') || lowerInterface.contains('bridge')) {
+      return const Text('Network Bridge');
+    } else if (lowerInterface.startsWith('eth')) {
+      return const Text('Ethernet Interface');
+    } else if (lowerInterface.startsWith('wlan')) {
+      return const Text('Wireless Interface');
+    } else if (lowerInterface.contains('loopback') || lowerInterface == 'lo') {
+      return const Text('Loopback Interface');
+    } else if (lowerInterface.contains('docker')) {
+      return const Text('Docker Network');
+    } else if (lowerInterface.contains('veth')) {
+      return const Text('Virtual Ethernet');
+    } else if (lowerInterface.contains('tun')) {
+      return const Text('Tunnel Interface');
+    } else if (lowerInterface.contains('tap')) {
+      return const Text('TAP Interface');
+    } else if (lowerInterface.contains('vlan')) {
+      return const Text('VLAN Interface');
+    } else if (lowerInterface.startsWith('usb')) {
+      return const Text('USB Network');
     }
     return null;
   }
