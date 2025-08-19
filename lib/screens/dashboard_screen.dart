@@ -968,15 +968,33 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
-  IconData _getInterfaceIcon(String proto) {
+  IconData _getInterfaceIcon(String name, String proto) {
+    final lower = name.toLowerCase();
+    
+    // Check name-based patterns first
+    if (lower.contains('wan')) return Icons.public_rounded;
+    if (lower.contains('lan')) return Icons.router_rounded;
+    if (lower.contains('iot')) return Icons.sensors_rounded;
+    if (lower.contains('guest')) return Icons.people_rounded;
+    if (lower.contains('dmz')) return Icons.security_rounded;
+    if (lower.contains('docker')) return Icons.computer_rounded;
+    if (lower.contains('bridge') || lower.startsWith('br-')) return Icons.hub_rounded;
+    if (lower.contains('vlan')) return Icons.layers_rounded;
+    if (lower.startsWith('eth')) return Icons.cable_rounded;
+    if (lower.startsWith('wlan')) return Icons.wifi_rounded;
+    
+    // Check protocol-based patterns
     switch (proto) {
       case 'wireguard':
       case 'openvpn':
         return Icons.vpn_key_rounded;
       case 'pppoe':
+        return Icons.settings_ethernet_rounded;
       case 'dhcp':
+      case 'static':
+        return Icons.lan_rounded;
       default:
-        return Icons.public_rounded;
+        return Icons.lan_rounded;
     }
   }
 
@@ -1041,7 +1059,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Icon(
-                    _getInterfaceIcon(proto),
+                    _getInterfaceIcon(name, proto),
                     color: Theme.of(context).colorScheme.primary,
                     size: 20,
                   ),

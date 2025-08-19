@@ -89,6 +89,13 @@ class RealApiService implements IApiService {
       checkRedirect: true,
     );
 
+    // Check if we got a redirect marker
+    if (result != null && result.startsWith('HTTPS_REDIRECT:')) {
+      final token = result.substring('HTTPS_REDIRECT:'.length);
+      Logger.info('Login successful via HTTP to HTTPS redirect');
+      return LoginResult(token: token, actualUseHttps: true);
+    }
+
     if (result != null) {
       return LoginResult(token: result, actualUseHttps: initialUseHttps);
     }
@@ -96,13 +103,14 @@ class RealApiService implements IApiService {
     // If login failed and we were using HTTP, try HTTPS in case of redirect
     if (!initialUseHttps) {
       Logger.info('HTTP login failed or redirected, attempting HTTPS');
+      // Check if context is still mounted before using it
+      final safeContext = context?.mounted == true ? context : null;
       result = await _login(
         ipAddress,
         username,
         password,
         true, // Try with HTTPS
-        // Do not pass BuildContext across async gaps to avoid lints
-        context: null,
+        context: safeContext,
         checkRedirect: false,
       );
 
@@ -129,38 +137,39 @@ class RealApiService implements IApiService {
         'luci_username=${Uri.encodeComponent(username)}&luci_password=${Uri.encodeComponent(password)}';
 
     try {
-      // For initial HTTP attempts, check for HTTPS redirects
-      http.Response response;
-
-      if (checkRedirect && !useHttps) {
-        // First, do a quick HEAD or GET request to check for redirects
-        try {
-          final checkUri = _buildUrl(ipAddress, useHttps, '/cgi-bin/luci/');
-          final checkResponse = await client
-              .get(checkUri)
-              .timeout(const Duration(seconds: 5));
-
-          // Check if we got redirected to HTTPS
-          if (checkResponse.request?.url.scheme == 'https' && !useHttps) {
-            Logger.info('Detected HTTP to HTTPS redirect from initial check');
-            return null; // Trigger HTTPS retry
-          }
-        } catch (e) {
-          // If the GET request fails, continue with POST attempt
-          Logger.debug(
-            'Initial redirect check failed, continuing with login attempt',
-          );
-        }
-      }
-
-      // Normal POST request
-      response = await client
+      // Normal POST request - the HTTP client will automatically follow redirects
+      final response = await client
           .post(
             uri,
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
             body: params,
           )
           .timeout(const Duration(seconds: 10));
+
+      // Check if we were redirected to HTTPS (only relevant for initial HTTP attempts)
+      if (checkRedirect && !useHttps && response.request != null) {
+        final finalUrl = response.request!.url;
+        if (finalUrl.scheme == 'https') {
+          Logger.info('Detected HTTP to HTTPS redirect: $uri -> $finalUrl');
+          // If we got a successful login after redirect, extract the token
+          if (response.statusCode == 302 || response.statusCode == 200) {
+            final setCookieHeaders = response.headers['set-cookie'];
+            if (setCookieHeaders != null) {
+              final cookies = setCookieHeaders.split(',');
+              for (final cookie in cookies) {
+                if (cookie.contains('sysauth')) {
+                  final cookieValue = cookie.split(';')[0].split('=')[1];
+                  // Signal that HTTPS should be used by returning a special marker
+                  // We'll handle this in loginWithProtocolDetection
+                  return 'HTTPS_REDIRECT:$cookieValue';
+                }
+              }
+            }
+          }
+          // No token found, trigger HTTPS retry
+          return null;
+        }
+      }
 
       if (response.statusCode == 302) {
         // Parse Set-Cookie headers to find sysauth cookie

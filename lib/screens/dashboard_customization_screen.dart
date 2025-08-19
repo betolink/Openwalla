@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/models/dashboard_preferences.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
+import 'package:luci_mobile/widgets/luci_loading_states.dart';
+import 'package:luci_mobile/design/luci_design_system.dart';
+import 'package:luci_mobile/widgets/luci_animation_system.dart';
+import 'package:luci_mobile/widgets/luci_error_handling.dart';
 
 class DashboardCustomizationScreen extends ConsumerStatefulWidget {
   const DashboardCustomizationScreen({super.key});
@@ -13,45 +17,79 @@ class DashboardCustomizationScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardCustomizationScreenState
-    extends ConsumerState<DashboardCustomizationScreen> {
+    extends ConsumerState<DashboardCustomizationScreen> 
+    with SingleTickerProviderStateMixin {
   late DashboardPreferences _preferences;
   bool _isLoading = true;
+  String? _errorMessage;
   final Set<String> _availableWirelessInterfaces = {};
   final Set<String> _availableWiredInterfaces = {};
   final List<String> _allInterfaces = [];
+  bool _hasChanges = false;
+  late AnimationController _fabAnimationController;
+  late Animation<double> _fabScaleAnimation;
 
   @override
   void initState() {
     super.initState();
+    _fabAnimationController = AnimationController(
+      duration: LuciAnimations.fast,
+      vsync: this,
+    );
+    _fabScaleAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _fabAnimationController,
+      curve: LuciAnimations.easeOut,
+    ));
     _loadPreferences();
   }
 
+  @override
+  void dispose() {
+    _fabAnimationController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadPreferences() async {
-    final appState = ref.read(appStateProvider);
-
-    // Fetch dashboard data if not available
-    if (appState.dashboardData == null) {
-      await appState.fetchDashboardData();
+    try {
+      final appState = ref.read(appStateProvider);
+      
+      // Fetch dashboard data if not available
+      if (appState.dashboardData == null) {
+        await appState.fetchDashboardData();
+      }
+      
+      // Check if we have data
+      if (appState.dashboardData == null) {
+        setState(() {
+          _errorMessage = 'Unable to load dashboard data. Please check your connection.';
+          _isLoading = false;
+        });
+        return;
+      }
+      
+      // Load current preferences
+      _preferences = appState.dashboardPreferences;
+      
+      // Extract available interfaces
+      _extractAvailableInterfaces(appState.dashboardData);
+      
+      setState(() => _isLoading = false);
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to load settings: $e';
+        _isLoading = false;
+      });
     }
-
-    // Load current preferences
-    _preferences = appState.dashboardPreferences;
-
-    // Extract available interfaces
-    _extractAvailableInterfaces(appState.dashboardData);
-
-    setState(() => _isLoading = false);
   }
 
   void _extractAvailableInterfaces(Map<String, dynamic>? dashboardData) {
     if (dashboardData == null) return;
 
-    // Extract wireless interfaces (including from UCI config)
+    // Extract wireless interfaces
     final wirelessRadios = dashboardData['wireless'] as Map<String, dynamic>?;
-    final uciWirelessConfig = dashboardData['uciWirelessConfig'];
-    final runtimeInterfaces = <String>{};
-
-    // Extract runtime wireless interfaces
     if (wirelessRadios != null) {
       wirelessRadios.forEach((radioName, radioData) {
         final interfaces = radioData['interfaces'] as List<dynamic>?;
@@ -61,19 +99,9 @@ class _DashboardCustomizationScreenState
             final iwinfo = interface['iwinfo'] ?? {};
             final ssid = iwinfo['ssid'] ?? config['ssid'];
             final deviceName = config['device'] ?? radioName;
-            final uciName = interface['section'] as String?;
-
-            if (uciName != null) {
-              runtimeInterfaces.add(uciName);
-            }
-
+            
             if (ssid != null && ssid.toString().isNotEmpty) {
               final interfaceId = '$ssid ($deviceName)';
-              _availableWirelessInterfaces.add(interfaceId);
-              _allInterfaces.add(interfaceId);
-            } else {
-              // Even interfaces without SSID should be shown
-              final interfaceId = deviceName;
               _availableWirelessInterfaces.add(interfaceId);
               _allInterfaces.add(interfaceId);
             }
@@ -82,39 +110,15 @@ class _DashboardCustomizationScreenState
       });
     }
 
-    // Extract UCI-configured wireless interfaces that aren't running
-    if (uciWirelessConfig != null) {
-      final uciValues = uciWirelessConfig['values'] as Map?;
-      if (uciValues != null) {
-        uciValues.forEach((key, value) {
-          final typedValue = value as Map?;
-          if (typedValue?['.type'] == 'wifi-iface' &&
-              !runtimeInterfaces.contains(key)) {
-            final ssid = typedValue?['ssid'];
-            final device = typedValue?['device'];
-            if (ssid != null && ssid.toString().isNotEmpty) {
-              final interfaceId = '$ssid ($device)';
-              _availableWirelessInterfaces.add(interfaceId);
-              _allInterfaces.add(interfaceId);
-            } else if (device != null) {
-              _availableWirelessInterfaces.add(device);
-              _allInterfaces.add(device);
-            }
-          }
-        });
-      }
-    }
-
-    // Extract ALL wired interfaces from interface dump
-    final interfaces =
-        dashboardData['interfaceDump']?['interface'] as List<dynamic>?;
+    // Extract ALL interfaces (except loopback)
+    final interfaces = dashboardData['interfaceDump']?['interface'] as List<dynamic>?;
     if (interfaces != null) {
       for (var item in interfaces) {
         final interface = item as Map<String, dynamic>;
         final name = interface['interface'] as String? ?? '';
-
-        // Include ALL interfaces (not just wan/lan/vpn)
-        if (name.isNotEmpty) {
+        
+        // Include all interfaces except loopback
+        if (name.isNotEmpty && name != 'loopback' && name != 'lo') {
           _availableWiredInterfaces.add(name);
           _allInterfaces.add(name);
         }
@@ -125,90 +129,176 @@ class _DashboardCustomizationScreenState
     _allInterfaces.sort();
   }
 
-  Widget _buildThroughputSection() {
-    // Only show wired interfaces for throughput selection
-    final interfaces = _availableWiredInterfaces.toList()..sort();
+  void _onPreferenceChanged() {
+    if (!_hasChanges) {
+      setState(() => _hasChanges = true);
+      _fabAnimationController.forward();
+    }
+  }
 
+  Widget _buildSection({
+    required String title,
+    required String subtitle,
+    required List<Widget> children,
+    IconData? icon,
+    bool initiallyExpanded = false,
+  }) {
     return Card(
-      margin: const EdgeInsets.all(16),
-      child: ExpansionTile(
-        title: const Text(
-          'Throughput Graph',
-          style: TextStyle(fontWeight: FontWeight.bold),
+      elevation: 2,
+      margin: EdgeInsets.symmetric(
+        horizontal: LuciSpacing.md,
+        vertical: LuciSpacing.sm,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: LuciCardStyles.standardRadius,
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          dividerColor: Colors.transparent,
         ),
-        subtitle: const Text('Configure which interfaces to monitor'),
-        initiallyExpanded: true,
-        children: [
-          RadioGroup<bool>(
-            groupValue: _preferences.showAllThroughput,
-            onChanged: (value) {
-              if (value == null) return;
-              setState(() {
-                if (value) {
-                  _preferences = _preferences.copyWith(
-                    showAllThroughput: true,
-                    primaryThroughputInterface: null,
-                  );
-                } else {
-                  _preferences = _preferences.copyWith(
-                    showAllThroughput: false,
-                    primaryThroughputInterface: interfaces.isNotEmpty
-                        ? interfaces.first
-                        : null,
-                  );
-                }
-              });
-            },
-            child: Column(
-              children: [
-                RadioListTile<bool>(
-                  title: const Text('Show All Interfaces Combined'),
-                  subtitle: const Text(
-                    'Display total throughput across all interfaces',
-                  ),
-                  value: true,
-                ),
-                RadioListTile<bool>(
-                  title: const Text('Show Specific Interface'),
-                  subtitle: const Text(
-                    'Monitor throughput for a single interface',
-                  ),
-                  value: false,
-                ),
-              ],
+        child: ExpansionTile(
+          leading: icon != null 
+              ? Icon(icon, color: Theme.of(context).colorScheme.primary)
+              : null,
+          title: Text(
+            title,
+            style: LuciTextStyles.cardTitle(context),
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4.0),
+            child: Text(
+              subtitle,
+              style: LuciTextStyles.cardSubtitle(context),
             ),
           ),
-          if (!_preferences.showAllThroughput)
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: DropdownButtonFormField<String>(
-                initialValue: _preferences.primaryThroughputInterface,
-                decoration: InputDecoration(
-                  labelText: 'Select Interface',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
+          initiallyExpanded: initiallyExpanded,
+          shape: RoundedRectangleBorder(
+            borderRadius: LuciCardStyles.standardRadius,
+          ),
+          childrenPadding: EdgeInsets.symmetric(
+            horizontal: LuciSpacing.md,
+            vertical: LuciSpacing.sm,
+          ),
+          children: children,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThroughputSection() {
+    final interfaces = _allInterfaces.toList();
+
+    return _buildSection(
+      title: 'Throughput Monitoring',
+      subtitle: 'Configure which interfaces to monitor',
+      icon: Icons.speed,
+      initiallyExpanded: true,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              RadioListTile<bool>(
+                title: Text(
+                  'All Interfaces',
+                  style: LuciTextStyles.detailValue(context),
                 ),
-                isExpanded: true,
-                items: interfaces.map((iface) {
-                  return DropdownMenuItem(
-                    value: iface,
-                    child: Text(iface, overflow: TextOverflow.ellipsis),
-                  );
-                }).toList(),
+                subtitle: Text(
+                  'Monitor combined throughput',
+                  style: LuciTextStyles.detailLabel(context),
+                ),
+                value: true,
+                groupValue: _preferences.showAllThroughput,
                 onChanged: (value) {
                   setState(() {
                     _preferences = _preferences.copyWith(
-                      primaryThroughputInterface: value,
+                      showAllThroughput: true,
+                      primaryThroughputInterface: null,
                     );
                   });
+                  _onPreferenceChanged();
                 },
+                activeColor: Theme.of(context).colorScheme.primary,
               ),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              RadioListTile<bool>(
+                title: Text(
+                  'Specific Interface',
+                  style: LuciTextStyles.detailValue(context),
+                ),
+                subtitle: Text(
+                  'Monitor single interface only',
+                  style: LuciTextStyles.detailLabel(context),
+                ),
+                value: false,
+                groupValue: _preferences.showAllThroughput,
+                onChanged: (value) {
+                  setState(() {
+                    _preferences = _preferences.copyWith(
+                      showAllThroughput: false,
+                      primaryThroughputInterface: interfaces.isNotEmpty ? interfaces.first : null,
+                    );
+                  });
+                  _onPreferenceChanged();
+                },
+                activeColor: Theme.of(context).colorScheme.primary,
+              ),
+            ],
+          ),
+        ),
+        if (!_preferences.showAllThroughput) ...[
+          SizedBox(height: LuciSpacing.md),
+          DropdownButtonFormField<String>(
+            value: _preferences.primaryThroughputInterface,
+            decoration: InputDecoration(
+              labelText: 'Select Interface',
+              prefixIcon: Icon(
+                Icons.lan,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: LuciCardStyles.standardRadius,
+              ),
+              filled: true,
+              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
             ),
-          const SizedBox(height: 8),
+            isExpanded: true,
+            style: LuciTextStyles.detailValue(context),
+            items: interfaces.map((iface) {
+              return DropdownMenuItem(
+                value: iface,
+                child: Row(
+                  children: [
+                    Icon(
+                      _getInterfaceIcon(iface),
+                      size: 18,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    SizedBox(width: LuciSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        iface,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                _preferences = _preferences.copyWith(
+                  primaryThroughputInterface: value,
+                );
+              });
+              _onPreferenceChanged();
+            },
+          ),
         ],
-      ),
+      ],
     );
   }
 
@@ -217,66 +307,90 @@ class _DashboardCustomizationScreenState
       return const SizedBox.shrink();
     }
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: ExpansionTile(
-        title: const Text(
-          'Wireless Interfaces',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: const Text('Select which wireless networks to display'),
-        children: [
-          CheckboxListTile(
-            title: const Text('Show All'),
-            value: _preferences.enabledWirelessInterfaces.isEmpty,
-            onChanged: (value) {
-              setState(() {
-                if (value ?? false) {
-                  _preferences = _preferences.copyWith(
-                    enabledWirelessInterfaces: {},
-                  );
-                } else {
-                  _preferences = _preferences.copyWith(
-                    enabledWirelessInterfaces: Set.from(
-                      _availableWirelessInterfaces,
-                    ),
-                  );
-                }
-              });
-            },
-          ),
-          const Divider(height: 1),
-          ..._availableWirelessInterfaces.map((interface) {
-            final isEnabled =
-                _preferences.enabledWirelessInterfaces.isEmpty ||
-                _preferences.enabledWirelessInterfaces.contains(interface);
+    final sortedInterfaces = _availableWirelessInterfaces.toList()..sort();
 
-            return CheckboxListTile(
-              title: Text(interface),
-              value: isEnabled,
-              enabled: _preferences.enabledWirelessInterfaces.isNotEmpty,
-              onChanged: _preferences.enabledWirelessInterfaces.isEmpty
-                  ? null
-                  : (value) {
-                      setState(() {
-                        final newSet = Set<String>.from(
-                          _preferences.enabledWirelessInterfaces,
-                        );
-                        if (value ?? false) {
-                          newSet.add(interface);
-                        } else {
-                          newSet.remove(interface);
-                        }
-                        _preferences = _preferences.copyWith(
-                          enabledWirelessInterfaces: newSet,
-                        );
-                      });
-                    },
+    return _buildSection(
+      title: 'Wireless Networks',
+      subtitle: 'Choose which wireless networks to display',
+      icon: Icons.wifi,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              CheckboxListTile(
+                title: Text(
+                  'Show All Networks',
+                  style: LuciTextStyles.detailValue(context).copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                value: _preferences.enabledWirelessInterfaces.isEmpty,
+                onChanged: (value) {
+                  setState(() {
+                    if (value ?? false) {
+                      _preferences = _preferences.copyWith(
+                        enabledWirelessInterfaces: {},
+                      );
+                    } else {
+                      _preferences = _preferences.copyWith(
+                        enabledWirelessInterfaces: Set.from(_availableWirelessInterfaces),
+                      );
+                    }
+                  });
+                  _onPreferenceChanged();
+                },
+                activeColor: Theme.of(context).colorScheme.primary,
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+            ],
+          ),
+        ),
+        if (_preferences.enabledWirelessInterfaces.isNotEmpty) ...[
+          SizedBox(height: LuciSpacing.sm),
+          ...sortedInterfaces.map((interface) {
+            final isEnabled = _preferences.enabledWirelessInterfaces.contains(interface);
+            
+            return Padding(
+              padding: EdgeInsets.symmetric(vertical: LuciSpacing.xs),
+              child: CheckboxListTile(
+                title: Text(
+                  interface,
+                  style: LuciTextStyles.detailValue(context),
+                ),
+                secondary: Icon(
+                  Icons.wifi,
+                  size: 20,
+                  color: isEnabled 
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                value: isEnabled,
+                onChanged: (value) {
+                  setState(() {
+                    final newSet = Set<String>.from(_preferences.enabledWirelessInterfaces);
+                    if (value ?? false) {
+                      newSet.add(interface);
+                    } else {
+                      newSet.remove(interface);
+                    }
+                    _preferences = _preferences.copyWith(
+                      enabledWirelessInterfaces: newSet,
+                    );
+                  });
+                  _onPreferenceChanged();
+                },
+                activeColor: Theme.of(context).colorScheme.primary,
+                controlAffinity: ListTileControlAffinity.leading,
+                dense: true,
+              ),
             );
           }),
-          const SizedBox(height: 8),
         ],
-      ),
+      ],
     );
   }
 
@@ -285,102 +399,140 @@ class _DashboardCustomizationScreenState
       return const SizedBox.shrink();
     }
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: ExpansionTile(
-        title: const Text(
-          'Network Interfaces',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: const Text('Select which network interfaces to display'),
-        children: [
-          CheckboxListTile(
-            title: const Text('Show All'),
-            value: _preferences.enabledWiredInterfaces.isEmpty,
-            onChanged: (value) {
-              setState(() {
-                if (value ?? false) {
-                  _preferences = _preferences.copyWith(
-                    enabledWiredInterfaces: {},
-                  );
-                } else {
-                  _preferences = _preferences.copyWith(
-                    enabledWiredInterfaces: Set.from(_availableWiredInterfaces),
-                  );
-                }
-              });
-            },
-          ),
-          const Divider(height: 1),
-          ..._availableWiredInterfaces.map((interface) {
-            final isEnabled =
-                _preferences.enabledWiredInterfaces.isEmpty ||
-                _preferences.enabledWiredInterfaces.contains(interface);
+    final sortedInterfaces = _availableWiredInterfaces.toList()..sort();
 
-            return CheckboxListTile(
-              title: Text(interface.toUpperCase()),
-              subtitle: _getInterfaceDescription(interface),
-              value: isEnabled,
-              enabled: _preferences.enabledWiredInterfaces.isNotEmpty,
-              onChanged: _preferences.enabledWiredInterfaces.isEmpty
-                  ? null
-                  : (value) {
-                      setState(() {
-                        final newSet = Set<String>.from(
-                          _preferences.enabledWiredInterfaces,
-                        );
-                        if (value ?? false) {
-                          newSet.add(interface);
-                        } else {
-                          newSet.remove(interface);
-                        }
-                        _preferences = _preferences.copyWith(
-                          enabledWiredInterfaces: newSet,
-                        );
-                      });
-                    },
+    return _buildSection(
+      title: 'Network Interfaces',
+      subtitle: 'Choose which wired/VPN interfaces to display',
+      icon: Icons.cable,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              CheckboxListTile(
+                title: Text(
+                  'Show All Interfaces',
+                  style: LuciTextStyles.detailValue(context).copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                value: _preferences.enabledWiredInterfaces.isEmpty,
+                onChanged: (value) {
+                  setState(() {
+                    if (value ?? false) {
+                      _preferences = _preferences.copyWith(
+                        enabledWiredInterfaces: {},
+                      );
+                    } else {
+                      _preferences = _preferences.copyWith(
+                        enabledWiredInterfaces: Set.from(_availableWiredInterfaces),
+                      );
+                    }
+                  });
+                  _onPreferenceChanged();
+                },
+                activeColor: Theme.of(context).colorScheme.primary,
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+            ],
+          ),
+        ),
+        if (_preferences.enabledWiredInterfaces.isNotEmpty) ...[
+          SizedBox(height: LuciSpacing.sm),
+          ...sortedInterfaces.map((interface) {
+            final isEnabled = _preferences.enabledWiredInterfaces.contains(interface);
+            final description = _getInterfaceDescription(interface);
+            
+            return Padding(
+              padding: EdgeInsets.symmetric(vertical: LuciSpacing.xs),
+              child: CheckboxListTile(
+                title: Text(
+                  interface.toUpperCase(),
+                  style: LuciTextStyles.detailValue(context),
+                ),
+                subtitle: description,
+                secondary: Icon(
+                  _getInterfaceIcon(interface),
+                  size: 20,
+                  color: isEnabled 
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                value: isEnabled,
+                onChanged: (value) {
+                  setState(() {
+                    final newSet = Set<String>.from(_preferences.enabledWiredInterfaces);
+                    if (value ?? false) {
+                      newSet.add(interface);
+                    } else {
+                      newSet.remove(interface);
+                    }
+                    _preferences = _preferences.copyWith(
+                      enabledWiredInterfaces: newSet,
+                    );
+                  });
+                  _onPreferenceChanged();
+                },
+                activeColor: Theme.of(context).colorScheme.primary,
+                controlAffinity: ListTileControlAffinity.leading,
+                dense: description != null,
+              ),
             );
           }),
-          const SizedBox(height: 8),
         ],
-      ),
+      ],
     );
   }
 
+  IconData _getInterfaceIcon(String interface) {
+    final lower = interface.toLowerCase();
+    if (lower.contains('wan')) return Icons.public;
+    if (lower.contains('lan')) return Icons.router;
+    if (lower.contains('iot')) return Icons.sensors;
+    if (lower.contains('guest')) return Icons.people;
+    if (lower.contains('dmz')) return Icons.security;
+    if (lower.contains('wireguard') || lower.contains('vpn') || lower.startsWith('wg')) return Icons.vpn_key;
+    if (lower.contains('pppoe')) return Icons.settings_ethernet;
+    if (lower.contains('wifi') || lower.contains('wlan')) return Icons.wifi;
+    if (lower.contains('docker')) return Icons.computer;
+    if (lower.contains('bridge') || lower.startsWith('br-')) return Icons.hub;
+    if (lower.contains('vlan')) return Icons.layers;
+    if (lower.startsWith('eth')) return Icons.cable;
+    return Icons.lan;
+  }
+
   Widget? _getInterfaceDescription(String interface) {
-    final lowerInterface = interface.toLowerCase();
-    if (lowerInterface.startsWith('wan')) {
-      return const Text('Wide Area Network');
-    } else if (lowerInterface.startsWith('lan')) {
-      return const Text('Local Area Network');
-    } else if (lowerInterface.contains('wireguard') ||
-        lowerInterface.startsWith('wg')) {
-      return const Text('WireGuard VPN');
-    } else if (lowerInterface.contains('openvpn')) {
-      return const Text('OpenVPN');
-    } else if (lowerInterface.contains('pppoe')) {
-      return const Text('PPPoE Connection');
-    } else if (lowerInterface.startsWith('br-') ||
-        lowerInterface.contains('bridge')) {
-      return const Text('Network Bridge');
-    } else if (lowerInterface.startsWith('eth')) {
-      return const Text('Ethernet Interface');
-    } else if (lowerInterface.startsWith('wlan')) {
-      return const Text('Wireless Interface');
-    } else if (lowerInterface.contains('loopback') || lowerInterface == 'lo') {
-      return const Text('Loopback Interface');
-    } else if (lowerInterface.contains('docker')) {
-      return const Text('Docker Network');
-    } else if (lowerInterface.contains('veth')) {
-      return const Text('Virtual Ethernet');
-    } else if (lowerInterface.contains('tun')) {
-      return const Text('Tunnel Interface');
-    } else if (lowerInterface.contains('tap')) {
-      return const Text('TAP Interface');
-    } else if (lowerInterface.contains('vlan')) {
-      return const Text('VLAN Interface');
-    } else if (lowerInterface.startsWith('usb')) {
-      return const Text('USB Network');
+    final lower = interface.toLowerCase();
+    if (lower.startsWith('wan')) {
+      return Text('Wide Area Network', style: LuciTextStyles.cardSubtitle(context));
+    } else if (lower.startsWith('lan')) {
+      return Text('Local Area Network', style: LuciTextStyles.cardSubtitle(context));
+    } else if (lower.contains('iot')) {
+      return Text('IoT Network', style: LuciTextStyles.cardSubtitle(context));
+    } else if (lower.contains('guest')) {
+      return Text('Guest Network', style: LuciTextStyles.cardSubtitle(context));
+    } else if (lower.contains('wireguard') || lower.startsWith('wg')) {
+      return Text('WireGuard VPN', style: LuciTextStyles.cardSubtitle(context));
+    } else if (lower.contains('openvpn')) {
+      return Text('OpenVPN', style: LuciTextStyles.cardSubtitle(context));
+    } else if (lower.contains('pppoe')) {
+      return Text('PPPoE Connection', style: LuciTextStyles.cardSubtitle(context));
+    } else if (lower.contains('dmz')) {
+      return Text('DMZ Network', style: LuciTextStyles.cardSubtitle(context));
+    } else if (lower.contains('docker')) {
+      return Text('Docker Network', style: LuciTextStyles.cardSubtitle(context));
+    } else if (lower.contains('bridge') || lower.startsWith('br-')) {
+      return Text('Network Bridge', style: LuciTextStyles.cardSubtitle(context));
+    } else if (lower.contains('vlan')) {
+      return Text('VLAN Interface', style: LuciTextStyles.cardSubtitle(context));
+    } else if (lower.startsWith('eth')) {
+      return Text('Ethernet Interface', style: LuciTextStyles.cardSubtitle(context));
+    } else if (lower.startsWith('wlan')) {
+      return Text('Wireless Interface', style: LuciTextStyles.cardSubtitle(context));
     }
     return null;
   }
@@ -394,11 +546,25 @@ class _DashboardCustomizationScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Dashboard preferences saved'),
+            content: Row(
+              children: [
+                Icon(
+                  Icons.check_circle,
+                  color: Theme.of(context).colorScheme.onPrimary,
+                  size: 20,
+                ),
+                SizedBox(width: LuciSpacing.sm),
+                const Text('Dashboard preferences saved'),
+              ],
+            ),
             backgroundColor: Theme.of(context).colorScheme.primary,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: EdgeInsets.symmetric(
+              horizontal: LuciSpacing.lg,
+              vertical: LuciSpacing.md,
             ),
           ),
         );
@@ -408,11 +574,25 @@ class _DashboardCustomizationScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save preferences: $e'),
+            content: Row(
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  color: Theme.of(context).colorScheme.onError,
+                  size: 20,
+                ),
+                SizedBox(width: LuciSpacing.sm),
+                Expanded(child: Text('Failed to save: $e')),
+              ],
+            ),
             backgroundColor: Theme.of(context).colorScheme.error,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: EdgeInsets.symmetric(
+              horizontal: LuciSpacing.lg,
+              vertical: LuciSpacing.md,
             ),
           ),
         );
@@ -424,42 +604,74 @@ class _DashboardCustomizationScreenState
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        appBar: LuciAppBar(title: 'Dashboard Customization', showBack: true),
-        body: Center(child: LuciLoadingWidget()),
+        appBar: LuciAppBar(
+          title: 'Dashboard Settings',
+          showBack: true,
+        ),
+        body: Center(
+          child: LuciLoadingWidget(),
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Scaffold(
+        appBar: const LuciAppBar(
+          title: 'Dashboard Settings',
+          showBack: true,
+        ),
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(LuciSpacing.lg),
+            child: LuciErrorDisplay(
+              title: 'Unable to Load Settings',
+              message: _errorMessage!,
+              icon: Icons.error_outline,
+              actionLabel: 'Retry',
+              onAction: () {
+                setState(() {
+                  _errorMessage = null;
+                  _isLoading = true;
+                });
+                _loadPreferences();
+              },
+            ),
+          ),
+        ),
       );
     }
 
     return Scaffold(
-      appBar: LuciAppBar(
-        title: 'Dashboard Customization',
+      appBar: const LuciAppBar(
+        title: 'Dashboard Settings',
         showBack: true,
-        actions: [
-          TextButton(
-            onPressed: _savePreferences,
-            child: Text(
-              'Save',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.primary,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+      ),
+      body: ListView(
+        padding: EdgeInsets.symmetric(vertical: LuciSpacing.sm),
+        children: [
+          LuciStaggeredAnimation(
+            staggerDelay: const Duration(milliseconds: 50),
+            children: [
+              _buildThroughputSection(),
+              _buildWirelessInterfacesSection(),
+              _buildWiredInterfacesSection(),
+              SizedBox(height: LuciSpacing.xxl * 2), // Space for FAB
+            ],
           ),
         ],
       ),
-      body: ListView(
-        children: [
-          const SizedBox(height: 8),
-          _buildThroughputSection(),
-          _buildWirelessInterfacesSection(),
-          _buildWiredInterfacesSection(),
-          const SizedBox(height: 80), // Space for FAB
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _savePreferences,
-        label: const Text('Save Changes'),
-        icon: const Icon(Icons.save),
-      ),
+      floatingActionButton: _hasChanges
+          ? ScaleTransition(
+              scale: _fabScaleAnimation,
+              child: FloatingActionButton.extended(
+                onPressed: _savePreferences,
+                label: const Text('Save Changes'),
+                icon: const Icon(Icons.save),
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+              ),
+            )
+          : null,
     );
   }
 }

@@ -50,23 +50,27 @@ class ThroughputService {
     String? specificInterface,
   }) {
     final now = DateTime.now();
-
-    // Update per-interface throughput
+    
+    // Always update per-interface throughput for all interfaces
     if (networkData != null) {
       networkData.forEach((devName, devData) {
         _updateInterfaceThroughput(devName, devData, now);
       });
     }
-
+    
     // Update overall throughput
-    if (specificInterface != null) {
+    if (specificInterface != null && specificInterface.isNotEmpty) {
       // If specific interface requested, use only that interface's data
       if (networkData != null && networkData.containsKey(specificInterface)) {
         _updateSpecificInterfaceThroughput(
-          specificInterface,
-          networkData[specificInterface],
-          now,
+          specificInterface, 
+          networkData[specificInterface], 
+          now
         );
+      } else {
+        // Interface not found in data, clear current rates
+        _currentRxRate = 0;
+        _currentTxRate = 0;
       }
     } else {
       // Update combined throughput as before
@@ -146,10 +150,11 @@ class ThroughputService {
         now.difference(lastTimestamp).inMilliseconds / 1000.0;
 
     if (elapsedSeconds >= _minElapsedSeconds) {
-      final lastRx = (lastStats['stats']?['rx_bytes'] ?? 0) as num;
-      final lastTx = (lastStats['stats']?['tx_bytes'] ?? 0) as num;
-      final currentRx = (devData['stats']?['rx_bytes'] ?? 0) as num;
-      final currentTx = (devData['stats']?['tx_bytes'] ?? 0) as num;
+      // Handle both formats: stats.rx_bytes and direct rx_bytes
+      final lastRx = (lastStats['stats']?['rx_bytes'] ?? lastStats['rx_bytes'] ?? 0) as num;
+      final lastTx = (lastStats['stats']?['tx_bytes'] ?? lastStats['tx_bytes'] ?? 0) as num;
+      final currentRx = (devData['stats']?['rx_bytes'] ?? devData['rx_bytes'] ?? 0) as num;
+      final currentTx = (devData['stats']?['tx_bytes'] ?? devData['tx_bytes'] ?? 0) as num;
 
       final rxRate = max(0, (currentRx - lastRx) / elapsedSeconds);
       final txRate = max(0, (currentTx - lastTx) / elapsedSeconds);
@@ -239,10 +244,14 @@ class ThroughputService {
       // If wanDeviceNames is null, count all devices (old behavior).
       // Otherwise, only count devices in the set.
       if (wanDeviceNames == null || wanDeviceNames.contains(devName)) {
-        if (devData is Map<String, dynamic> &&
-            devData['stats'] is Map<String, dynamic> &&
-            devData['stats'][key] != null) {
-          total += devData['stats'][key];
+        if (devData is Map<String, dynamic>) {
+          // Handle both formats: stats.rx_bytes and direct rx_bytes
+          if (devData['stats'] is Map<String, dynamic> &&
+              devData['stats'][key] != null) {
+            total += devData['stats'][key];
+          } else if (devData[key] != null) {
+            total += devData[key];
+          }
         }
       }
     });

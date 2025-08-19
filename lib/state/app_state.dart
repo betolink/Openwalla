@@ -188,19 +188,23 @@ class AppState extends ChangeNotifier {
 
   // Interface-specific throughput getters
   List<double> getRxHistoryForInterface(String interface) {
-    return _throughputService?.getRxHistoryForInterface(interface) ?? [];
+    final deviceName = _getDeviceNameForInterface(interface);
+    return _throughputService?.getRxHistoryForInterface(deviceName ?? interface) ?? [];
   }
 
   List<double> getTxHistoryForInterface(String interface) {
-    return _throughputService?.getTxHistoryForInterface(interface) ?? [];
+    final deviceName = _getDeviceNameForInterface(interface);
+    return _throughputService?.getTxHistoryForInterface(deviceName ?? interface) ?? [];
   }
 
   double getCurrentRxRateForInterface(String interface) {
-    return _throughputService?.getCurrentRxRateForInterface(interface) ?? 0.0;
+    final deviceName = _getDeviceNameForInterface(interface);
+    return _throughputService?.getCurrentRxRateForInterface(deviceName ?? interface) ?? 0.0;
   }
 
   double getCurrentTxRateForInterface(String interface) {
-    return _throughputService?.getCurrentTxRateForInterface(interface) ?? 0.0;
+    final deviceName = _getDeviceNameForInterface(interface);
+    return _throughputService?.getCurrentTxRateForInterface(deviceName ?? interface) ?? 0.0;
   }
 
   Future<void> loadRouters() async {
@@ -400,22 +404,14 @@ class AppState extends ChangeNotifier {
             'br-lan',
           }; // Mock all devices
 
-          // Check if we should track specific interface
-          final prefs = _dashboardPreferences;
-          String? specificInterface;
-          if (!prefs.showAllThroughput &&
-              prefs.primaryThroughputInterface != null) {
-            // Extract device name from interface ID (format: "SSID (deviceName)" or just "deviceName")
-            final interfaceId = prefs.primaryThroughputInterface!;
-            if (interfaceId.contains('(')) {
-              // Wireless format: "SSID (deviceName)"
-              final match = RegExp(r'\(([^)]+)\)').firstMatch(interfaceId);
-              specificInterface = match?.group(1);
-            } else {
-              // Wired format: just device name
-              specificInterface = interfaceId;
-            }
-          }
+        // Check if we should track specific interface
+        final prefs = _dashboardPreferences;
+        String? specificInterface;
+        if (!prefs.showAllThroughput &&
+            prefs.primaryThroughputInterface != null) {
+          // Map interface name to actual device name
+          specificInterface = _getDeviceNameForInterface(prefs.primaryThroughputInterface!);
+        }
 
           _throughputService!.updateThroughput(
             networkData,
@@ -606,22 +602,14 @@ class AppState extends ChangeNotifier {
       }
 
       // Update throughput data using the service
-      // Check if we should track specific interface
-      final prefs = _dashboardPreferences;
-      String? specificInterface;
-      if (!prefs.showAllThroughput &&
-          prefs.primaryThroughputInterface != null) {
-        // Extract device name from interface ID (format: "SSID (deviceName)" or just "deviceName")
-        final interfaceId = prefs.primaryThroughputInterface!;
-        if (interfaceId.contains('(')) {
-          // Wireless format: "SSID (deviceName)"
-          final match = RegExp(r'\(([^)]+)\)').firstMatch(interfaceId);
-          specificInterface = match?.group(1);
-        } else {
-          // Wired format: just device name
-          specificInterface = interfaceId;
+        // Check if we should track specific interface
+        final prefs = _dashboardPreferences;
+        String? specificInterface;
+        if (!prefs.showAllThroughput &&
+            prefs.primaryThroughputInterface != null) {
+          // Map interface name to actual device name
+          specificInterface = _getDeviceNameForInterface(prefs.primaryThroughputInterface!);
         }
-      }
 
       _throughputService?.updateThroughput(
         networkData,
@@ -724,6 +712,32 @@ class AppState extends ChangeNotifier {
       return null;
     }
     return null;
+  }
+
+  String? _getDeviceNameForInterface(String interfaceName) {
+    // Handle wireless format: "SSID (deviceName)"
+    if (interfaceName.contains('(')) {
+      final match = RegExp(r'\(([^)]+)\)').firstMatch(interfaceName);
+      return match?.group(1);
+    }
+    
+    // Map interface names to their actual device names from interface dump
+    final interfaceDump = _dashboardData?['interfaceDump'] as Map<String, dynamic>?;
+    if (interfaceDump != null && interfaceDump['interface'] is List) {
+      for (final interface in interfaceDump['interface']) {
+        if (interface is Map<String, dynamic>) {
+          final ifname = interface['interface'] as String?;
+          if (ifname == interfaceName) {
+            // Return the device or l3_device field
+            return (interface['device'] ?? interface['l3_device']) as String?;
+          }
+        }
+      }
+    }
+    
+    // If not found in interface dump, check if it's already a device name
+    // (e.g., eth0, br-lan, wlan0)
+    return interfaceName;
   }
 
   void _startThroughputTimer() {

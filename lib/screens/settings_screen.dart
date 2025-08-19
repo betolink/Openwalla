@@ -98,19 +98,44 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.dashboard_customize),
-                    title: const Text('Customize Dashboard'),
-                    subtitle: const Text('Choose which interfaces to display'),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const DashboardCustomizationScreen(),
+                  Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                      );
-                    },
+                        child: Icon(
+                          Icons.dashboard_customize,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          size: 24,
+                        ),
+                      ),
+                      title: const Text(
+                        'Customize Dashboard',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: const Text('Configure interface visibility and throughput monitoring'),
+                      trailing: Icon(
+                        Icons.arrow_forward_ios,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const DashboardCustomizationScreen(),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                   if (appState.reviewerModeEnabled) ...[
                     const Divider(height: 32),
