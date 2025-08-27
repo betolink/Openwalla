@@ -2,20 +2,20 @@
 
 <div align="center">
   <a href="https://play.google.com/store/apps/details?id=com.cogwheel.LuCIMobile">
-    <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" style="height:80px; vertical-align:middle;"/>
+    <img src="https://github.com/pioug/google-play-badges/raw/refs/heads/main/svg/English.svg" alt="Get it on Google Play" style="height:56px;"/>
   </a>
   <a href="https://apps.apple.com/app/luci-mobile/id6749455847">
-    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" style="height:56px; vertical-align:middle;"/>
+    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" style="height:56px;"/>
   </a>
   <a href="https://apt.izzysoft.de/fdroid/index/apk/com.cogwheel.LuCIMobile">
-    <img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" alt="Get it on IzzyOnDroid" style="height:80px; vertical-align:middle;"/>
+    <img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroidButton.svg" alt="Get it on IzzyOnDroid" style="height:56px;"/>
   </a>
   <br><br>
-  <a href="https://shields.rbtlog.dev/com.cogwheel.LuCIMobile">
-    <img src="https://shields.rbtlog.dev/simple/com.cogwheel.LuCIMobile" alt="RB shield"/>
-  </a>
-  <br><br>
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/flutter_01.png" width="300"/>
+
+![Latest Release](https://shields.rbtlog.dev/simple/com.cogwheel.LuCIMobile)
+![GitHub all downloads](https://img.shields.io/github/downloads/cogwheel0/luci-mobile/total?style=flat-square&label=Downloads&logo=github&color=0A84FF)
+
+<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/flutter_01.png" width="300"/>
 </div>
 
 <br>
