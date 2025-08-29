@@ -3,8 +3,8 @@ import 'dart:io';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/io_client.dart' as http;
+import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:luci_mobile/services/secure_storage_service.dart';
 import 'package:luci_mobile/services/router_service.dart';
 import 'package:luci_mobile/services/throughput_service.dart';
@@ -996,44 +996,47 @@ class AppState extends ChangeNotifier {
 
     for (final endpoint in endpoints) {
       try {
-        final uri = Uri.parse('$scheme://${_authService!.ipAddress}$endpoint');
+        final url = '$scheme://${_authService!.ipAddress}$endpoint';
 
-        // Create a fresh HTTP client for pinging to avoid certificate/connection issues
-        http.Client client;
+        // Create a fresh Dio client for pinging to avoid certificate/connection issues
+        final dio = Dio(
+          BaseOptions(
+            connectTimeout: const Duration(seconds: 5),
+            receiveTimeout: const Duration(seconds: 5),
+            sendTimeout: const Duration(seconds: 5),
+            followRedirects: false,
+            validateStatus: (code) => code != null && code >= 200 && code < 500,
+          ),
+        );
+
         if (_authService!.useHttps) {
-          // For HTTPS, create a client that accepts any certificate during ping
-          final httpClient = HttpClient();
-          httpClient.connectionTimeout = const Duration(seconds: 5);
-          httpClient.badCertificateCallback = (cert, host, port) =>
-              true; // Accept any cert for ping
-          client = http.IOClient(httpClient);
-        } else {
-          client = http.Client();
+          final adapter = IOHttpClientAdapter();
+          adapter.createHttpClient = () {
+            final httpClient = HttpClient();
+            httpClient.connectionTimeout = const Duration(seconds: 5);
+            // Accept any cert for ping only
+            httpClient.badCertificateCallback = (cert, host, port) => true;
+            return httpClient;
+          };
+          dio.httpClientAdapter = adapter;
         }
 
-        try {
-          // print('[Ping] Attempt $_pollAttempts: Checking $uri');
-          final response = await client
-              .get(uri)
-              .timeout(const Duration(seconds: 5));
+        // print('[Ping] Attempt $_pollAttempts: Checking $url');
+        final response = await dio.get(url);
+        // print('[Ping] Response from $endpoint: ${response.statusCode}');
 
-          // print('[Ping] Response from $endpoint: ${response.statusCode}');
+        // Accept various status codes as "alive"
+        final isAlive = response.statusCode != null &&
+            response.statusCode! >= 200 &&
+            response.statusCode! < 500;
 
-          // Accept various status codes as "alive"
-          final isAlive =
-              response.statusCode >= 200 && response.statusCode < 500;
-
-          if (isAlive) {
-            if (_pollAttempts > 5) {
-              // If we've been polling for a while and get a response,
-              // wait a bit more to ensure services are fully started
-              // print('[Ping] Router appears online, waiting for services to stabilize...');
-              await Future.delayed(const Duration(seconds: 5));
-            }
-            return true;
+        if (isAlive) {
+          if (_pollAttempts > 5) {
+            // If we've been polling for a while and get a response,
+            // wait a bit more to ensure services are fully started
+            await Future.delayed(const Duration(seconds: 5));
           }
-        } finally {
-          client.close();
+          return true;
         }
       } catch (e) {
         // Try next endpoint

@@ -1,9 +1,11 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/io_client.dart';
+import 'logger.dart';
 
 /// HTTP client manager that provides secure client instances with proper
 /// certificate validation and connection pooling
@@ -14,14 +16,14 @@ class HttpClientManager {
     _loadAcceptedCertificates();
   }
 
-  final Map<String, http.Client> _clients = {};
+  final Map<String, Dio> _clients = {};
   final Map<String, bool> _userAcceptedCerts = {};
   static const String _acceptedCertsKey = 'accepted_certificates';
 
   /// Creates or returns a cached HTTP client for the given host
   /// In production builds, certificate validation is enforced with user warnings
   /// In debug builds, self-signed certificates can be allowed automatically
-  http.Client getClient(
+  Dio getClient(
     String hostWithPort,
     bool useHttps, {
     BuildContext? context,
@@ -61,32 +63,51 @@ class HttpClientManager {
     return hostWithPort;
   }
 
-  http.Client _createSecureClient(
+  Dio _createSecureClient(
     String host,
     bool useHttps, {
     BuildContext? context,
   }) {
-    if (!useHttps) {
-      return http.Client();
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 15),
+        sendTimeout: const Duration(seconds: 15),
+        followRedirects: true,
+        // Status is validated per request when needed (e.g., handle 302 on login)
+      ),
+    );
+
+    // Only log request errors; suppress per-request debug noise
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onError: (e, handler) {
+          Logger.error(
+            'HTTP ${e.requestOptions.method} ${e.requestOptions.uri} failed',
+            e,
+            e.stackTrace,
+          );
+          handler.next(e);
+        },
+      ),
+    );
+
+    if (useHttps) {
+      final adapter = IOHttpClientAdapter();
+      adapter.createHttpClient = () {
+        final httpClient = HttpClient();
+        httpClient.connectionTimeout = const Duration(seconds: 10);
+        httpClient.badCertificateCallback = (cert, certHost, port) {
+          final certKey = '$certHost:$port';
+          // Allow only if previously accepted
+          return _userAcceptedCerts[certKey] == true;
+        };
+        return httpClient;
+      };
+      dio.httpClientAdapter = adapter;
     }
 
-    final httpClient = HttpClient();
-    httpClient.connectionTimeout = const Duration(seconds: 10);
-
-    // Certificate validation callback
-    httpClient.badCertificateCallback = (cert, certHost, port) {
-      final certKey = '$certHost:$port';
-
-      // Check if user has already accepted this certificate
-      if (_userAcceptedCerts[certKey] == true) {
-        return true;
-      }
-
-      // Certificate not accepted yet - require user consent in both debug and release
-      return false;
-    };
-
-    return IOClient(httpClient);
+    return dio;
   }
 
   /// Load accepted certificates from secure storage
@@ -123,15 +144,31 @@ class HttpClientManager {
 
   /// Disposes of a specific client
   void disposeClient(String host, bool useHttps) {
-    final key = '$host-$useHttps';
-    final client = _clients.remove(key);
-    client?.close();
+    // Remove any cached clients that match the host (with or without port)
+    final hostname = _extractHostname(host);
+    final keysToRemove = _clients.keys
+        .where(
+          (k) =>
+              (k.startsWith(host) || k.startsWith(hostname)) &&
+              k.endsWith('-$useHttps'),
+        )
+        .toList();
+    for (final key in keysToRemove) {
+      final dio = _clients.remove(key);
+      final adapter = dio?.httpClientAdapter;
+      if (adapter is IOHttpClientAdapter) {
+        adapter.close(force: true);
+      }
+    }
   }
 
   /// Disposes of all cached clients
   void disposeAll() {
-    for (final client in _clients.values) {
-      client.close();
+    for (final dio in _clients.values) {
+      final adapter = dio.httpClientAdapter;
+      if (adapter is IOHttpClientAdapter) {
+        adapter.close(force: true);
+      }
     }
     _clients.clear();
     // Don't clear accepted certificates on dispose
@@ -143,8 +180,11 @@ class HttpClientManager {
     _userAcceptedCerts.clear();
 
     // Clear all cached HTTP clients
-    for (final client in _clients.values) {
-      client.close();
+    for (final dio in _clients.values) {
+      final adapter = dio.httpClientAdapter;
+      if (adapter is IOHttpClientAdapter) {
+        adapter.close(force: true);
+      }
     }
     _clients.clear();
 

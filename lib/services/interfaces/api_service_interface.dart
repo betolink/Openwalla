@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
 /// API service interface for LuCI RPC communication.
 ///
@@ -82,6 +81,4 @@ abstract class IApiService {
     required String command,
     BuildContext? context,
   });
-  http.Client createHttpClient();
-  http.Client createHttpClientWithParams(bool useHttps, String host);
 }

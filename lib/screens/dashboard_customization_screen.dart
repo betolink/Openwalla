@@ -3,10 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/models/dashboard_preferences.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
-import 'package:luci_mobile/widgets/luci_loading_states.dart';
 import 'package:luci_mobile/design/luci_design_system.dart';
 import 'package:luci_mobile/widgets/luci_animation_system.dart';
-import 'package:luci_mobile/widgets/luci_error_handling.dart';
 
 class DashboardCustomizationScreen extends ConsumerStatefulWidget {
   const DashboardCustomizationScreen({super.key});
@@ -28,6 +26,7 @@ class _DashboardCustomizationScreenState
   bool _hasChanges = false;
   late AnimationController _fabAnimationController;
   late Animation<double> _fabScaleAnimation;
+  // Controller not used; rely on initialValue with keyed widget
 
   @override
   void initState() {
@@ -75,7 +74,9 @@ class _DashboardCustomizationScreenState
       
       // Extract available interfaces
       _extractAvailableInterfaces(appState.dashboardData);
-      
+
+      // No controller needed; handled by keyed DropdownButtonFormField
+
       setState(() => _isLoading = false);
     } catch (e) {
       setState(() {
@@ -195,56 +196,47 @@ class _DashboardCustomizationScreenState
       initiallyExpanded: true,
       children: [
         Container(
+          padding: EdgeInsets.all(LuciSpacing.md),
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              RadioListTile<bool>(
-                title: Text(
-                  'All Interfaces',
-                  style: LuciTextStyles.detailValue(context),
-                ),
-                subtitle: Text(
-                  'Monitor combined throughput',
-                  style: LuciTextStyles.detailLabel(context),
-                ),
-                value: true,
-                groupValue: _preferences.showAllThroughput,
-                onChanged: (value) {
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment<bool>(
+                    value: true,
+                    label: Text('All Interfaces'),
+                    icon: Icon(Icons.all_inclusive),
+                  ),
+                  ButtonSegment<bool>(
+                    value: false,
+                    label: Text('Specific Interface'),
+                    icon: Icon(Icons.tune),
+                  ),
+                ],
+                selected: {_preferences.showAllThroughput},
+                onSelectionChanged: (selection) {
+                  final val = selection.first;
                   setState(() {
                     _preferences = _preferences.copyWith(
-                      showAllThroughput: true,
-                      primaryThroughputInterface: null,
+                      showAllThroughput: val,
+                      primaryThroughputInterface:
+                          val ? null : (interfaces.isNotEmpty ? interfaces.first : null),
                     );
+                    // No controller to update; Dropdown is keyed by selected value
                   });
                   _onPreferenceChanged();
                 },
-                activeColor: Theme.of(context).colorScheme.primary,
               ),
-              const Divider(height: 1, indent: 16, endIndent: 16),
-              RadioListTile<bool>(
-                title: Text(
-                  'Specific Interface',
-                  style: LuciTextStyles.detailValue(context),
-                ),
-                subtitle: Text(
-                  'Monitor single interface only',
-                  style: LuciTextStyles.detailLabel(context),
-                ),
-                value: false,
-                groupValue: _preferences.showAllThroughput,
-                onChanged: (value) {
-                  setState(() {
-                    _preferences = _preferences.copyWith(
-                      showAllThroughput: false,
-                      primaryThroughputInterface: interfaces.isNotEmpty ? interfaces.first : null,
-                    );
-                  });
-                  _onPreferenceChanged();
-                },
-                activeColor: Theme.of(context).colorScheme.primary,
+              SizedBox(height: LuciSpacing.xs),
+              Text(
+                _preferences.showAllThroughput
+                    ? 'Monitor combined throughput across interfaces'
+                    : 'Monitor a single interface only',
+                style: LuciTextStyles.cardSubtitle(context),
               ),
             ],
           ),
@@ -252,7 +244,8 @@ class _DashboardCustomizationScreenState
         if (!_preferences.showAllThroughput) ...[
           SizedBox(height: LuciSpacing.md),
           DropdownButtonFormField<String>(
-            value: _preferences.primaryThroughputInterface,
+            key: ValueKey(_preferences.primaryThroughputInterface),
+            initialValue: _preferences.primaryThroughputInterface,
             decoration: InputDecoration(
               labelText: 'Select Interface',
               prefixIcon: Icon(

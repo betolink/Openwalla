@@ -1,9 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
+import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
 import '../utils/http_client_manager.dart';
 import '../utils/logger.dart';
-import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
 
 class LoginResult {
   final String? token;
@@ -26,18 +27,7 @@ Uri _buildUrl(String ipAddress, bool useHttps, String path) {
 class RealApiService implements IApiService {
   final HttpClientManager _httpClientManager = HttpClientManager();
 
-  @override
-  http.Client createHttpClient() {
-    // Return a basic HTTP client without custom SSL handling
-    return http.Client();
-  }
-
-  @override
-  http.Client createHttpClientWithParams(bool useHttps, String host) {
-    return _createHttpClient(useHttps, host);
-  }
-
-  http.Client _createHttpClient(
+  Dio _createHttpClient(
     bool useHttps,
     String hostWithPort, {
     BuildContext? context,
@@ -103,14 +93,13 @@ class RealApiService implements IApiService {
     // If login failed and we were using HTTP, try HTTPS in case of redirect
     if (!initialUseHttps) {
       Logger.info('HTTP login failed or redirected, attempting HTTPS');
-      // Check if context is still mounted before using it
       final safeContext = context?.mounted == true ? context : null;
       result = await _login(
         ipAddress,
         username,
         password,
         true, // Try with HTTPS
-        context: safeContext,
+        context: safeContext, // ignore: use_build_context_synchronously
         checkRedirect: false,
       );
 
@@ -137,25 +126,27 @@ class RealApiService implements IApiService {
         'luci_username=${Uri.encodeComponent(username)}&luci_password=${Uri.encodeComponent(password)}';
 
     try {
-      // Normal POST request - the HTTP client will automatically follow redirects
-      final response = await client
-          .post(
-            uri,
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: params,
-          )
-          .timeout(const Duration(seconds: 10));
+      // Normal POST request - Dio will follow redirects by default
+      final response = await client.post(
+        uri.toString(),
+        data: params,
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          followRedirects: true,
+          validateStatus: (code) => code != null && code >= 200 && code < 400 || code == 302,
+        ),
+      );
 
       // Check if we were redirected to HTTPS (only relevant for initial HTTP attempts)
-      if (checkRedirect && !useHttps && response.request != null) {
-        final finalUrl = response.request!.url;
+      if (checkRedirect && !useHttps) {
+        final finalUrl = response.realUri;
         if (finalUrl.scheme == 'https') {
           Logger.info('Detected HTTP to HTTPS redirect: $uri -> $finalUrl');
           // If we got a successful login after redirect, extract the token
           if (response.statusCode == 302 || response.statusCode == 200) {
-            final setCookieHeaders = response.headers['set-cookie'];
-            if (setCookieHeaders != null) {
-              final cookies = setCookieHeaders.split(',');
+            final setCookies = response.headers.map['set-cookie'];
+            if (setCookies != null && setCookies.isNotEmpty) {
+              final cookies = setCookies.join(',').split(',');
               for (final cookie in cookies) {
                 if (cookie.contains('sysauth')) {
                   final cookieValue = cookie.split(';')[0].split('=')[1];
@@ -173,9 +164,9 @@ class RealApiService implements IApiService {
 
       if (response.statusCode == 302) {
         // Parse Set-Cookie headers to find sysauth cookie
-        final setCookieHeaders = response.headers['set-cookie'];
-        if (setCookieHeaders != null) {
-          final cookies = setCookieHeaders.split(',');
+        final setCookies = response.headers.map['set-cookie'];
+        if (setCookies != null && setCookies.isNotEmpty) {
+          final cookies = setCookies.join(',').split(',');
           for (final cookie in cookies) {
             if (cookie.contains('sysauth')) {
               final cookieValue = cookie.split(';')[0].split('=')[1];
@@ -185,44 +176,38 @@ class RealApiService implements IApiService {
         }
       }
       return null;
-    } catch (e, stack) {
+    } on DioException catch (e, stack) {
       Logger.exception('Login failed', e, stack);
 
       // Check if this is a certificate error and we have context to show dialog
-      if (useHttps &&
-          context != null &&
-          context.mounted &&
-          e.toString().contains('CERTIFICATE_VERIFY_FAILED')) {
+      final isCertError =
+          e.error is HandshakeException || e.message?.contains('CERTIFICATE_VERIFY_FAILED') == true;
+      if (useHttps && context != null && context.mounted && isCertError) {
         // Try to prompt for certificate acceptance
-        final accepted = await _httpClientManager
-            .promptForCertificateAcceptance(
-              context: context,
-              hostWithPort: ipAddress,
-              useHttps: useHttps,
-            );
+        final accepted = await _httpClientManager.promptForCertificateAcceptance(
+          context: context,
+          hostWithPort: ipAddress,
+          useHttps: useHttps,
+        );
 
         if (accepted && context.mounted) {
           // Create a new client and retry the login
-          final retryClient = _createHttpClient(
-            useHttps,
-            ipAddress,
-            context: context,
-          );
+          final retryClient = _createHttpClient(useHttps, ipAddress, context: context);
           try {
-            final retryResponse = await retryClient
-                .post(
-                  uri,
-                  headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                  },
-                  body: params,
-                )
-                .timeout(const Duration(seconds: 10));
+            final retryResponse = await retryClient.post(
+              uri.toString(),
+              data: params,
+              options: Options(
+                contentType: Headers.formUrlEncodedContentType,
+                followRedirects: true,
+                validateStatus: (code) => code != null && code >= 200 && code < 400 || code == 302,
+              ),
+            );
 
             if (retryResponse.statusCode == 302) {
-              final setCookieHeaders = retryResponse.headers['set-cookie'];
-              if (setCookieHeaders != null) {
-                final cookies = setCookieHeaders.split(',');
+              final setCookies = retryResponse.headers.map['set-cookie'];
+              if (setCookies != null && setCookies.isNotEmpty) {
+                final cookies = setCookies.join(',').split(',');
                 for (final cookie in cookies) {
                   if (cookie.contains('sysauth')) {
                     final cookieValue = cookie.split(';')[0].split('=')[1];
@@ -231,7 +216,7 @@ class RealApiService implements IApiService {
                 }
               }
             }
-          } catch (retryError, retryStack) {
+          } on DioException catch (retryError, retryStack) {
             Logger.exception('Login retry failed', retryError, retryStack);
           }
         }
@@ -301,16 +286,18 @@ class RealApiService implements IApiService {
     };
 
     try {
-      final response = await client
-          .post(
-            url,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode(rpcPayload),
-          )
-          .timeout(const Duration(seconds: 10));
+      final response = await client.post(
+        url.toString(),
+        data: jsonEncode(rpcPayload),
+        options: Options(
+          headers: {'Content-Type': 'application/json'},
+        ),
+      );
 
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = response.data is String
+            ? jsonDecode(response.data as String)
+            : response.data;
         if (decoded['error'] != null) {
           throw Exception('RPC error: ${decoded['error']['message']}');
         }
@@ -326,7 +313,7 @@ class RealApiService implements IApiService {
       } else {
         throw Exception('Failed to call RPC: HTTP ${response.statusCode}');
       }
-    } catch (e, stack) {
+    } on DioException catch (e, stack) {
       Logger.exception('API call failed', e, stack);
       rethrow;
     }

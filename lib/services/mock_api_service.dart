@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
 import 'package:luci_mobile/config/app_config.dart';
 
@@ -239,17 +238,7 @@ class MockApiService implements IApiService {
     }
   }
 
-  @override
-  http.Client createHttpClient() {
-    // Return a standard HTTP client for mock service
-    return http.Client();
-  }
-
-  @override
-  http.Client createHttpClientWithParams(bool useHttps, String host) {
-    // Return a standard HTTP client for mock service
-    return http.Client();
-  }
+  // No HTTP client creation required for mock service when using Dio
 
   String? _getMockDataFile(String object, String method) {
     // Map object.method combinations to mock data files
