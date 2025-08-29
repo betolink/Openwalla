@@ -5,6 +5,7 @@ import 'package:luci_mobile/models/dashboard_preferences.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 import 'package:luci_mobile/design/luci_design_system.dart';
 import 'package:luci_mobile/widgets/luci_animation_system.dart';
+import 'package:luci_mobile/widgets/luci_utility_components.dart';
 
 class DashboardCustomizationScreen extends ConsumerStatefulWidget {
   const DashboardCustomizationScreen({super.key});
@@ -27,6 +28,7 @@ class _DashboardCustomizationScreenState
   late AnimationController _fabAnimationController;
   late Animation<double> _fabScaleAnimation;
   // Controller not used; rely on initialValue with keyed widget
+  static const String _allInterfacesOption = '__ALL__';
 
   @override
   void initState() {
@@ -195,72 +197,51 @@ class _DashboardCustomizationScreenState
       icon: Icons.speed,
       initiallyExpanded: true,
       children: [
-        Container(
-          padding: EdgeInsets.all(LuciSpacing.md),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(12),
+        DropdownButtonFormField<String>(
+          key: ValueKey(
+            _preferences.showAllThroughput
+                ? _allInterfacesOption
+                : (_preferences.primaryThroughputInterface ?? _allInterfacesOption),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment<bool>(
-                    value: true,
-                    label: Text('All Interfaces'),
-                    icon: Icon(Icons.all_inclusive),
+          initialValue: _preferences.showAllThroughput
+              ? _allInterfacesOption
+              : (_preferences.primaryThroughputInterface ?? _allInterfacesOption),
+          decoration: InputDecoration(
+            labelText: 'Throughput Source',
+            prefixIcon: Icon(
+              _preferences.showAllThroughput ? Icons.all_inclusive : Icons.lan,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: LuciCardStyles.standardRadius,
+            ),
+            filled: true,
+            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+          ),
+          isExpanded: true,
+          dropdownColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.95),
+          style: LuciTextStyles.detailValue(context),
+          items: [
+            DropdownMenuItem(
+              value: _allInterfacesOption,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.all_inclusive,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-                  ButtonSegment<bool>(
-                    value: false,
-                    label: Text('Specific Interface'),
-                    icon: Icon(Icons.tune),
+                  SizedBox(width: LuciSpacing.sm),
+                  const Expanded(
+                    child: Text(
+                      'All Interfaces',
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
-                selected: {_preferences.showAllThroughput},
-                onSelectionChanged: (selection) {
-                  final val = selection.first;
-                  setState(() {
-                    _preferences = _preferences.copyWith(
-                      showAllThroughput: val,
-                      primaryThroughputInterface:
-                          val ? null : (interfaces.isNotEmpty ? interfaces.first : null),
-                    );
-                    // No controller to update; Dropdown is keyed by selected value
-                  });
-                  _onPreferenceChanged();
-                },
               ),
-              SizedBox(height: LuciSpacing.xs),
-              Text(
-                _preferences.showAllThroughput
-                    ? 'Monitor combined throughput across interfaces'
-                    : 'Monitor a single interface only',
-                style: LuciTextStyles.cardSubtitle(context),
-              ),
-            ],
-          ),
-        ),
-        if (!_preferences.showAllThroughput) ...[
-          SizedBox(height: LuciSpacing.md),
-          DropdownButtonFormField<String>(
-            key: ValueKey(_preferences.primaryThroughputInterface),
-            initialValue: _preferences.primaryThroughputInterface,
-            decoration: InputDecoration(
-              labelText: 'Select Interface',
-              prefixIcon: Icon(
-                Icons.lan,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: LuciCardStyles.standardRadius,
-              ),
-              filled: true,
-              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
             ),
-            isExpanded: true,
-            style: LuciTextStyles.detailValue(context),
-            items: interfaces.map((iface) {
+            ...interfaces.map((iface) {
               return DropdownMenuItem(
                 value: iface,
                 child: Row(
@@ -280,17 +261,25 @@ class _DashboardCustomizationScreenState
                   ],
                 ),
               );
-            }).toList(),
-            onChanged: (value) {
-              setState(() {
+            }),
+          ],
+          onChanged: (value) {
+            setState(() {
+              if (value == _allInterfacesOption) {
                 _preferences = _preferences.copyWith(
+                  showAllThroughput: true,
+                  primaryThroughputInterface: null,
+                );
+              } else {
+                _preferences = _preferences.copyWith(
+                  showAllThroughput: false,
                   primaryThroughputInterface: value,
                 );
-              });
-              _onPreferenceChanged();
-            },
-          ),
-        ],
+              }
+            });
+            _onPreferenceChanged();
+          },
+        ),
       ],
     );
   }
@@ -314,7 +303,7 @@ class _DashboardCustomizationScreenState
           ),
           child: Column(
             children: [
-              CheckboxListTile(
+              SwitchListTile.adaptive(
                 title: Text(
                   'Show All Networks',
                   style: LuciTextStyles.detailValue(context).copyWith(
@@ -324,7 +313,7 @@ class _DashboardCustomizationScreenState
                 value: _preferences.enabledWirelessInterfaces.isEmpty,
                 onChanged: (value) {
                   setState(() {
-                    if (value ?? false) {
+                    if (value) {
                       _preferences = _preferences.copyWith(
                         enabledWirelessInterfaces: {},
                       );
@@ -336,8 +325,8 @@ class _DashboardCustomizationScreenState
                   });
                   _onPreferenceChanged();
                 },
-                activeColor: Theme.of(context).colorScheme.primary,
-                controlAffinity: ListTileControlAffinity.leading,
+                activeTrackColor: Theme.of(context).colorScheme.primary,
+                activeThumbColor: Theme.of(context).colorScheme.onPrimary,
               ),
             ],
           ),
@@ -406,7 +395,7 @@ class _DashboardCustomizationScreenState
           ),
           child: Column(
             children: [
-              CheckboxListTile(
+              SwitchListTile.adaptive(
                 title: Text(
                   'Show All Interfaces',
                   style: LuciTextStyles.detailValue(context).copyWith(
@@ -416,7 +405,7 @@ class _DashboardCustomizationScreenState
                 value: _preferences.enabledWiredInterfaces.isEmpty,
                 onChanged: (value) {
                   setState(() {
-                    if (value ?? false) {
+                    if (value) {
                       _preferences = _preferences.copyWith(
                         enabledWiredInterfaces: {},
                       );
@@ -428,8 +417,8 @@ class _DashboardCustomizationScreenState
                   });
                   _onPreferenceChanged();
                 },
-                activeColor: Theme.of(context).colorScheme.primary,
-                controlAffinity: ListTileControlAffinity.leading,
+                activeTrackColor: Theme.of(context).colorScheme.primary,
+                activeThumbColor: Theme.of(context).colorScheme.onPrimary,
               ),
             ],
           ),
@@ -634,6 +623,7 @@ class _DashboardCustomizationScreenState
       );
     }
 
+    final appState = ref.watch(appStateProvider);
     return Scaffold(
       appBar: const LuciAppBar(
         title: 'Dashboard Settings',
@@ -642,6 +632,33 @@ class _DashboardCustomizationScreenState
       body: ListView(
         padding: EdgeInsets.symmetric(vertical: LuciSpacing.sm),
         children: [
+          // Router selector for per-router preferences to match app patterns
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: LuciSpacing.md,
+              vertical: LuciSpacing.sm,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Preferences For',
+                  style: LuciTextStyles.sectionHeader(context),
+                ),
+                SizedBox(height: LuciSpacing.xs),
+                LuciUtilityComponents.routerSelector(
+                  context: context,
+                  routers: appState.routers,
+                  selectedRouter: appState.selectedRouter,
+                  onRouterChanged: (id) async {
+                    // Switch router; preferences auto-load per router
+                    await appState.selectRouter(id, context: context);
+                    if (mounted) setState(() {});
+                  },
+                ),
+              ],
+            ),
+          ),
           LuciStaggeredAnimation(
             staggerDelay: const Duration(milliseconds: 50),
             children: [
