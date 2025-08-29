@@ -2,13 +2,13 @@
 
 <div align="center">
   <a href="https://play.google.com/store/apps/details?id=com.cogwheel.LuCIMobile">
-    <img src="https://github.com/pioug/google-play-badges/raw/refs/heads/main/svg/English.svg" alt="Get it on Google Play" style="height:56px;"/>
+    <img src="store-badges/google.webp" alt="Get it on Google Play" style="height:56px;"/>
   </a>
   <a href="https://apps.apple.com/app/luci-mobile/id6749455847">
-    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" style="height:56px;"/>
+    <img src="store-badges/apple.webp" alt="Download on the App Store" style="height:56px;"/>
   </a>
   <a href="https://apt.izzysoft.de/fdroid/index/apk/com.cogwheel.LuCIMobile">
-    <img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroidButton.svg" alt="Get it on IzzyOnDroid" style="height:56px;"/>
+    <img src="store-badges/izzyondroid.webp" alt="Get it on IzzyOnDroid" style="height:56px;"/>
   </a>
   <br><br>
 
