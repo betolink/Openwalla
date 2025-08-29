@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
-import 'package:luci_mobile/screens/dashboard_customization_screen.dart';
+import 'package:luci_mobile/screens/dashboard_settings_list_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -131,7 +131,7 @@ class SettingsScreen extends ConsumerWidget {
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (context) =>
-                                const DashboardCustomizationScreen(),
+                                const DashboardSettingsListScreen(),
                           ),
                         );
                       },

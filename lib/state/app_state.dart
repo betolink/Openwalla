@@ -8,10 +8,12 @@ import 'package:dio/io.dart';
 import 'package:luci_mobile/services/secure_storage_service.dart';
 import 'package:luci_mobile/services/router_service.dart';
 import 'package:luci_mobile/services/throughput_service.dart';
+import 'package:luci_mobile/models/client.dart';
 import 'package:luci_mobile/models/router.dart' as model;
 import 'package:luci_mobile/models/dashboard_preferences.dart';
 import 'package:luci_mobile/services/interfaces/auth_service_interface.dart';
 import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
+import 'package:luci_mobile/services/api_service.dart';
 import 'package:luci_mobile/services/service_factory.dart';
 import 'package:luci_mobile/config/app_config.dart';
 import 'package:luci_mobile/utils/http_client_manager.dart';
@@ -52,6 +54,11 @@ class AppState extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
   static const String _themeModeKey = 'themeMode';
 
+  // Clients view mode (aggregate across routers)
+  bool _clientsAggregateAllRouters = true;
+  static const String _clientsAggregateKey = 'clients_aggregate_all';
+  bool get clientsAggregateAllRouters => _clientsAggregateAllRouters;
+
   // Dashboard preferences state
   DashboardPreferences _dashboardPreferences = DashboardPreferences();
   DashboardPreferences get dashboardPreferences => _dashboardPreferences;
@@ -85,6 +92,7 @@ class AppState extends ChangeNotifier {
     await _loadThemeMode();
     await loadRouters(); // Load routers on app start (sets selectedRouter)
     await _migrateGlobalDashboardPreferencesIfNeeded(); // Proactively migrate legacy prefs
+    await _loadClientsViewMode();
     await loadDashboardPreferences(); // Load prefs scoped to selected router
   }
 
@@ -182,6 +190,24 @@ class AppState extends ChangeNotifier {
   Future<void> setThemeMode(ThemeMode mode) async {
     _themeMode = mode;
     await _secureStorageService.writeValue(_themeModeKey, mode.name);
+    notifyListeners();
+  }
+
+  Future<void> _loadClientsViewMode() async {
+    final stored = await _secureStorageService.readValue(_clientsAggregateKey);
+    if (stored == 'true') {
+      _clientsAggregateAllRouters = true;
+    } else if (stored == 'false') {
+      _clientsAggregateAllRouters = false;
+    }
+  }
+
+  Future<void> setClientsAggregateAllRouters(bool aggregate) async {
+    _clientsAggregateAllRouters = aggregate;
+    await _secureStorageService.writeValue(
+      _clientsAggregateKey,
+      aggregate.toString(),
+    );
     notifyListeners();
   }
 
@@ -1246,5 +1272,281 @@ class AppState extends ChangeNotifier {
     _pollAttempts = 0;
     _isRebooting = false;
     super.dispose();
+  }
+
+  /// Aggregates DHCP leases across all configured routers and classifies clients
+  /// as wireless if their MAC appears in any router's associated stations list.
+  Future<List<Client>> fetchAggregatedClients() async {
+    try {
+      // Build a union of wireless MACs across all routers
+      final wirelessMacs = await fetchAllAssociatedWirelessMacsAggregated();
+      final normalizedWireless = wirelessMacs
+          .map((m) => m.toUpperCase().replaceAll('-', ':'))
+          .toSet();
+
+      // Aggregate leases across routers
+      final leases = await fetchAggregatedDhcpLeases();
+
+      // Convert to Client models with connection type
+      final clients = <String, Client>{}; // key by normalized MAC
+      for (final lease in leases) {
+        final client = Client.fromLease(lease);
+        final macNorm = client.macAddress.toUpperCase().replaceAll('-', ':');
+        final isWireless = normalizedWireless.contains(macNorm);
+        final enriched = client.copyWith(
+          connectionType:
+              isWireless ? ConnectionType.wireless : ConnectionType.wired,
+        );
+        // Prefer entries that have more info (hostname length as heuristic)
+        if (!clients.containsKey(macNorm) ||
+            (enriched.hostname.isNotEmpty &&
+                enriched.hostname.length >
+                    (clients[macNorm]?.hostname.length ?? 0))) {
+          clients[macNorm] = enriched;
+        }
+      }
+
+      // Sort: wireless > wired > unknown, then by hostname
+      final list = clients.values.toList();
+      list.sort((a, b) {
+        int typeOrder(ConnectionType t) {
+          switch (t) {
+            case ConnectionType.wireless:
+              return 0;
+            case ConnectionType.wired:
+              return 1;
+            default:
+              return 2;
+          }
+        }
+
+        final cmpType =
+            typeOrder(a.connectionType).compareTo(typeOrder(b.connectionType));
+        if (cmpType != 0) return cmpType;
+        return a.hostname.toLowerCase().compareTo(b.hostname.toLowerCase());
+      });
+      return list;
+    } catch (e, stack) {
+      Logger.exception('Failed to aggregate clients', e, stack);
+      return [];
+    }
+  }
+
+  /// Returns clients for the currently selected router only
+  Future<List<Client>> fetchClientsForSelectedRouter() async {
+    try {
+      if (_reviewerModeEnabled) {
+        final stationsMap = await _apiService!.fetchAssociatedStations();
+        final macs = <String>{};
+        stationsMap.forEach((_, stations) {
+          macs.addAll(stations.map((m) => m.toLowerCase()));
+        });
+        final result = await _apiService!.callSimple(
+          'luci-rpc',
+          'getDHCPLeases',
+          {},
+        );
+        final leases = <Map<String, dynamic>>[];
+        if (result is List && result.length > 1 && result[0] == 0) {
+          final data = result[1] as Map<String, dynamic>;
+          leases.addAll(
+            (data['dhcp_leases'] as List<dynamic>? ?? [])
+                .cast<Map<String, dynamic>>(),
+          );
+        }
+        return leases.map((l) {
+          final c = Client.fromLease(l);
+          final isWireless = macs.contains(c.macAddress.toLowerCase());
+          return c.copyWith(
+            connectionType:
+                isWireless ? ConnectionType.wireless : ConnectionType.wired,
+          );
+        }).toList();
+      }
+
+      if (_routerService?.selectedRouter == null || _authService?.sysauth == null) {
+        return [];
+      }
+      final router = _routerService!.selectedRouter!;
+
+      // Get wireless MACs for this router
+      final stationsMap = await _apiService!.fetchAllAssociatedWirelessMacsWithContext(
+        ipAddress: router.ipAddress,
+        sysauth: _authService!.sysauth!,
+        useHttps: router.useHttps,
+      );
+      final wireless = <String>{};
+      stationsMap.forEach((_, s) => wireless.addAll(s.map((m) => m.toLowerCase())));
+
+      // Get DHCP leases for this router
+      final callRes = await _apiService!.call(
+        router.ipAddress,
+        _authService!.sysauth!,
+        router.useHttps,
+        object: 'luci-rpc',
+        method: 'getDHCPLeases',
+        params: {},
+      );
+      final leases = <Map<String, dynamic>>[];
+      if (callRes is List && callRes.length > 1 && callRes[0] == 0) {
+        final data = callRes[1] as Map<String, dynamic>;
+        leases.addAll(
+          (data['dhcp_leases'] as List<dynamic>? ?? [])
+              .cast<Map<String, dynamic>>(),
+        );
+      }
+
+      final clients = leases.map((l) {
+        final c = Client.fromLease(l);
+        final isWireless = wireless.contains(c.macAddress.toLowerCase());
+        return c.copyWith(
+          connectionType: isWireless ? ConnectionType.wireless : ConnectionType.wired,
+        );
+      }).toList();
+
+      // Sort similar to aggregated
+      clients.sort((a, b) {
+        int typeOrder(ConnectionType t) {
+          switch (t) {
+            case ConnectionType.wireless:
+              return 0;
+            case ConnectionType.wired:
+              return 1;
+            default:
+              return 2;
+          }
+        }
+
+        final cmpType =
+            typeOrder(a.connectionType).compareTo(typeOrder(b.connectionType));
+        if (cmpType != 0) return cmpType;
+        return a.hostname.toLowerCase().compareTo(b.hostname.toLowerCase());
+      });
+      return clients;
+    } catch (e, stack) {
+      Logger.exception('Failed to fetch clients for selected router', e, stack);
+      return [];
+    }
+  }
+
+  /// Returns a union set of associated wireless MAC addresses across all routers
+  Future<Set<String>> fetchAllAssociatedWirelessMacsAggregated() async {
+    try {
+      if (_reviewerModeEnabled) {
+        final stationsMap = await _apiService!.fetchAssociatedStations();
+        final macs = <String>{};
+        stationsMap.forEach((_, stations) {
+          macs.addAll(stations.map((m) => m.toLowerCase()));
+        });
+        return macs;
+      }
+
+      final routers = _routerService?.routers ?? const <model.Router>[];
+      if (routers.isEmpty) return {};
+
+      final tasks = routers.map((r) async {
+        try {
+          if (_apiService is RealApiService) {
+            final real = _apiService as RealApiService;
+            final res = await real.loginWithProtocolDetection(
+              r.ipAddress,
+              r.username,
+              r.password,
+              r.useHttps,
+            );
+            if (res.token == null) return <String>{};
+            final map = await _apiService!.fetchAllAssociatedWirelessMacsWithContext(
+              ipAddress: r.ipAddress,
+              sysauth: res.token!,
+              useHttps: res.actualUseHttps,
+            );
+            final set = <String>{};
+            map.forEach((_, stations) {
+              set.addAll(stations.map((m) => m.toLowerCase()));
+            });
+            return set;
+          }
+        } catch (e) {
+          // Skip router on failure
+        }
+        return <String>{};
+      }).toList();
+
+      final results = await Future.wait(tasks);
+      return results.fold<Set<String>>(<String>{}, (acc, s) => acc..addAll(s));
+    } catch (e, stack) {
+      Logger.exception('Failed to aggregate wireless MACs', e, stack);
+      return {};
+    }
+  }
+
+  /// Returns a combined list of DHCP lease maps from all routers
+  Future<List<Map<String, dynamic>>> fetchAggregatedDhcpLeases() async {
+    try {
+      if (_reviewerModeEnabled) {
+        // Use mock data
+        final result = await _apiService!.callSimple('luci-rpc', 'getDHCPLeases', {});
+        if (result is List && result.length > 1 && result[0] == 0) {
+          final data = result[1] as Map<String, dynamic>;
+          final leases = (data['dhcp_leases'] as List<dynamic>? ?? [])
+              .cast<Map<String, dynamic>>();
+          return leases;
+        }
+        return [];
+      }
+
+      final routers = _routerService?.routers ?? const <model.Router>[];
+      if (routers.isEmpty) return [];
+
+      final tasks = routers.map((r) async {
+        try {
+          if (_apiService is RealApiService) {
+            final real = _apiService as RealApiService;
+            final res = await real.loginWithProtocolDetection(
+              r.ipAddress,
+              r.username,
+              r.password,
+              r.useHttps,
+            );
+            if (res.token == null) return <Map<String, dynamic>>[];
+            final callRes = await _apiService!.call(
+              r.ipAddress,
+              res.token!,
+              res.actualUseHttps,
+              object: 'luci-rpc',
+              method: 'getDHCPLeases',
+              params: {},
+            );
+            if (callRes is List && callRes.length > 1 && callRes[0] == 0) {
+              final data = callRes[1] as Map<String, dynamic>;
+              final leases = (data['dhcp_leases'] as List<dynamic>? ?? [])
+                  .cast<Map<String, dynamic>>();
+              return leases;
+            }
+          }
+        } catch (e) {
+          // Skip router on failure
+        }
+        return <Map<String, dynamic>>[];
+      }).toList();
+
+      final results = await Future.wait(tasks);
+      // Deduplicate by MAC + IP
+      final seen = <String, Map<String, dynamic>>{};
+      for (final list in results) {
+        for (final lease in list) {
+          final mac = (lease['macaddr']?.toString() ?? '').toUpperCase();
+          final ip = lease['ipaddr']?.toString() ?? '';
+          final key = '$mac|$ip';
+          if (!seen.containsKey(key)) {
+            seen[key] = lease;
+          }
+        }
+      }
+      return seen.values.toList();
+    } catch (e, stack) {
+      Logger.exception('Failed to aggregate DHCP leases', e, stack);
+      return [];
+    }
   }
 }

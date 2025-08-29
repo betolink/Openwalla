@@ -22,6 +22,9 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen>
   final Set<int> _expandedClientIndices = {};
   late AnimationController _controller;
   late TextEditingController _searchController;
+  bool _aggregateAllRouters = true;
+  Future<List<Client>>? _clientsFuture;
+  String? _lastSelectedRouterId;
 
   @override
   void initState() {
@@ -38,6 +41,19 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen>
         });
       }
     });
+    // Initialize toggle from persisted state
+    final initState = ref.read(appStateProvider);
+    _aggregateAllRouters = initState.clientsAggregateAllRouters;
+    _lastSelectedRouterId = initState.selectedRouter?.id;
+    _computeClientsFuture();
+
+  }
+
+  void _computeClientsFuture() {
+    final appState = ref.read(appStateProvider);
+    _clientsFuture = _aggregateAllRouters
+        ? appState.fetchAggregatedClients()
+        : appState.fetchClientsForSelectedRouter();
   }
 
   @override
@@ -49,31 +65,38 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final appState = ref.read(appStateProvider);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-
-    return FutureBuilder<Set<String>>(
-      future: appState.fetchAllAssociatedWirelessMacs(),
+    final watchedAppState = ref.watch(appStateProvider);
+    // Recompute future only when selected router changes
+    Future<List<Client>>? future = _clientsFuture;
+    final currentId = watchedAppState.selectedRouter?.id;
+    if (currentId != _lastSelectedRouterId) {
+      _lastSelectedRouterId = currentId;
+      _computeClientsFuture();
+      future = _clientsFuture;
+    }
+    return FutureBuilder<List<Client>>(
+      future: future,
       builder: (context, snapshot) {
-        final wirelessMacs = snapshot.data ?? {};
+        final aggregatedClients = snapshot.data ?? [];
         return Scaffold(
           appBar: const LuciAppBar(title: 'Clients'),
           body: Stack(
             children: [
               LuciPullToRefresh(
-                onRefresh: () =>
-                    ref.read(appStateProvider).fetchDashboardData(),
+                onRefresh: () async {
+                  // Trigger a refresh by re-fetching dashboard data for selected router
+                  await ref.read(appStateProvider).fetchDashboardData();
+                  setState(() { _computeClientsFuture(); });
+                },
                 child: Builder(
                   builder: (context) {
                     final appState = ref.watch(appStateProvider);
-                    final isLoading = appState.isDashboardLoading;
+                    final isLoading = snapshot.connectionState == ConnectionState.waiting && (aggregatedClients.isEmpty);
                     final dashboardError = appState.dashboardError;
-                    final dhcpData =
-                        appState.dashboardData?['dhcpLeases']
-                            as Map<String, dynamic>?;
 
-                    if (isLoading && dhcpData == null) {
+                    if (isLoading) {
                       return Padding(
                         padding: EdgeInsets.symmetric(
                           horizontal: LuciSpacing.md,
@@ -108,7 +131,7 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen>
                       );
                     }
 
-                    if (dashboardError != null && dhcpData == null) {
+                    if (dashboardError != null && aggregatedClients.isEmpty) {
                       return LuciErrorDisplay(
                         title: 'Failed to Load Clients',
                         message:
@@ -120,44 +143,7 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen>
                       );
                     }
 
-                    final leases =
-                        dhcpData?['dhcp_leases'] as List<dynamic>? ?? [];
-                    final clients = leases.map((lease) {
-                      final client = Client.fromLease(
-                        lease as Map<String, dynamic>,
-                      );
-                      final clientMac = normalizeMac(client.macAddress);
-                      final isWireless = wirelessMacs.any(
-                        (mac) => normalizeMac(mac) == clientMac,
-                      );
-                      return client.copyWith(
-                        connectionType: isWireless
-                            ? ConnectionType.wireless
-                            : ConnectionType.wired,
-                      );
-                    }).toList();
-
-                    // Sort: wireless > wired > unknown, then by hostname
-                    clients.sort((a, b) {
-                      int typeOrder(ConnectionType t) {
-                        switch (t) {
-                          case ConnectionType.wireless:
-                            return 0;
-                          case ConnectionType.wired:
-                            return 1;
-                          default:
-                            return 2;
-                        }
-                      }
-
-                      final cmpType = typeOrder(
-                        a.connectionType,
-                      ).compareTo(typeOrder(b.connectionType));
-                      if (cmpType != 0) return cmpType;
-                      return a.hostname.toLowerCase().compareTo(
-                        b.hostname.toLowerCase(),
-                      );
-                    });
+                    final clients = aggregatedClients;
 
                     final filteredClients = clients.where((client) {
                       final query = _searchQuery.toLowerCase();
@@ -210,6 +196,43 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen>
                                 ),
                               ),
                             ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16.0,
+                            vertical: 4.0,
+                          ),
+                          child: SegmentedButton<bool>(
+                            segments: const [
+                              ButtonSegment<bool>(
+                                value: true,
+                                label: Text('All'),
+                                icon: Icon(Icons.apartment),
+                              ),
+                              ButtonSegment<bool>(
+                                value: false,
+                                label: Text('Selected'),
+                                icon: Icon(Icons.router),
+                              ),
+                            ],
+                            selected: {_aggregateAllRouters},
+                            showSelectedIcon: false,
+                            style: SegmentedButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                            ),
+                            onSelectionChanged: (s) {
+                              setState(() {
+                                _aggregateAllRouters = s.first;
+                                _computeClientsFuture();
+                              });
+                              // Persist selection
+                              ref
+                                  .read(appStateProvider)
+                                  .setClientsAggregateAllRouters(
+                                      _aggregateAllRouters);
+                            },
                           ),
                         ),
                         Expanded(
