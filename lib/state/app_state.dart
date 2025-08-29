@@ -83,8 +83,53 @@ class AppState extends ChangeNotifier {
     await _loadReviewerMode();
     _initializeServices();
     await _loadThemeMode();
-    await loadDashboardPreferences();
-    await loadRouters(); // Load routers on app start
+    await loadRouters(); // Load routers on app start (sets selectedRouter)
+    await _migrateGlobalDashboardPreferencesIfNeeded(); // Proactively migrate legacy prefs
+    await loadDashboardPreferences(); // Load prefs scoped to selected router
+  }
+
+  /// One-time migration: if a global 'dashboard_preferences' exists,
+  /// copy it to each router-specific key that doesn't already have prefs.
+  Future<void> _migrateGlobalDashboardPreferencesIfNeeded() async {
+    try {
+      final globalKey = 'dashboard_preferences';
+      final globalJson = await _secureStorageService.readValue(globalKey);
+      if (globalJson == null || globalJson.isEmpty) return;
+
+      final routers = _routerService?.routers ?? const <model.Router>[];
+      if (routers.isEmpty) return;
+
+      // Validate JSON format before writing
+      try {
+        jsonDecode(globalJson);
+      } catch (_) {
+        return; // Not valid JSON; skip migration
+      }
+
+      for (final router in routers) {
+        final key = 'dashboard_preferences:${router.id}';
+        final existing = await _secureStorageService.readValue(key);
+        if (existing == null || existing.isEmpty) {
+          await _secureStorageService.writeValue(key, globalJson);
+        }
+      }
+
+      // If all routers now have scoped prefs, remove the legacy global key
+      var allHavePrefs = true;
+      for (final router in routers) {
+        final key = 'dashboard_preferences:${router.id}';
+        final v = await _secureStorageService.readValue(key);
+        if (v == null || v.isEmpty) {
+          allHavePrefs = false;
+          break;
+        }
+      }
+      if (allHavePrefs) {
+        await _secureStorageService.deleteValue(globalKey);
+      }
+    } catch (e, stack) {
+      Logger.exception('Failed migrating global dashboard preferences', e, stack);
+    }
   }
 
   Future<void> _loadReviewerMode() async {
@@ -142,9 +187,18 @@ class AppState extends ChangeNotifier {
 
   Future<void> loadDashboardPreferences() async {
     try {
-      final json = await _secureStorageService.readValue(
-        'dashboard_preferences',
-      );
+      // Scope preferences by selected router if available
+      final routerId = _routerService?.selectedRouter?.id;
+      final key = routerId != null
+          ? 'dashboard_preferences:$routerId'
+          : 'dashboard_preferences';
+
+      // Try router-specific key first
+      String? json = await _secureStorageService.readValue(key);
+      // Backward-compat: if missing, fall back to global key
+      if ((json == null || json.isEmpty) && routerId != null) {
+        json = await _secureStorageService.readValue('dashboard_preferences');
+      }
       if (json != null && json.isNotEmpty) {
         _dashboardPreferences = DashboardPreferences.fromJson(jsonDecode(json));
         notifyListeners();
@@ -158,10 +212,11 @@ class AppState extends ChangeNotifier {
   Future<void> saveDashboardPreferences(DashboardPreferences prefs) async {
     try {
       _dashboardPreferences = prefs;
-      await _secureStorageService.writeValue(
-        'dashboard_preferences',
-        jsonEncode(prefs.toJson()),
-      );
+      final routerId = _routerService?.selectedRouter?.id;
+      final key = routerId != null
+          ? 'dashboard_preferences:$routerId'
+          : 'dashboard_preferences';
+      await _secureStorageService.writeValue(key, jsonEncode(prefs.toJson()));
       notifyListeners();
     } catch (e, stack) {
       Logger.exception('Failed to save dashboard preferences', e, stack);
@@ -252,14 +307,21 @@ class AppState extends ChangeNotifier {
     // Clear throughput data when switching routers to prevent mixing data from different routers
     _cancelThroughputTimer();
 
+    // Determine a safe context before any awaits
+    final safeContext = context?.mounted == true ? context : null; // ignore: use_build_context_synchronously
+
+    // Load router-scoped dashboard preferences immediately on selection
+    await loadDashboardPreferences();
+
     notifyListeners();
+    // ignore: use_build_context_synchronously
     final loginSuccess = await login(
       found.ipAddress,
       found.username,
       found.password,
       found.useHttps,
       fromRouter: true,
-      context: context,
+      context: safeContext, // ignore: use_build_context_synchronously
     );
     if (loginSuccess) {
       await fetchDashboardData();

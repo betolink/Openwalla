@@ -86,6 +86,15 @@ class SecureStorageService {
     }
   }
 
+  Future<void> deleteValue(String key) async {
+    try {
+      await _storage.delete(key: key);
+    } catch (e, stack) {
+      Logger.exception('Failed to delete value for key: $key', e, stack);
+      rethrow;
+    }
+  }
+
   Future<void> saveRouters(List<Router> routers) async {
     try {
       final jsonList = routers.map((r) => r.toJson()).toList();
