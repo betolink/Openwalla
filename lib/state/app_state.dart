@@ -1341,10 +1341,10 @@ class AppState extends ChangeNotifier {
         final client = Client.fromLease(lease);
         final macNorm = client.macAddress.toUpperCase().replaceAll('-', ':');
         final isWireless = normalizedWireless.contains(macNorm);
-        final enriched = client.copyWith(
-          connectionType:
-              isWireless ? ConnectionType.wireless : ConnectionType.wired,
-        );
+        // If confirmed wireless by assoclist, mark wireless; otherwise keep heuristic
+        final enriched = isWireless
+            ? client.copyWith(connectionType: ConnectionType.wireless)
+            : client;
         // Prefer entries that have more info (hostname length as heuristic)
         if (!clients.containsKey(macNorm) ||
             (enriched.hostname.isNotEmpty &&
@@ -1418,10 +1418,9 @@ class AppState extends ChangeNotifier {
           final c = Client.fromLease(l);
           final macNorm = c.macAddress.toUpperCase().replaceAll('-', ':');
           final isWireless = normalizedMacs.contains(macNorm);
-          clientMap[macNorm] = c.copyWith(
-            connectionType:
-                isWireless ? ConnectionType.wireless : ConnectionType.wired,
-          );
+          clientMap[macNorm] = isWireless
+              ? c.copyWith(connectionType: ConnectionType.wireless)
+              : c;
         }
         // Add wireless stations not in DHCP leases (AP-mode fallback)
         for (final mac in normalizedMacs) {
@@ -1491,9 +1490,9 @@ class AppState extends ChangeNotifier {
         final c = Client.fromLease(l);
         final macNorm = c.macAddress.toUpperCase().replaceAll('-', ':');
         final isWireless = normalizedWireless.contains(macNorm);
-        clientMap[macNorm] = c.copyWith(
-          connectionType: isWireless ? ConnectionType.wireless : ConnectionType.wired,
-        );
+        clientMap[macNorm] = isWireless
+            ? c.copyWith(connectionType: ConnectionType.wireless)
+            : c;
       }
 
       // Add wireless stations not in DHCP leases (AP-mode fallback)

@@ -112,12 +112,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
 
     final buffer = StringBuffer();
-    const keys = ['channel', 'branch', 'version', 'revision', 'description'];
-    for (final key in keys) {
-      final value = release[key];
-      if (value == null) {
-        continue;
-      }
+    // Check ALL release fields, not just a hardcoded subset
+    for (final value in release.values) {
+      if (value == null) continue;
       buffer
         ..write(' ')
         ..write(value.toString().toLowerCase());
@@ -131,7 +128,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     if (combined.contains('beta')) {
       return 'beta';
     }
-    if (combined.contains('rc')) {
+    // Use pattern matching for 'rc' to avoid false positives on words like "source"
+    if (RegExp(r'[\b\-_.]rc[\d\b\-_.]').hasMatch(combined) ||
+        combined.contains('-rc') ||
+        combined.endsWith('rc')) {
       return 'rc';
     }
     if (combined.contains('testing')) {
