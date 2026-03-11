@@ -425,12 +425,11 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
 
     if (detailedData is Map &&
         detailedData.containsKey('interface') &&
-        detailedData['interface'] is List &&
-        statsDataSource is Map) {
+        detailedData['interface'] is List) {
       final List<dynamic> interfaceDataList = detailedData['interface'];
-      final Map<String, dynamic> networkStatsMap = Map<String, dynamic>.from(
-        statsDataSource,
-      );
+      final Map<String, dynamic> networkStatsMap = statsDataSource is Map
+          ? Map<String, dynamic>.from(statsDataSource)
+          : <String, dynamic>{};
 
       interfacesList = interfaceDataList.whereType<Map<String, dynamic>>().map((
         detailedInterfaceMap,

@@ -569,6 +569,13 @@ class AppState extends ChangeNotifier {
         params: {},
       );
 
+      // UCI wireless config is optional — wired-only routers may not have it
+      final uciWirelessFuture = callOptionalRpc(
+        object: 'uci',
+        method: 'get',
+        params: {'config': 'wireless'},
+      );
+
       final results = await Future.wait([
         _apiService!.call(
           ip,
@@ -610,14 +617,6 @@ class AppState extends ChangeNotifier {
           method: 'getDHCPLeases',
           params: {},
         ),
-        _apiService!.call(
-          ip,
-          _authService!.sysauth!,
-          useHttps,
-          object: 'uci',
-          method: 'get',
-          params: {'config': 'wireless'},
-        ),
       ]);
 
       // Helper to safely extract data and handle errors from LuCI's [status, data] responses
@@ -651,16 +650,26 @@ class AppState extends ChangeNotifier {
       final networkData = getData(results[2]) as Map<String, dynamic>?;
       final interfaceDump = getData(results[3]) as Map<String, dynamic>?;
       final dhcpLeases = getData(results[4]) as Map<String, dynamic>?;
-      final uciWirelessConfig = getData(results[5]);
+
+      // Await optional wireless futures in parallel (won't throw — wired-only routers are fine)
+      final optionalResults =
+          await Future.wait([wirelessFuture, uciWirelessFuture]);
+      final wirelessRaw = optionalResults[0];
+      final uciWirelessRaw = optionalResults[1];
 
       Map<String, dynamic>? wirelessData;
-      final wirelessRaw = await wirelessFuture;
       if (wirelessRaw != null) {
         final parsedWireless =
             getOptionalData(wirelessRaw, 'luci-rpc.getWirelessDevices');
         if (parsedWireless is Map<String, dynamic>) {
           wirelessData = parsedWireless;
         }
+      }
+
+      dynamic uciWirelessConfig;
+      if (uciWirelessRaw != null) {
+        uciWirelessConfig =
+            getOptionalData(uciWirelessRaw, 'uci.get wireless');
       }
 
       // Fetch WireGuard peer information for WireGuard interfaces
