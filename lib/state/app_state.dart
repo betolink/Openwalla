@@ -1354,6 +1354,13 @@ class AppState extends ChangeNotifier {
         }
       }
 
+      // Add wireless stations not in DHCP leases (AP-mode fallback)
+      for (final mac in normalizedWireless) {
+        if (!clients.containsKey(mac)) {
+          clients[mac] = Client.fromWirelessStation(mac);
+        }
+      }
+
       // Sort: wireless > wired > unknown, then by hostname
       final list = clients.values.toList();
       list.sort((a, b) {
@@ -1402,14 +1409,44 @@ class AppState extends ChangeNotifier {
                 .cast<Map<String, dynamic>>(),
           );
         }
-        return leases.map((l) {
+        // Normalize wireless MACs for consistent lookup
+        final normalizedMacs = macs
+            .map((m) => m.toUpperCase().replaceAll('-', ':'))
+            .toSet();
+        final clientMap = <String, Client>{};
+        for (final l in leases) {
           final c = Client.fromLease(l);
-          final isWireless = macs.contains(c.macAddress.toLowerCase());
-          return c.copyWith(
+          final macNorm = c.macAddress.toUpperCase().replaceAll('-', ':');
+          final isWireless = normalizedMacs.contains(macNorm);
+          clientMap[macNorm] = c.copyWith(
             connectionType:
                 isWireless ? ConnectionType.wireless : ConnectionType.wired,
           );
-        }).toList();
+        }
+        // Add wireless stations not in DHCP leases (AP-mode fallback)
+        for (final mac in normalizedMacs) {
+          if (!clientMap.containsKey(mac)) {
+            clientMap[mac] = Client.fromWirelessStation(mac);
+          }
+        }
+        final reviewerClients = clientMap.values.toList();
+        reviewerClients.sort((a, b) {
+          int typeOrder(ConnectionType t) {
+            switch (t) {
+              case ConnectionType.wireless:
+                return 0;
+              case ConnectionType.wired:
+                return 1;
+              default:
+                return 2;
+            }
+          }
+          final cmpType =
+              typeOrder(a.connectionType).compareTo(typeOrder(b.connectionType));
+          if (cmpType != 0) return cmpType;
+          return a.hostname.toLowerCase().compareTo(b.hostname.toLowerCase());
+        });
+        return reviewerClients;
       }
 
       if (_routerService?.selectedRouter == null || _authService?.sysauth == null) {
@@ -1444,13 +1481,29 @@ class AppState extends ChangeNotifier {
         );
       }
 
-      final clients = leases.map((l) {
+      // Normalize wireless MACs for consistent lookup
+      final normalizedWireless = wireless
+          .map((m) => m.toUpperCase().replaceAll('-', ':'))
+          .toSet();
+
+      final clientMap = <String, Client>{};
+      for (final l in leases) {
         final c = Client.fromLease(l);
-        final isWireless = wireless.contains(c.macAddress.toLowerCase());
-        return c.copyWith(
+        final macNorm = c.macAddress.toUpperCase().replaceAll('-', ':');
+        final isWireless = normalizedWireless.contains(macNorm);
+        clientMap[macNorm] = c.copyWith(
           connectionType: isWireless ? ConnectionType.wireless : ConnectionType.wired,
         );
-      }).toList();
+      }
+
+      // Add wireless stations not in DHCP leases (AP-mode fallback)
+      for (final mac in normalizedWireless) {
+        if (!clientMap.containsKey(mac)) {
+          clientMap[mac] = Client.fromWirelessStation(mac);
+        }
+      }
+
+      final clients = clientMap.values.toList();
 
       // Sort similar to aggregated
       clients.sort((a, b) {

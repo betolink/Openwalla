@@ -182,6 +182,17 @@ class Client {
     );
   }
 
+  /// Creates a Client from a wireless association MAC address (no DHCP data).
+  /// Used as a fallback for AP-mode routers where DHCP is handled upstream.
+  factory Client.fromWirelessStation(String macAddress) {
+    return Client(
+      ipAddress: 'N/A',
+      macAddress: macAddress,
+      hostname: 'Unknown',
+      connectionType: ConnectionType.wireless,
+    );
+  }
+
   // Get formatted lease time (e.g., "2d 4h 30m")
   String get formattedLeaseTime {
     if (leaseTime == null || leaseTime == 0) return 'Unlimited';
