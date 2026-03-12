@@ -29,6 +29,15 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
   String? _expandedInterface;
   final Map<String, GlobalKey> _interfaceKeys = {};
 
+  /// Safely extract a String from a UCI config value that may be a List or String.
+  static String _uciString(dynamic value, [String fallback = '']) {
+    if (value is String) return value;
+    if (value is List) {
+      return value.isNotEmpty ? value.first.toString() : fallback;
+    }
+    return value?.toString() ?? fallback;
+  }
+
   // Unified key generator for all interfaces
   String _interfaceKey({String? name, String? ssid, String? deviceName}) {
     if (ssid != null && ssid.trim().isNotEmpty) {
@@ -154,8 +163,10 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
                   final interface = interfaces[i];
                   final config = interface['config'] ?? {};
                   final iwinfo = interface['iwinfo'] ?? {};
-                  final deviceName = config['device'] ?? radioName;
-                  final ssid = iwinfo['ssid'] ?? config['ssid'] ?? '';
+                  final deviceName = _uciString(config['device'], radioName);
+                  final ssid = _uciString(iwinfo['ssid']).isNotEmpty
+                      ? _uciString(iwinfo['ssid'])
+                      : _uciString(config['ssid']);
                   final name = interface['name'] ?? '';
                   final keyStr = _interfaceKeyForWireless(
                     ssid: ssid,
@@ -520,28 +531,36 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
             final isEnabled = isRadioEnabled && isIfaceEnabled;
 
             final name = iface['name'] ?? '';
-            final ssid = iwinfo['ssid'] ?? config['ssid'] ?? '';
-            final deviceName = config['device'] ?? radioName;
+            final ssid = _uciString(iwinfo['ssid']).isNotEmpty
+                ? _uciString(iwinfo['ssid'])
+                : _uciString(config['ssid']);
+            final deviceName = _uciString(config['device'], radioName);
+            final mode = _uciString(config['mode']).toUpperCase().isNotEmpty
+                ? _uciString(config['mode']).toUpperCase()
+                : (iwinfo['mode']?.toString().toUpperCase() ?? 'N/A');
             interfacesList.add({
-              'name': config['ssid'] ?? iwinfo['ssid'] ?? 'Unnamed',
+              'name': _uciString(config['ssid']).isNotEmpty
+                  ? _uciString(config['ssid'])
+                  : (iwinfo['ssid']?.toString() ?? 'Unnamed'),
               'subtitle':
-                  '${config['mode']?.toUpperCase() ?? iwinfo['mode']?.toUpperCase() ?? 'N/A'} • Ch. ${iwinfo['channel']?.toString() ?? config['channel']?.toString() ?? 'N/A'}',
+                  '$mode • Ch. ${iwinfo['channel']?.toString() ?? _uciString(config['channel'], 'N/A')}',
               'isEnabled': isEnabled,
               'deviceName': deviceName,
               'radioName': radioName,
               'ssid': ssid,
               'interfaceName': name,
               'details': {
-                'Device': config['device'] ?? radioName,
-                'Mode': config['mode'] ?? iwinfo['mode'] ?? 'N/A',
+                'Device': _uciString(config['device'], radioName),
+                'Mode': _uciString(config['mode']).isNotEmpty
+                    ? _uciString(config['mode'])
+                    : (iwinfo['mode']?.toString() ?? 'N/A'),
                 'Channel':
                     iwinfo['channel']?.toString() ??
-                    config['channel']?.toString() ??
-                    'N/A',
+                    _uciString(config['channel'], 'N/A'),
                 'Signal': '${iwinfo['signal']?.toString() ?? '--'} dBm',
                 'Network': (config['network'] is List)
                     ? (config['network'] as List).join(', ')
-                    : config['network'] ?? 'N/A',
+                    : _uciString(config['network'], 'N/A'),
               },
             });
           }
@@ -551,15 +570,16 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
 
     uciInterfaces.forEach((uciName, config) {
       if (!runtimeInterfaces.contains(uciName)) {
-        final radioName = config['device'];
+        final radioName = _uciString(config['device']);
         final isRadioEnabled = uciRadios[radioName]?['disabled'] != '1';
-        final isIfaceEnabled = config['disabled'] != '1';
+        final isIfaceEnabled = _uciString(config['disabled']) != '1';
         final isEnabled = isRadioEnabled && isIfaceEnabled;
 
-        final name = config['ssid'] ?? 'Unnamed';
+        final name = _uciString(config['ssid'], 'Unnamed');
         interfacesList.add({
-          'name': config['ssid'] ?? 'Unnamed',
-          'subtitle': '${config['mode']?.toUpperCase() ?? 'N/A'} • Disabled',
+          'name': name,
+          'subtitle':
+              '${_uciString(config['mode'], 'N/A').toUpperCase()} • Disabled',
           'isEnabled': isEnabled,
           'deviceName': radioName,
           'radioName': radioName,
@@ -567,11 +587,11 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
           'interfaceName': name,
           'details': {
             'Device': radioName,
-            'Mode': config['mode'] ?? 'N/A',
-            'SSID': config['ssid'] ?? 'N/A',
+            'Mode': _uciString(config['mode'], 'N/A'),
+            'SSID': _uciString(config['ssid'], 'N/A'),
             'Network': (config['network'] is List)
                 ? (config['network'] as List).join(', ')
-                : config['network'] ?? 'N/A',
+                : _uciString(config['network'], 'N/A'),
           },
         });
       }
