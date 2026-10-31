@@ -53,6 +53,33 @@ class FakeFlowDB:
 
 
 class FakeRouterData:
+    def __init__(self):
+        self.access_calls = []
+        self.adblock = {
+            "enabled": False,
+            "blocklists": [],
+            "total_queries": 0,
+            "blocked_queries": 0,
+            "block_percent": 0,
+            "update_interval_hours": 24,
+        }
+
+    def apply_device_access(self, mac: str, blocked: bool, operation: str):
+        self.access_calls.append((mac, blocked, operation))
+        return {"mac": mac, "blocked": blocked}
+
+    def adblock_status(self):
+        return dict(self.adblock)
+
+    def set_adblock(self, enabled: bool, blocklists: list[str]):
+        self.adblock.update(
+            {
+                "enabled": enabled,
+                "blocklists": list(blocklists),
+            }
+        )
+        return dict(self.adblock)
+
     def device_details(self, mac: str, hours: int):
         return {
             "mac": mac,
@@ -260,9 +287,15 @@ class ControlApiTest(unittest.TestCase):
             f"/api/v1/devices/{device_id}/pause", json={"duration_minutes": 30}
         )
         self.assertTrue(paused.json()["paused"])
+        self.assertGreater(paused.json()["pause_until"], 0)
 
         resumed = self.client.post(f"/api/v1/devices/{device_id}/resume")
         self.assertFalse(resumed.json()["paused"])
+
+        calls = self.app.state.router_data.access_calls
+        self.assertEqual(
+            [called[1] for called in calls], [True, False, True, False]
+        )
 
         traffic = self.client.get(f"/api/v1/devices/{device_id}/traffic")
         self.assertEqual(traffic.status_code, 200)

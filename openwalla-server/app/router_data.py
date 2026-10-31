@@ -359,6 +359,99 @@ class RouterData:
         results = self.speedtests(1)
         return results[0] if results else {}
 
+    def apply_device_access(
+        self, mac: str, blocked: bool, operation: str
+    ) -> dict[str, Any]:
+        action = "block" if blocked else "release"
+        reason = "manual" if blocked else "current"
+        remote = (
+            ". /usr/lib/openwalla/device-access.sh; "
+            f"openwalla_device_access {action} {reason} "
+            f"{shlex.quote(mac)} {shlex.quote(operation)}"
+        )
+        output = self._run(remote, timeout=60)
+        expected = f"OPENWALLA_DEVICE_ACCESS_OK|{action}|"
+        if expected not in output:
+            raise RouterDataError(output.strip() or "device access apply failed")
+        return {"mac": mac, "blocked": blocked, "output": output.strip()}
+
+    def adblock_status(self) -> dict[str, Any]:
+        raw = self._run(
+            "/etc/init.d/adblock status 2>/dev/null; "
+            "echo '###UCI'; uci -q show adblock 2>/dev/null",
+            timeout=20,
+        )
+        sections: dict[str, list[str]] = {}
+        current = ""
+        for line in raw.splitlines():
+            if line.startswith("###"):
+                current = line[3:].strip()
+                sections[current] = []
+            elif current:
+                sections[current].append(line)
+
+        values = self._parse_uci(sections.get("UCI", []))
+        enabled = values.get("adblock.global.adb_enabled", "0") == "1"
+        raw_feeds = values.get("adblock.global.adb_feed", "")
+        feeds = [
+            value.strip("'\"")
+            for value in raw_feeds.replace("'", " ").replace('"', " ").split()
+            if value.strip("'\"")
+        ]
+        status_text = "\n".join(sections.get("", [])) if "" in sections else ""
+        # The status output precedes the ### marker.
+        status_text = "\n".join(
+            line for line in raw.splitlines() if not line.startswith("###")
+        )
+        blocked_domains = 0
+        last_updated = ""
+        for line in status_text.splitlines():
+            if "blocked_domains" in line and ":" in line:
+                digits = "".join(ch for ch in line.split(":", 1)[1] if ch.isdigit())
+                blocked_domains = int(digits or 0)
+            if "last_run" in line and "date / time:" in line:
+                last_updated = line.split("date / time:", 1)[1].strip()
+        return {
+            "enabled": enabled,
+            "blocklists": feeds,
+            "total_queries": 0,
+            "blocked_queries": blocked_domains,
+            "blocked_domains": blocked_domains,
+            "block_percent": 0,
+            "update_interval_hours": 24,
+            "last_updated": last_updated,
+            "active_feeds": feeds,
+        }
+
+    def set_adblock(
+        self, enabled: bool, blocklists: list[str]
+    ) -> dict[str, Any]:
+        current = self.adblock_status()
+        feeds = [
+            "".join(ch for ch in value.lower() if ch.isalnum() or ch in "_-")
+            for value in blocklists
+            if value.strip()
+        ]
+        feeds = [value for value in feeds if value]
+        if not feeds:
+            feeds = current.get("blocklists") or []
+        commands = [
+            f"uci set adblock.global.adb_enabled={'1' if enabled else '0'}",
+            "uci -q delete adblock.global.adb_feed",
+        ]
+        commands.extend(
+            f"uci add_list adblock.global.adb_feed={shlex.quote(feed)}"
+            for feed in feeds
+        )
+        commands.extend(
+            [
+                "uci commit adblock",
+                "/etc/init.d/adblock restart >/dev/null 2>&1 || true",
+            ]
+        )
+        self._run("; ".join(commands), timeout=180)
+        return self.adblock_status()
+
     def set_geoip_countries(self, countries: list[str]) -> dict[str, Any]:
         codes = " ".join(sorted({code.lower() for code in countries}))
         remote = f"""

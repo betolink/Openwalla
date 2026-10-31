@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import time
+import uuid
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
@@ -21,15 +23,41 @@ def _get(db: ControlDatabase, device_id: str) -> dict[str, Any]:
     return value
 
 
+def _source(request: Request, db: ControlDatabase, device: dict[str, Any]) -> Any:
+    source = getattr(request.app.state, "router_data", None)
+    if source is not None:
+        return source
+    router = db.get_router(device["router_id"])
+    if router is None:
+        raise HTTPException(404, "router not found")
+    return RouterData(
+        router["address"], ssh_key=os.getenv("OPENWALLA_ROUTER_SSH_KEY")
+    )
+
+
 def _action(
+    request: Request,
     db: ControlDatabase,
     device_id: str,
     *,
     blocked: bool | None = None,
-    paused: bool | None = None,
     event_type: str,
 ) -> dict[str, Any]:
-    value = db.set_device_state(device_id, blocked=blocked, paused=paused)
+    device = _get(db, device_id)
+    source = _source(request, db, device)
+    try:
+        if blocked is True:
+            source.apply_device_access(
+                device["mac"], True, uuid.uuid4().hex
+            )
+        elif blocked is False and not device.get("paused"):
+            source.apply_device_access(
+                device["mac"], False, uuid.uuid4().hex
+            )
+    except RouterDataError as error:
+        raise HTTPException(502, str(error)) from error
+
+    value = db.set_device_state(device_id, blocked=blocked)
     if value is None:
         raise HTTPException(404, "device not found")
     db.create_event(
@@ -142,30 +170,103 @@ def device_details(
 @router.post("/{device_id}/pause")
 def pause_device(
     device_id: str,
+    request: Request,
     db: Annotated[ControlDatabase, Depends(control_db)],
     payload: Annotated[dict[str, Any] | None, Body()] = None,
 ):
-    return _action(db, device_id, paused=True, event_type="device_paused")
+    device = _get(db, device_id)
+    minutes = 30
+    if payload and payload.get("duration_minutes") is not None:
+        try:
+            minutes = int(payload["duration_minutes"])
+        except (TypeError, ValueError) as error:
+            raise HTTPException(422, "duration_minutes must be an integer") from error
+    minutes = max(1, min(minutes, 10080))
+    source = _source(request, db, device)
+    try:
+        if not (device.get("blocked") or device.get("paused")):
+            source.apply_device_access(
+                device["mac"], True, uuid.uuid4().hex
+            )
+    except RouterDataError as error:
+        raise HTTPException(502, str(error)) from error
+    value = db.set_device_state(
+        device_id,
+        paused=True,
+        pause_until=int(time.time()) + minutes * 60,
+    )
+    if value is None:
+        raise HTTPException(404, "device not found")
+    db.create_event(
+        {
+            "type": "device_paused",
+            "severity": "info",
+            "message": f"device paused for {minutes}m: {value.get('hostname') or value['mac']}",
+            "router_id": value["router_id"],
+            "device_id": device_id,
+        }
+    )
+    return value
 
 
 @router.post("/{device_id}/resume")
 def resume_device(
-    device_id: str, db: Annotated[ControlDatabase, Depends(control_db)]
+    device_id: str,
+    request: Request,
+    db: Annotated[ControlDatabase, Depends(control_db)],
 ):
-    return _action(db, device_id, paused=False, event_type="device_resumed")
+    device = _get(db, device_id)
+    source = _source(request, db, device)
+    try:
+        if not device.get("blocked"):
+            source.apply_device_access(
+                device["mac"], False, uuid.uuid4().hex
+            )
+    except RouterDataError as error:
+        raise HTTPException(502, str(error)) from error
+    value = db.set_device_state(
+        device_id, paused=False, pause_until=0
+    )
+    if value is None:
+        raise HTTPException(404, "device not found")
+    db.create_event(
+        {
+            "type": "device_resumed",
+            "severity": "info",
+            "message": f"device resumed: {value.get('hostname') or value['mac']}",
+            "router_id": value["router_id"],
+            "device_id": device_id,
+        }
+    )
+    return value
 
 
 @router.post("/{device_id}/block")
 def block_device(
     device_id: str,
+    request: Request,
     db: Annotated[ControlDatabase, Depends(control_db)],
     payload: Annotated[dict[str, Any] | None, Body()] = None,
 ):
-    return _action(db, device_id, blocked=True, event_type="device_blocked")
+    return _action(
+        request,
+        db,
+        device_id,
+        blocked=True,
+        event_type="device_blocked",
+    )
 
 
 @router.post("/{device_id}/unblock")
 def unblock_device(
-    device_id: str, db: Annotated[ControlDatabase, Depends(control_db)]
+    device_id: str,
+    request: Request,
+    db: Annotated[ControlDatabase, Depends(control_db)],
 ):
-    return _action(db, device_id, blocked=False, event_type="device_unblocked")
+    return _action(
+        request,
+        db,
+        device_id,
+        blocked=False,
+        event_type="device_unblocked",
+    )

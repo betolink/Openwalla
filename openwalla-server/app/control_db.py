@@ -108,6 +108,7 @@ class ControlDatabase:
                     online INTEGER NOT NULL DEFAULT 0,
                     blocked INTEGER NOT NULL DEFAULT 0,
                     paused INTEGER NOT NULL DEFAULT 0,
+                    pause_until INTEGER NOT NULL DEFAULT 0,
                     group_id TEXT NOT NULL DEFAULT '',
                     first_seen TEXT NOT NULL,
                     last_seen TEXT NOT NULL,
@@ -217,6 +218,10 @@ class ControlDatabase:
             if "display_name" not in device_columns:
                 self._connection.execute(
                     "ALTER TABLE devices ADD COLUMN display_name TEXT NOT NULL DEFAULT ''"
+                )
+            if "pause_until" not in device_columns:
+                self._connection.execute(
+                    "ALTER TABLE devices ADD COLUMN pause_until INTEGER NOT NULL DEFAULT 0"
                 )
             self._connection.execute(
                 "INSERT OR IGNORE INTO adblock (id) VALUES (1)"
@@ -405,6 +410,7 @@ class ControlDatabase:
         blocked: bool | None = None,
         paused: bool | None = None,
         online: bool | None = None,
+        pause_until: int | None = None,
     ) -> dict[str, Any] | None:
         updates: list[str] = []
         values: list[Any] = []
@@ -416,6 +422,9 @@ class ControlDatabase:
             if value is not None:
                 updates.append(f"{key} = ?")
                 values.append(1 if value else 0)
+        if pause_until is not None:
+            updates.append("pause_until = ?")
+            values.append(int(pause_until))
         if not updates:
             return self.get_device(device_id)
         values.append(device_id)

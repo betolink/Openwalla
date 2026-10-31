@@ -30,6 +30,7 @@ export interface Device {
   online: boolean
   blocked: boolean
   paused: boolean
+  pause_until?: number
   group_id?: string
   first_seen?: string
   last_seen?: string
@@ -102,6 +103,7 @@ export interface AdblockStatus {
   total_queries: number
   blocked_queries: number
   block_percent: number
+  blocked_domains?: number
   blocklists: string[]
   update_interval_hours: number
   last_updated?: string
@@ -412,8 +414,11 @@ export const api = {
   unblockDevice: (id: string) =>
     request<Device>(`/api/v1/devices/${id}/unblock`, { method: 'POST' }),
 
-  pauseDevice: (id: string) =>
-    request<Device>(`/api/v1/devices/${id}/pause`, { method: 'POST' }),
+  pauseDevice: (id: string, durationMinutes = 30) =>
+    request<Device>(`/api/v1/devices/${id}/pause`, {
+      method: 'POST',
+      body: JSON.stringify({ duration_minutes: durationMinutes }),
+    }),
 
   resumeDevice: (id: string) =>
     request<Device>(`/api/v1/devices/${id}/resume`, { method: 'POST' }),

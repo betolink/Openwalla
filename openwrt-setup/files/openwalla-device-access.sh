@@ -84,7 +84,7 @@ openwalla_device_access() (
 	fi
 	# Remove only this reason's MAC membership. Other devices and policies survive.
 	: >"$work/removed-names"
-	for section in $(oa_sections); do
+	for section in $(oa_sections | awk '{ lines[NR]=$0 } END { for (i=NR; i>=1; i--) print lines[i] }'); do
 		oa_has_mac "$section" || continue
 		owned="$(oa_reason "$(oa_get "$section.name")")"
 		[ -n "$owned" ] || continue

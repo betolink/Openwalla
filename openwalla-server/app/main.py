@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import logging
 import hmac
+import os
 import socket
 import threading
+import time
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated
@@ -19,6 +22,7 @@ from .config import Settings
 from .control_db import ControlDatabase
 from .database import FlowDatabase
 from .notifier import Notifier
+from .router_data import RouterData
 from .runtime_config import RuntimeConfig, RuntimeOptions, public_settings
 from .api import api_router
 
@@ -67,6 +71,13 @@ async def lifespan(_: FastAPI):
         daemon=True,
     )
     notification_thread.start()
+    pause_thread = threading.Thread(
+        target=_watch_pauses,
+        args=(notification_stop,),
+        name="pause-monitor",
+        daemon=True,
+    )
+    pause_thread.start()
     try:
         yield
     finally:
@@ -99,6 +110,41 @@ def _watch_collector(notifier: Notifier, stop: threading.Event) -> None:
         previous = current
 
 
+def _watch_pauses(stop: threading.Event) -> None:
+    """Release timed device pauses when they expire."""
+    while not stop.wait(30):
+        try:
+            routers = control_db.list_routers()
+            if not routers:
+                continue
+            source = RouterData(
+                routers[0]["address"],
+                ssh_key=os.getenv("OPENWALLA_ROUTER_SSH_KEY"),
+            )
+            devices, _ = control_db.list_devices(limit=10000)
+            now = int(time.time())
+            for device in devices:
+                pause_until = int(device.get("pause_until") or 0)
+                if not device.get("paused") or pause_until <= 0 or pause_until > now:
+                    continue
+                if not device.get("blocked"):
+                    source.apply_device_access(
+                        device["mac"], False, uuid.uuid4().hex
+                    )
+                control_db.set_device_state(
+                    device["id"], paused=False, pause_until=0
+                )
+                control_db.create_event(
+                    {
+                        "type": "device_pause_expired",
+                        "severity": "info",
+                        "message": f"pause expired: {device.get('hostname') or device['mac']}",
+                        "router_id": device["router_id"],
+                        "device_id": device["id"],
+                    }
+                )
+        except Exception:
+            logging.exception("Unable to release expired device pauses")
 app = FastAPI(title="Openwalla Server", version="1.0.0", lifespan=lifespan)
 app.state.settings = settings
 app.state.authentication = authentication

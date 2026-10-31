@@ -83,9 +83,12 @@ export function Adblock() {
           value={status?.enabled ? 'enabled' : 'disabled'}
           hint={status?.last_updated ? `updated ${status.last_updated}` : undefined}
         />
-        <Stat label="Queries" value={status?.total_queries ?? 0} />
-        <Stat label="Blocked" value={status?.blocked_queries ?? 0} />
-        <Stat label="Block rate" value={`${status?.block_percent ?? 0}%`} />
+        <Stat
+          label="Blocked domains"
+          value={(status?.blocked_domains ?? status?.blocked_queries ?? 0).toLocaleString()}
+        />
+        <Stat label="Feeds" value={status?.blocklists?.length ?? 0} />
+        <Stat label="Update interval" value={`${status?.update_interval_hours ?? 24}h`} />
       </section>
 
       <Card title="Settings">
