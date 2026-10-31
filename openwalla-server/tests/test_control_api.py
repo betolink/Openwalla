@@ -309,7 +309,9 @@ class ControlApiTest(unittest.TestCase):
 
         traffic = self.client.get(f"/api/v1/devices/{device_id}/traffic")
         self.assertEqual(traffic.status_code, 200)
-        self.assertEqual(traffic.json()["samples"], [])
+        self.assertEqual(traffic.json()["rx_bytes"], 3000)
+        self.assertEqual(traffic.json()["tx_bytes"], 1500)
+        self.assertEqual(len(traffic.json()["samples"]), 1)
 
     def test_device_details(self) -> None:
         router = self.create_router()

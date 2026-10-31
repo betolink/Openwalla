@@ -56,6 +56,20 @@ export function Traffic() {
     void load()
   }, [load])
 
+  useEffect(() => {
+    if (typeof EventSource === 'undefined') return
+    const stream = new EventSource('/api/v1/traffic/live?hours=24&bucket=300')
+    stream.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data) as { items?: TrafficPoint[] }
+        if (Array.isArray(payload.items)) setSeries(payload.items)
+      } catch {
+        // ignore malformed SSE frames
+      }
+    }
+    return () => stream.close()
+  }, [])
+
   const flows = summary?.flows
   const collectorConnected = summary?.collector?.connected ?? false
   const recent = flows?.recent_flows ?? []
@@ -99,7 +113,7 @@ export function Traffic() {
       <Card
         title="Traffic timeseries"
         subtitle="Flows per 5 minutes · last 24 hours"
-        actions={<Badge tone="sky">live collector</Badge>}
+        actions={<Badge tone="sky">live SSE</Badge>}
       >
         {series.length > 0 ? (
           <TrafficChart data={series} height={280} />

@@ -140,16 +140,24 @@ def update_device(
 
 @router.get("/{device_id}/traffic")
 def device_traffic(
-    device_id: str, db: Annotated[ControlDatabase, Depends(control_db)]
+    device_id: str,
+    request: Request,
+    db: Annotated[ControlDatabase, Depends(control_db)],
 ):
-    value = _get(db, device_id)
+    device = _get(db, device_id)
+    source = _source(request, db, device)
+    try:
+        details = source.device_details(device["mac"], 24)
+    except RouterDataError as error:
+        raise HTTPException(502, str(error)) from error
+    daily = details.get("ranges", {}).get("1d", {})
     return {
-        "router_id": value["router_id"],
+        "router_id": device["router_id"],
         "device_id": device_id,
         "period": "day",
-        "rx_bytes": 0,
-        "tx_bytes": 0,
-        "samples": [],
+        "rx_bytes": daily.get("download", 0),
+        "tx_bytes": daily.get("upload", 0),
+        "samples": details.get("series", []),
     }
 
 

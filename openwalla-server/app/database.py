@@ -180,6 +180,7 @@ class FlowDatabase:
                        MAX(timeinsert) AS latest_flow
                 FROM flow_raw
                 WHERE timeinsert >= ?
+                  AND (internal = 1 OR interface = 'br-lan')
                 """,
                 (cutoff,),
             ).fetchone()
@@ -193,6 +194,7 @@ class FlowDatabase:
                        COUNT(*) AS count
                 FROM flow_raw
                 WHERE timeinsert >= ?
+                  AND (internal = 1 OR interface = 'br-lan')
                 GROUP BY name
                 ORDER BY count DESC, name ASC
                 LIMIT 8
@@ -235,6 +237,7 @@ class FlowDatabase:
                        COUNT(DISTINCT NULLIF(local_mac, '')) AS devices
                 FROM flow_raw
                 WHERE timeinsert >= ?
+                  AND (internal = 1 OR interface = 'br-lan')
                 GROUP BY bucket
                 ORDER BY bucket
                 """,
