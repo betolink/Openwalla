@@ -154,6 +154,15 @@ describe('api', () => {
     expect(fetchMock.mock.calls[3][0]).toBe(
       '/api/v1/network/geoip/lookup?ip=1.1.1.1',
     )
+
+    await api.getBlockedElements({ search: '1.2', limit: 50 })
+    expect(fetchMock.mock.calls[4][0]).toBe(
+      '/api/v1/network/blocked?search=1.2&limit=50',
+    )
+
+    await api.allowBlockedIP('1.2.3.4')
+    expect(fetchMock.mock.calls[5][0]).toBe('/api/v1/network/blocked/allow')
+    expect(fetchMock.mock.calls[5][1]?.method).toBe('POST')
   })
 
   it('renames a device', async () => {

@@ -18,6 +18,7 @@ import {
   type Topology,
 } from '../api'
 import { Badge, Button, Card, Empty, Input, PageHeader, Stat } from '../components/ui'
+import { BlockedElementsModal } from '../components/BlockedElementsModal'
 import { formatDateTime } from '../utils/format'
 
 function mbps(value?: number | null) {
@@ -33,6 +34,7 @@ export function Network() {
   const [status, setStatus] = useState<NetworkStatus | null>(null)
   const [topology, setTopology] = useState<Topology | null>(null)
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
+  const [blockedOpen, setBlockedOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -287,8 +289,17 @@ export function Network() {
 
         <Card
           title="banIP threat feeds"
-          subtitle="IP reputation and bogons"
-          actions={<Badge tone={banip?.active ? 'emerald' : 'slate'}>{banip?.active ? 'active' : 'off'}</Badge>}
+          subtitle="External IP reputation reports, not local heuristics"
+          actions={
+            <div className="flex items-center gap-2">
+              <Badge tone={banip?.active ? 'emerald' : 'slate'}>
+                {banip?.active ? 'active' : 'off'}
+              </Badge>
+              <Button onClick={() => setBlockedOpen(true)}>
+                View blocked
+              </Button>
+            </div>
+          }
         >
           <div className="space-y-3 p-4 text-sm">
             <p className="text-2xl font-semibold text-[var(--text)]">
@@ -306,7 +317,8 @@ export function Network() {
               Last run: {banip?.last_run || '—'}
             </p>
             <p className="text-xs text-[var(--muted)]">
-              Feeds are cached locally; no external GeoIP API is used.
+              Feeds are cached locally; no external GeoIP API is used. Source:
+              DShield, Feodo Tracker, ThreatView/ET and bogon lists.
             </p>
           </div>
         </Card>
@@ -488,6 +500,11 @@ export function Network() {
           </p>
         </div>
       </Card>
+
+      <BlockedElementsModal
+        open={blockedOpen}
+        onClose={() => setBlockedOpen(false)}
+      />
     </div>
   )
 }

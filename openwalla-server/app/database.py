@@ -205,6 +205,7 @@ class FlowDatabase:
                        detected_protocol_name, detected_app_name, ndpi_risk_score
                 FROM flow_raw
                 WHERE timeinsert >= ?
+                  AND (internal = 1 OR interface = 'br-lan')
                 ORDER BY id DESC
                 LIMIT 40
                 """,

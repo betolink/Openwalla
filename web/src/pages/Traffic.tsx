@@ -128,7 +128,7 @@ export function Traffic() {
 
         <Card
           title="Recent flows"
-          subtitle={`${formatBytes(flows?.database_bytes)} stored`}
+          subtitle={`${formatBytes(flows?.database_bytes)} stored · risk = Netify DPI score, not a threat feed`}
         >
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
@@ -164,7 +164,11 @@ export function Traffic() {
                       </td>
                       <td className="px-3 py-2">
                         {Number(row.ndpi_risk_score ?? 0) > 0 ? (
-                          <Badge tone="rose">{String(row.ndpi_risk_score)}</Badge>
+                          <span
+                            title="Netify/nDPI flow risk score. This is a DPI heuristic, not a threat-feed match."
+                          >
+                            <Badge tone="rose">{String(row.ndpi_risk_score)}</Badge>
+                          </span>
                         ) : (
                           <span className="text-[var(--subtle)]">0</span>
                         )}

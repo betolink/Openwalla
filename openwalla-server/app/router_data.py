@@ -8,6 +8,7 @@ router.
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import shlex
 import subprocess
@@ -352,4 +353,108 @@ class RouterData:
         """
         self._run(remote, timeout=120)
         return self.network_status()["geoip"]
+
+    def blocked_elements(
+        self,
+        search: str = "",
+        feed: str = "",
+        limit: int = 100,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        limit = max(1, min(int(limit), 500))
+        offset = max(0, int(offset))
+        raw = self._run("nft -j list table inet banIP", timeout=20)
+        try:
+            payload = json.loads(raw)
+        except ValueError as error:
+            raise RouterDataError("invalid nft response") from error
+
+        items: list[dict[str, Any]] = []
+        feed_counts: dict[str, int] = {}
+        for entry in payload.get("nftables", []):
+            set_data = entry.get("set")
+            if not set_data:
+                continue
+            name = set_data.get("name") or ""
+            if not (name.endswith(".v4") or name.endswith(".v6")):
+                continue
+            feed_name = name.rsplit(".", 1)[0]
+            if feed_name in {"allowlist", "blocklist"}:
+                continue
+            elements = set_data.get("elem") or []
+            feed_counts[feed_name] = feed_counts.get(feed_name, 0) + len(elements)
+            for element in elements:
+                value = (element.get("elem") or {}).get("val")
+                addresses: list[str] = []
+                if isinstance(value, dict) and "prefix" in value:
+                    prefix = value["prefix"]
+                    addresses = [
+                        f"{prefix.get('addr', '')}/{prefix.get('len', '')}"
+                    ]
+                elif isinstance(value, dict) and "range" in value:
+                    start, end = value["range"]
+                    try:
+                        addresses = [
+                            str(network)
+                            for network in ipaddress.summarize_address_range(
+                                ipaddress.ip_address(start),
+                                ipaddress.ip_address(end),
+                            )
+                        ]
+                    except ValueError:
+                        addresses = [f"{start}-{end}"]
+                elif isinstance(value, str):
+                    addresses = [value]
+                else:
+                    continue
+                counter = (element.get("elem") or {}).get("counter") or {}
+                for address in addresses:
+                    items.append(
+                        {
+                            "ip": address,
+                            "feed": feed_name,
+                            "family": "ipv6" if name.endswith(".v6") else "ipv4",
+                            "packets": int(counter.get("packets", 0) or 0),
+                            "bytes": int(counter.get("bytes", 0) or 0),
+                        }
+                    )
+
+        needle = search.strip().lower()
+        selected_feed = feed.strip().lower()
+        if needle:
+            items = [
+                item
+                for item in items
+                if needle in item["ip"].lower() or needle in item["feed"].lower()
+            ]
+        if selected_feed:
+            items = [item for item in items if item["feed"] == selected_feed]
+        items.sort(key=lambda item: (item["feed"], item["ip"]))
+        total = len(items)
+        return {
+            "items": items[offset : offset + limit],
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "feeds": [
+                {"name": value, "count": count}
+                for value, count in sorted(feed_counts.items())
+            ],
+            "source": "external reputation feeds, not local heuristics",
+        }
+
+    def allowlist_ip(self, value: str) -> dict[str, Any]:
+        remote = f"""
+        value={shlex.quote(value)}
+        file=/etc/banip/banip.allowlist
+        changed=0
+        if ! grep -qF "$value" "$file" 2>/dev/null; then
+          printf '%-45s%s\\n' "$value" "# openwalla allowlist $(date -u +%Y-%m-%dT%H:%M:%SZ)" >>"$file"
+          changed=1
+          /etc/init.d/banip restart >/dev/null 2>&1 || true
+        fi
+        echo "$changed"
+        """
+        changed = self._run(remote, timeout=120).strip().endswith("1")
+        return {"ip": value, "allowed": True, "changed": changed}
 

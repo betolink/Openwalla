@@ -109,6 +109,20 @@ class FakeNetworkData:
     def set_geoip_countries(self, countries):
         return {"countries": countries, "enabled": True}
 
+    def blocked_elements(self, search="", feed="", limit=100, offset=0):
+        return {
+            "items": [
+                {"ip": "1.2.3.0/24", "feed": "dshield", "family": "ipv4"}
+            ],
+            "total": 1,
+            "limit": limit,
+            "offset": offset,
+            "feeds": [{"name": "dshield", "count": 1}],
+        }
+
+    def allowlist_ip(self, ip):
+        return {"ip": ip, "allowed": True, "changed": True}
+
 
 class FakeNotifier:
     def test(self):
@@ -321,6 +335,20 @@ class ControlApiTest(unittest.TestCase):
             "/api/v1/network/geoip/lookup", params={"ip": "not-an-ip"}
         )
         self.assertEqual(invalid_ip.status_code, 422)
+
+        blocked = self.client.get("/api/v1/network/blocked")
+        self.assertEqual(blocked.status_code, 200)
+        self.assertEqual(blocked.json()["items"][0]["feed"], "dshield")
+
+        allowed = self.client.post(
+            "/api/v1/network/blocked/allow", json={"ip": "1.2.3.4"}
+        )
+        self.assertEqual(allowed.status_code, 200)
+        self.assertTrue(allowed.json()["allowed"])
+        invalid_allow = self.client.post(
+            "/api/v1/network/blocked/allow", json={"ip": "nope"}
+        )
+        self.assertEqual(invalid_allow.status_code, 422)
 
         topology = self.client.get("/api/v1/network/topology")
         self.assertEqual(topology.status_code, 200)

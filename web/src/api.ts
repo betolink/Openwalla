@@ -213,6 +213,34 @@ export interface GeoIPLookupResult {
   continent: string
 }
 
+export interface BlockedElement {
+  ip: string
+  feed: string
+  family: 'ipv4' | 'ipv6'
+  packets: number
+  bytes: number
+}
+
+export interface BlockedFeed {
+  name: string
+  count: number
+}
+
+export interface BlockedElementsResponse {
+  items: BlockedElement[]
+  total: number
+  limit: number
+  offset: number
+  feeds: BlockedFeed[]
+  source?: string
+}
+
+export interface AllowlistResult {
+  ip: string
+  allowed: boolean
+  changed: boolean
+}
+
 export interface TopologyDevice {
   id: string
   mac: string
@@ -459,6 +487,22 @@ export const api = {
     request<GeoIPLookupResult>(
       `/api/v1/network/geoip/lookup?ip=${encodeURIComponent(ip)}`,
     ),
+
+  getBlockedElements: (params: {
+    search?: string
+    feed?: string
+    limit?: number
+    offset?: number
+  } = {}) =>
+    request<BlockedElementsResponse>(
+      `/api/v1/network/blocked${query(params)}`,
+    ),
+
+  allowBlockedIP: (ip: string) =>
+    request<AllowlistResult>('/api/v1/network/blocked/allow', {
+      method: 'POST',
+      body: JSON.stringify({ ip }),
+    }),
 
   listNotifications: () =>
     request<{ items: NotificationItem[]; unread: number }>(

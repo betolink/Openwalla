@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import ipaddress
 import os
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from ..control_db import ControlDatabase
@@ -84,6 +85,63 @@ def geoip_lookup(ip: str):
         raise HTTPException(422, str(error)) from error
     except GeoIPError as error:
         raise HTTPException(503, str(error)) from error
+
+
+@router.get("/blocked")
+def blocked_elements(
+    request: Request,
+    db: Annotated[ControlDatabase, Depends(control_db)],
+    search: str = "",
+    feed: str = "",
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
+    try:
+        return _source(request, db).blocked_elements(
+            search=search, feed=feed, limit=limit, offset=offset
+        )
+    except RouterDataError as error:
+        raise HTTPException(502, str(error)) from error
+
+
+class AllowlistRequest(BaseModel):
+    ip: str
+
+
+@router.post("/blocked/allow")
+def allow_blocked_ip(
+    payload: AllowlistRequest,
+    request: Request,
+    db: Annotated[ControlDatabase, Depends(control_db)],
+):
+    value = payload.ip.strip()
+    try:
+        normalized = str(ipaddress.ip_address(value))
+    except ValueError:
+        try:
+            normalized = str(ipaddress.ip_network(value, strict=False))
+        except ValueError as error:
+            raise HTTPException(422, "invalid IP address or CIDR") from error
+
+    try:
+        result = _source(request, db).allowlist_ip(normalized)
+    except RouterDataError as error:
+        raise HTTPException(502, str(error)) from error
+
+    try:
+        router_row = _first_router(db)
+        db.create_event(
+            {
+                "type": "ip_allowlisted",
+                "severity": "warning",
+                "message": f"allowlisted {normalized}",
+                "router_id": router_row["id"],
+                "data": result,
+            }
+        )
+    except Exception:
+        pass
+    return result
 
 
 @router.get("/topology")
