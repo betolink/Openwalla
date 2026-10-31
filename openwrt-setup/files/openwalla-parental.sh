@@ -9,7 +9,7 @@ RULE_PREFIX="openwalla_parental_profile_"
 
 uci_get() { uci -q get "$1" 2>/dev/null || true; }
 sql_escape() { printf "%s" "$1" | sed "s/'/''/g"; }
-normalize_mac() { printf "%s" "$1" | tr '[:lower:]-' '[:upper:]:'; }
+normalize_mac() { printf "%s" "$1" | tr '[:lower:]' '[:upper:]' | tr '-' ':'; }
 is_number() { case "$1" in ''|*[!0-9]*) return 1 ;; *) return 0 ;; esac; }
 sqlite_bin() {
 	command -v sqlite3 >/dev/null 2>&1 && { echo sqlite3; return; }

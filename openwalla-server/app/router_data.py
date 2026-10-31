@@ -452,6 +452,50 @@ class RouterData:
         self._run("; ".join(commands), timeout=180)
         return self.adblock_status()
 
+    def sync_parental(
+        self,
+        profile_id: str,
+        name: str,
+        enabled: bool,
+        paused: bool,
+        pause_until: int,
+        content_filter: str,
+        custom_dns: str,
+        daily_limit_minutes: int,
+        active_days: str,
+        block_time: str,
+        resume_time: str,
+        member_macs: list[str],
+    ) -> dict[str, Any]:
+        arguments = [
+            "/usr/bin/openwalla-parental",
+            "profile-save",
+            profile_id,
+            name,
+            "",
+            "",
+            "1" if enabled else "0",
+            "1" if paused else "0",
+            str(int(pause_until or 0)),
+            content_filter or "none",
+            custom_dns or "",
+            str(max(0, int(daily_limit_minutes or 0))),
+            active_days or "",
+            block_time or "",
+            resume_time or "",
+            *member_macs,
+        ]
+        remote = " ".join(shlex.quote(value) for value in arguments)
+        output = self._run(remote, timeout=60)
+        return {"profile_id": profile_id, "output": output.strip()}
+
+    def delete_parental(self, profile_id: str) -> dict[str, Any]:
+        remote = (
+            f"/usr/bin/openwalla-parental profile-delete {shlex.quote(profile_id)}"
+        )
+        output = self._run(remote, timeout=60)
+        return {"profile_id": profile_id, "output": output.strip()}
+
     def set_geoip_countries(self, countries: list[str]) -> dict[str, Any]:
         codes = " ".join(sorted({code.lower() for code in countries}))
         remote = f"""

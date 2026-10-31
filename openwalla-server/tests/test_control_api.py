@@ -80,6 +80,16 @@ class FakeRouterData:
         )
         return dict(self.adblock)
 
+    def sync_parental(self, *args, **kwargs):
+        self.parental_syncs = getattr(self, "parental_syncs", [])
+        self.parental_syncs.append((args, kwargs))
+        return {"profile_id": args[0] if args else ""}
+
+    def delete_parental(self, profile_id: str):
+        self.parental_deletes = getattr(self, "parental_deletes", [])
+        self.parental_deletes.append(profile_id)
+        return {"profile_id": profile_id}
+
     def device_details(self, mac: str, hours: int):
         return {
             "mac": mac,
@@ -340,6 +350,33 @@ class ControlApiTest(unittest.TestCase):
             f"/api/v1/devices/{device['id']}", json={"display_name": ""}
         )
         self.assertEqual(cleared.json()["display_name"], "")
+
+    def test_parental_profile_syncs_member_macs(self) -> None:
+        router = self.create_router()
+        self.client.post(f"/api/v1/routers/{router['id']}/sync")
+        device = self.client.get(
+            "/api/v1/devices", params={"router_id": router["id"]}
+        ).json()["items"][0]
+        profile = self.client.post(
+            "/api/v1/parental/profiles",
+            json={
+                "name": "Kids",
+                "member_ids": [device["id"]],
+                "daily_limit_minutes": 60,
+            },
+        )
+        self.assertEqual(profile.status_code, 201)
+        syncs = self.app.state.router_data.parental_syncs
+        self.assertEqual(syncs[0][0][-1], [device["mac"].lower()])
+
+        deleted = self.client.delete(
+            f"/api/v1/parental/profiles/{profile.json()['id']}"
+        )
+        self.assertEqual(deleted.status_code, 204)
+        self.assertEqual(
+            self.app.state.router_data.parental_deletes,
+            [profile.json()["id"]],
+        )
 
     def test_network_status_speedtest_topology_and_notification(self) -> None:
         router = self.create_router()
