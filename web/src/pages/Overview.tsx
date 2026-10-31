@@ -1,15 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Activity, Ban, Bell, ShieldCheck, Wifi } from 'lucide-react'
 import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
-import {
   api,
   type AdblockStatus,
   type Device,
@@ -19,19 +10,13 @@ import {
   type TrafficPoint,
 } from '../api'
 import { DeviceCard } from '../components/DeviceCard'
+import { TrafficChart } from '../components/TrafficChart'
 import { Badge, Button, Card, Empty, PageHeader, Stat } from '../components/ui'
 
 function formatTime(value?: string) {
   if (!value) return '—'
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
-}
-
-function formatClock(timestamp: number) {
-  const date = new Date(timestamp * 1000)
-  return Number.isNaN(date.getTime())
-    ? String(timestamp)
-    : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
 export function Overview() {
@@ -123,10 +108,6 @@ export function Overview() {
   const primaryRouter = routers[0]
   const onlineRouters = routers.filter((router) => router.status === 'online').length
   const onlineDevices = devices.filter((device) => device.online).length
-  const chartData = series.map((point) => ({
-    ...point,
-    label: formatClock(point.timestamp),
-  }))
   const topApps = flows?.flows?.top_applications ?? []
   const maxApp = Math.max(1, ...topApps.map((app) => app.count))
 
@@ -239,55 +220,8 @@ export function Overview() {
           </Badge>
         }
       >
-        {chartData.length > 0 ? (
-          <div className="h-64 px-2 pb-3 pt-5">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={chartData}
-                margin={{ top: 8, right: 12, left: -18, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient id="flows" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.45} />
-                    <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  stroke="var(--border)"
-                  strokeDasharray="3 3"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fill: 'var(--subtle)', fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={false}
-                  minTickGap={32}
-                />
-                <YAxis
-                  tick={{ fill: 'var(--subtle)', fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={false}
-                  allowDecimals={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 8,
-                    color: 'var(--text)',
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="flows"
-                  stroke="var(--accent)"
-                  strokeWidth={2}
-                  fill="url(#flows)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+        {series.length > 0 ? (
+          <TrafficChart data={series} />
         ) : (
           <Empty>
             No flow data yet. Netify is connected when the Traffic page shows

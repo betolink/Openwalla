@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, type FlowDashboard } from '../api'
+import { api, type FlowDashboard, type TrafficPoint } from '../api'
+import { TrafficChart } from '../components/TrafficChart'
 import { Badge, Button, Card, Empty, PageHeader, Stat } from '../components/ui'
 
 function formatBytes(value?: number) {
@@ -22,6 +23,7 @@ function formatEpoch(value?: number | null) {
 
 export function Traffic() {
   const [summary, setSummary] = useState<FlowDashboard | null>(null)
+  const [series, setSeries] = useState<TrafficPoint[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -29,7 +31,20 @@ export function Traffic() {
     setLoading(true)
     setError(null)
     try {
-      setSummary(await api.getFlowDashboard(24))
+      const [summaryResult, seriesResult] = await Promise.allSettled([
+        api.getFlowDashboard(24),
+        api.getTrafficSeries(24, 300),
+      ])
+      if (summaryResult.status === 'fulfilled') {
+        setSummary(summaryResult.value)
+      } else {
+        throw summaryResult.reason
+      }
+      setSeries(
+        seriesResult.status === 'fulfilled'
+          ? (seriesResult.value.items ?? [])
+          : [],
+      )
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to load flows')
     } finally {
@@ -80,6 +95,18 @@ export function Traffic() {
           Everything router components on betowrt to populate flows and DPI.
         </div>
       )}
+
+      <Card
+        title="Traffic timeseries"
+        subtitle="Flows per 5 minutes · last 24 hours"
+        actions={<Badge tone="sky">live collector</Badge>}
+      >
+        {series.length > 0 ? (
+          <TrafficChart data={series} height={280} />
+        ) : (
+          <Empty>No traffic timeseries yet.</Empty>
+        )}
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
         <Card title="Top applications">
