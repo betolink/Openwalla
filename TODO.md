@@ -21,12 +21,33 @@ Updated: 2026-10-31
 - [x] Web scaffold (Vite + React + TS + Tailwind)
 - [x] Typed API client
 - [x] Overview + Devices + Router setup pages
-- [x] Web tests + production build green (5 tests)
-- [ ] Run backend locally and connect betowrt
-- [ ] Verify device sync against 192.168.0.1
-- [ ] Policies / parental / adblock pages
-- [ ] Live traffic charts
+- [x] Firewalla-style layout: sidebar, network hero, device cards
+- [x] Dark/light theme switch (light = Material purple palette)
+- [x] Traffic timeseries chart on Overview and Traffic
+- [x] Web tests + production build green (11 tests)
+- [x] Run backend locally and connect betowrt (26 devices synced)
+- [x] Netify flows wired to the API (flows + 5-minute series)
+- [x] Ansible deployment playbook (`clusterfunk/playbooks/29-openwalla.yml`)
+- [ ] Policies / parental / adblock pages backed by router state
+- [ ] Agent sync + enforcement (block/pause/parental/adblock)
 - [ ] Auth login/logout in the UI
+
+## Feature wiring status
+
+| Feature | Dashboard | Router side |
+|---------|-----------|-------------|
+| Router list / sync | yes | LuCI RPC |
+| Device inventory | yes | LuCI RPC + collectors |
+| Device block / pause | yes (desired state) | agent enforcement pending |
+| Traffic / flows | yes | Netify collector connected |
+| Traffic timeseries | yes | `flow_raw` 5-minute buckets |
+| Adblock | UI only (control DB) | adblock active; sync pending |
+| Parental / schedules | UI only (control DB) | helpers installed; enforcement pending |
+| Policies / groups | UI only (control DB) | enforcement pending |
+| Events | yes (control DB) | router event sync pending |
+| banIP / SQM | no | installed, not configured |
+| AdGuard | no | adblock active instead |
+| Suricata | no | not packaged in 25.12 |
 
 ## Next — Web dashboard (primary deliverable)
 
