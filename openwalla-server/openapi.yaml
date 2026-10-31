@@ -1,0 +1,1512 @@
+openapi: 3.0.3
+info:
+  title: OpenWalla API
+  version: 1.0.0
+  description: |
+    Control-plane API for the OpenWalla web dashboard, mobile app and router agent.
+
+    Two management paths exist:
+    - The dashboard reaches this API through Cloudflare Access + Tunnel.
+    - The API reaches a LAN router (betowrt at 192.168.0.1) directly over
+      192.168.0.0/24 using LuCI RPC/ubus. Remote routers connect outbound via
+      the agent/tunnel; LuCI and SSH are never exposed publicly.
+
+    Authentication:
+    - Dashboard: session cookie from `POST /api/v1/auth/login`.
+    - API clients/agents: bearer token.
+    - Router credentials are stored server-side and never returned.
+
+servers:
+  - url: https://net.betolink.cloud
+    description: Production (Cloudflare Access in front)
+  - url: http://192.168.0.101:2020
+    description: Homelab/LAN development
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: Routers
+  - name: Devices
+  - name: Interfaces
+  - name: Traffic
+  - name: Policies
+  - name: Parental
+  - name: Adblock
+  - name: Flows
+  - name: Events
+  - name: Notifications
+  - name: Settings
+  - name: Agent
+
+security:
+  - bearerAuth: []
+  - sessionCookie: []
+
+paths:
+  /api/v1/health:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
+  /api/v1/status:
+    get:
+      tags: [Health]
+      summary: Service and router summary
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Status"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Create a dashboard session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Logged in; sets `openwalla_session` cookie
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Destroy the dashboard session
+      responses:
+        "204":
+          description: Logged out
+
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: Current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/routers:
+    get:
+      tags: [Routers]
+      summary: List routers
+      responses:
+        "200":
+          description: Routers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Router"
+                  total:
+                    type: integer
+    post:
+      tags: [Routers]
+      summary: Register a router
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RouterInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Router"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/v1/routers/{router_id}:
+    parameters:
+      - $ref: "#/components/parameters/RouterId"
+    get:
+      tags: [Routers]
+      summary: Get a router
+      responses:
+        "200":
+          description: Router
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Router"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Routers]
+      summary: Update a router
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RouterInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Router"
+    delete:
+      tags: [Routers]
+      summary: Remove a router
+      responses:
+        "204":
+          description: Removed
+
+  /api/v1/devices:
+    get:
+      tags: [Devices]
+      summary: List devices
+      parameters:
+        - $ref: "#/components/parameters/RouterIdQuery"
+        - name: online
+          in: query
+          schema:
+            type: boolean
+        - name: group_id
+          in: query
+          schema:
+            type: string
+        - name: q
+          in: query
+          description: Search hostname, IP, MAC or vendor
+          schema:
+            type: string
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Devices
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Device"
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/devices/{device_id}:
+    parameters:
+      - $ref: "#/components/parameters/DeviceId"
+    get:
+      tags: [Devices]
+      summary: Get a device
+      responses:
+        "200":
+          description: Device
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Device"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Devices]
+      summary: Update device metadata (name, type, group, tags)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Device"
+
+  /api/v1/devices/{device_id}/traffic:
+    parameters:
+      - $ref: "#/components/parameters/DeviceId"
+    get:
+      tags: [Traffic]
+      summary: Device traffic history
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [hour, day, week, month]
+            default: day
+      responses:
+        "200":
+          description: Traffic history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrafficHistory"
+
+  /api/v1/devices/{device_id}/pause:
+    post:
+      tags: [Devices]
+      summary: Pause internet for a device
+      parameters:
+        - $ref: "#/components/parameters/DeviceId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceAction"
+      responses:
+        "200":
+          description: Device paused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Device"
+
+  /api/v1/devices/{device_id}/resume:
+    post:
+      tags: [Devices]
+      summary: Resume internet for a device
+      parameters:
+        - $ref: "#/components/parameters/DeviceId"
+      responses:
+        "200":
+          description: Device resumed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Device"
+
+  /api/v1/devices/{device_id}/block:
+    post:
+      tags: [Devices]
+      summary: Block a device
+      parameters:
+        - $ref: "#/components/parameters/DeviceId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceAction"
+      responses:
+        "200":
+          description: Device blocked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Device"
+
+  /api/v1/devices/{device_id}/unblock:
+    post:
+      tags: [Devices]
+      summary: Unblock a device
+      parameters:
+        - $ref: "#/components/parameters/DeviceId"
+      responses:
+        "200":
+          description: Device unblocked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Device"
+
+  /api/v1/interfaces:
+    get:
+      tags: [Interfaces]
+      summary: List router interfaces
+      parameters:
+        - $ref: "#/components/parameters/RouterIdQuery"
+      responses:
+        "200":
+          description: Interfaces
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Interface"
+
+  /api/v1/traffic/live:
+    get:
+      tags: [Traffic]
+      summary: Live traffic stream (Server-Sent Events)
+      description: |
+        `text/event-stream` of `TrafficEvent` objects. Each event is a JSON
+        object on a `data:` line. Clients should reconnect with `Last-Event-ID`.
+      parameters:
+        - $ref: "#/components/parameters/RouterIdQuery"
+        - name: device_id
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                $ref: "#/components/schemas/TrafficEvent"
+
+  /api/v1/traffic/history:
+    get:
+      tags: [Traffic]
+      summary: Router/aggregate traffic history
+      parameters:
+        - $ref: "#/components/parameters/RouterIdQuery"
+        - name: device_id
+          in: query
+          schema:
+            type: string
+        - name: hours
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 168
+            default: 24
+      responses:
+        "200":
+          description: Traffic history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrafficHistory"
+
+  /api/v1/policies:
+    get:
+      tags: [Policies]
+      summary: List policies
+      responses:
+        "200":
+          description: Policies
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Policy"
+    post:
+      tags: [Policies]
+      summary: Create a policy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PolicyInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Policy"
+
+  /api/v1/policies/{policy_id}:
+    parameters:
+      - $ref: "#/components/parameters/PolicyId"
+    get:
+      tags: [Policies]
+      summary: Get a policy
+      responses:
+        "200":
+          description: Policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Policy"
+    put:
+      tags: [Policies]
+      summary: Replace a policy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PolicyInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Policy"
+    delete:
+      tags: [Policies]
+      summary: Delete a policy
+      responses:
+        "204":
+          description: Deleted
+
+  /api/v1/groups:
+    get:
+      tags: [Policies]
+      summary: List device groups
+      responses:
+        "200":
+          description: Groups
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Group"
+    post:
+      tags: [Policies]
+      summary: Create a group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroupInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Group"
+
+  /api/v1/parental/profiles:
+    get:
+      tags: [Parental]
+      summary: List parental profiles
+      responses:
+        "200":
+          description: Profiles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ParentalProfile"
+    post:
+      tags: [Parental]
+      summary: Create a parental profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParentalProfileInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParentalProfile"
+
+  /api/v1/parental/profiles/{profile_id}:
+    parameters:
+      - $ref: "#/components/parameters/ProfileId"
+    get:
+      tags: [Parental]
+      summary: Get a parental profile
+      responses:
+        "200":
+          description: Profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParentalProfile"
+    put:
+      tags: [Parental]
+      summary: Replace a parental profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParentalProfileInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParentalProfile"
+    delete:
+      tags: [Parental]
+      summary: Delete a parental profile
+      responses:
+        "204":
+          description: Deleted
+
+  /api/v1/adblock/status:
+    get:
+      tags: [Adblock]
+      summary: Adblock status and counters
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdblockStatus"
+
+  /api/v1/adblock/settings:
+    get:
+      tags: [Adblock]
+      summary: Adblock settings
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdblockSettings"
+    put:
+      tags: [Adblock]
+      summary: Update adblock settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdblockSettings"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdblockSettings"
+
+  /api/v1/flows:
+    get:
+      tags: [Flows]
+      summary: Network flows (Netify/simple)
+      parameters:
+        - $ref: "#/components/parameters/RouterIdQuery"
+        - name: device_id
+          in: query
+          schema:
+            type: string
+        - name: hours
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 168
+            default: 24
+        - name: protocol
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Flows
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Flow"
+                  total:
+                    type: integer
+
+  /api/v1/events:
+    get:
+      tags: [Events]
+      summary: Security and system events
+      parameters:
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [info, warning, critical]
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Event"
+                  total:
+                    type: integer
+
+  /api/v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: Notifications
+      parameters:
+        - name: unread
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Notification"
+                  unread:
+                    type: integer
+
+  /api/v1/notifications/{notification_id}/read:
+    post:
+      tags: [Notifications]
+      summary: Mark a notification as read
+      parameters:
+        - name: notification_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Marked read
+
+  /api/v1/settings:
+    get:
+      tags: [Settings]
+      summary: Control-plane settings (secrets redacted)
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+    put:
+      tags: [Settings]
+      summary: Update control-plane settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Settings"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+
+  /api/v1/agent/register:
+    post:
+      tags: [Agent]
+      summary: Register a router agent
+      security:
+        - agentToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentRegisterRequest"
+      responses:
+        "201":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentRegisterResponse"
+
+  /api/v1/agent/heartbeat:
+    post:
+      tags: [Agent]
+      summary: Agent heartbeat
+      security:
+        - agentToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentHeartbeat"
+      responses:
+        "204":
+          description: Accepted
+
+  /api/v1/agent/policies:
+    get:
+      tags: [Agent]
+      summary: Policies for this router
+      security:
+        - agentToken: []
+      responses:
+        "200":
+          description: Desired state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentPolicies"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT or API token
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: openwalla_session
+    agentToken:
+      type: http
+      scheme: bearer
+      bearerFormat: per-router agent token; mTLS optional
+
+  parameters:
+    RouterId:
+      name: router_id
+      in: path
+      required: true
+      schema:
+        type: string
+    RouterIdQuery:
+      name: router_id
+      in: query
+      schema:
+        type: string
+    DeviceId:
+      name: device_id
+      in: path
+      required: true
+      schema:
+        type: string
+    PolicyId:
+      name: policy_id
+      in: path
+      required: true
+      schema:
+        type: string
+    ProfileId:
+      name: profile_id
+      in: path
+      required: true
+      schema:
+        type: string
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+        default: 100
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Health:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        version:
+          type: string
+        time:
+          type: string
+          format: date-time
+
+    Status:
+      type: object
+      properties:
+        status:
+          type: string
+        version:
+          type: string
+        routers_total:
+          type: integer
+        routers_online:
+          type: integer
+        devices_online:
+          type: integer
+        uptime_seconds:
+          type: integer
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+
+    LoginResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        expires_at:
+          type: string
+          format: date-time
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        role:
+          type: string
+          enum: [admin, viewer]
+
+    RouterInput:
+      type: object
+      required: [name, address]
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+          description: LAN IP/hostname of the router (e.g. 192.168.0.1)
+        port:
+          type: integer
+          default: 80
+        scheme:
+          type: string
+          enum: [http, https]
+          default: http
+        username:
+          type: string
+          description: Stored server-side; never returned
+        password:
+          type: string
+          format: password
+          description: Stored server-side; never returned
+        verify_tls:
+          type: boolean
+          default: true
+
+    Router:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        address:
+          type: string
+        port:
+          type: integer
+        scheme:
+          type: string
+        model:
+          type: string
+        openwrt_version:
+          type: string
+        status:
+          type: string
+          enum: [online, offline, degraded, unknown]
+        last_seen:
+          type: string
+          format: date-time
+        capabilities:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Device:
+      type: object
+      properties:
+        id:
+          type: string
+        router_id:
+          type: string
+        mac:
+          type: string
+        ipv4:
+          type: string
+        ipv6:
+          type: array
+          items:
+            type: string
+        hostname:
+          type: string
+        vendor:
+          type: string
+        device_type:
+          type: string
+          example: phone
+        connection:
+          type: string
+          enum: [wired, wireless, unknown]
+        online:
+          type: boolean
+        blocked:
+          type: boolean
+        paused:
+          type: boolean
+        group_id:
+          type: string
+        first_seen:
+          type: string
+          format: date-time
+        last_seen:
+          type: string
+          format: date-time
+        tags:
+          type: array
+          items:
+            type: string
+        traffic:
+          $ref: "#/components/schemas/DeviceTrafficSummary"
+
+    DeviceInput:
+      type: object
+      properties:
+        name:
+          type: string
+        device_type:
+          type: string
+        group_id:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+
+    DeviceAction:
+      type: object
+      properties:
+        reason:
+          type: string
+          example: manual
+        duration_minutes:
+          type: integer
+          minimum: 1
+          description: Omit for indefinite
+
+    DeviceTrafficSummary:
+      type: object
+      properties:
+        rx_bytes:
+          type: integer
+          format: int64
+        tx_bytes:
+          type: integer
+          format: int64
+        rx_bps:
+          type: number
+        tx_bps:
+          type: number
+        period:
+          type: string
+          example: day
+
+    TrafficSample:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        rx_bps:
+          type: number
+        tx_bps:
+          type: number
+
+    TrafficHistory:
+      type: object
+      properties:
+        router_id:
+          type: string
+        device_id:
+          type: string
+        period:
+          type: string
+        rx_bytes:
+          type: integer
+          format: int64
+        tx_bytes:
+          type: integer
+          format: int64
+        samples:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrafficSample"
+
+    TrafficEvent:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        router_id:
+          type: string
+        device_id:
+          type: string
+        rx_bps:
+          type: number
+        tx_bps:
+          type: number
+
+    Interface:
+      type: object
+      properties:
+        id:
+          type: string
+        router_id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        up:
+          type: boolean
+        mac:
+          type: string
+        addresses:
+          type: array
+          items:
+            type: string
+        speed_mbps:
+          type: integer
+        rx_bytes:
+          type: integer
+          format: int64
+        tx_bytes:
+          type: integer
+          format: int64
+        errors:
+          type: integer
+
+    Schedule:
+      type: object
+      properties:
+        timezone:
+          type: string
+          example: America/Chicago
+        days:
+          type: array
+          items:
+            type: string
+            enum: [mon, tue, wed, thu, fri, sat, sun]
+        start:
+          type: string
+          example: "07:00"
+        end:
+          type: string
+          example: "21:00"
+
+    PolicyRule:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [block, allow, dns_filter, app_block, category_block]
+        value:
+          type: string
+        action:
+          type: string
+          enum: [allow, block]
+
+    PolicyInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        enabled:
+          type: boolean
+          default: true
+        scope:
+          type: string
+          enum: [device, group, all]
+        target_ids:
+          type: array
+          items:
+            type: string
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyRule"
+        schedule:
+          $ref: "#/components/schemas/Schedule"
+
+    Policy:
+      allOf:
+        - $ref: "#/components/schemas/PolicyInput"
+        - type: object
+          properties:
+            id:
+              type: string
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    GroupInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        member_ids:
+          type: array
+          items:
+            type: string
+
+    Group:
+      allOf:
+        - $ref: "#/components/schemas/GroupInput"
+        - type: object
+          properties:
+            id:
+              type: string
+
+    ParentalProfileInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        member_ids:
+          type: array
+          items:
+            type: string
+        enabled:
+          type: boolean
+          default: true
+        daily_limit_minutes:
+          type: integer
+          minimum: 0
+        content_filter:
+          type: string
+          enum: [none, safe, adult]
+        custom_dns:
+          type: string
+        schedule:
+          $ref: "#/components/schemas/Schedule"
+        bedtime:
+          $ref: "#/components/schemas/Schedule"
+
+    ParentalProfile:
+      allOf:
+        - $ref: "#/components/schemas/ParentalProfileInput"
+        - type: object
+          properties:
+            id:
+              type: string
+            paused:
+              type: boolean
+            pause_until:
+              type: string
+              format: date-time
+            used_minutes_today:
+              type: integer
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    AdblockStatus:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        total_queries:
+          type: integer
+          format: int64
+        blocked_queries:
+          type: integer
+          format: int64
+        block_percent:
+          type: number
+        blocklists:
+          type: array
+          items:
+            type: string
+        last_updated:
+          type: string
+          format: date-time
+
+    AdblockSettings:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        blocklists:
+          type: array
+          items:
+            type: string
+        update_interval_hours:
+          type: integer
+          minimum: 1
+
+    Flow:
+      type: object
+      properties:
+        id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        router_id:
+          type: string
+        device_id:
+          type: string
+        local_ip:
+          type: string
+        dest_ip:
+          type: string
+        domain:
+          type: string
+        application:
+          type: string
+        protocol:
+          type: string
+        risk_score:
+          type: integer
+        bytes_up:
+          type: integer
+          format: int64
+        bytes_down:
+          type: integer
+          format: int64
+        interface:
+          type: string
+
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        severity:
+          type: string
+          enum: [info, warning, critical]
+        message:
+          type: string
+        router_id:
+          type: string
+        device_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        data:
+          type: object
+          additionalProperties: true
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        data:
+          type: object
+          additionalProperties: true
+
+    Settings:
+      type: object
+      properties:
+        timezone:
+          type: string
+        retention_hours:
+          type: integer
+        notifications_enabled:
+          type: boolean
+        api_token_set:
+          type: boolean
+
+    AgentRegisterRequest:
+      type: object
+      required: [router_id, name]
+      properties:
+        router_id:
+          type: string
+        name:
+          type: string
+        model:
+          type: string
+        openwrt_version:
+          type: string
+        agent_version:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+
+    AgentRegisterResponse:
+      type: object
+      properties:
+        agent_id:
+          type: string
+        token:
+          type: string
+          description: Returned once; store securely on the router
+        heartbeat_interval_seconds:
+          type: integer
+          example: 30
+
+    AgentHeartbeat:
+      type: object
+      required: [agent_id, status]
+      properties:
+        agent_id:
+          type: string
+        status:
+          type: string
+          enum: [online, degraded, offline]
+        uptime_seconds:
+          type: integer
+        openwrt_version:
+          type: string
+
+    AgentPolicies:
+      type: object
+      properties:
+        router_id:
+          type: string
+        version:
+          type: integer
+        policies:
+          type: array
+          items:
+            $ref: "#/components/schemas/Policy"
+        parental_profiles:
+          type: array
+          items:
+            $ref: "#/components/schemas/ParentalProfile"
+        adblock:
+          $ref: "#/components/schemas/AdblockSettings"
+
+    Error:
+      type: object
+      required: [message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
