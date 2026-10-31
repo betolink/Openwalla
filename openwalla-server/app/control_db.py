@@ -155,6 +155,21 @@ class ControlDatabase:
                     updated_at TEXT NOT NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS filtering_rules (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL DEFAULT '',
+                    target_type TEXT NOT NULL DEFAULT 'device',
+                    target_ids TEXT NOT NULL DEFAULT '[]',
+                    kind TEXT NOT NULL DEFAULT 'service',
+                    value TEXT NOT NULL,
+                    action TEXT NOT NULL DEFAULT 'block',
+                    schedule TEXT NOT NULL DEFAULT '{}',
+                    expires_at INTEGER NOT NULL DEFAULT 0,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
                 CREATE TABLE IF NOT EXISTS parental_profiles (
                     id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
@@ -665,6 +680,89 @@ class ControlDatabase:
     def delete_policy(self, policy_id: str) -> bool:
         with self._lock, self._connection:
             cursor = self._connection.execute("DELETE FROM policies WHERE id = ?", (policy_id,))
+        return cursor.rowcount > 0
+
+    # ------------------------------------------------------- filtering rules
+
+    def list_filtering_rules(self) -> list[dict[str, Any]]:
+        return self._all(
+            "SELECT * FROM filtering_rules ORDER BY name, created_at"
+        )
+
+    def get_filtering_rule(self, rule_id: str) -> dict[str, Any] | None:
+        return self._one(
+            "SELECT * FROM filtering_rules WHERE id = ?", (rule_id,)
+        )
+
+    def create_filtering_rule(self, data: dict[str, Any]) -> dict[str, Any]:
+        rule_id = _new_id()
+        now = _now()
+        with self._lock, self._connection:
+            self._connection.execute(
+                """
+                INSERT INTO filtering_rules
+                    (id, name, target_type, target_ids, kind, value, action,
+                     schedule, expires_at, enabled, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    rule_id,
+                    data.get("name", ""),
+                    data.get("target_type", "device"),
+                    _encode(data.get("target_ids", [])),
+                    data.get("kind", "service"),
+                    data.get("value", ""),
+                    data.get("action", "block"),
+                    _encode(data.get("schedule", {})),
+                    int(data.get("expires_at", 0) or 0),
+                    1 if data.get("enabled", True) else 0,
+                    now,
+                    now,
+                ),
+            )
+        return self.get_filtering_rule(rule_id)  # type: ignore[return-value]
+
+    def update_filtering_rule(
+        self, rule_id: str, data: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        current = self.get_filtering_rule(rule_id)
+        if current is None:
+            return None
+        updates: list[str] = []
+        values: list[Any] = []
+        for key in ("name", "target_type", "kind", "value", "action"):
+            if key in data:
+                updates.append(f"{key} = ?")
+                values.append(data[key])
+        if "target_ids" in data:
+            updates.append("target_ids = ?")
+            values.append(_encode(data["target_ids"]))
+        if "schedule" in data:
+            updates.append("schedule = ?")
+            values.append(_encode(data["schedule"]))
+        if "expires_at" in data:
+            updates.append("expires_at = ?")
+            values.append(int(data["expires_at"] or 0))
+        if "enabled" in data:
+            updates.append("enabled = ?")
+            values.append(1 if data["enabled"] else 0)
+        if not updates:
+            return current
+        updates.append("updated_at = ?")
+        values.append(_now())
+        values.append(rule_id)
+        with self._lock, self._connection:
+            self._connection.execute(
+                f"UPDATE filtering_rules SET {', '.join(updates)} WHERE id = ?",
+                values,
+            )
+        return self.get_filtering_rule(rule_id)
+
+    def delete_filtering_rule(self, rule_id: str) -> bool:
+        with self._lock, self._connection:
+            cursor = self._connection.execute(
+                "DELETE FROM filtering_rules WHERE id = ?", (rule_id,)
+            )
         return cursor.rowcount > 0
 
     # ---------------------------------------------------------------- parental

@@ -243,6 +243,24 @@ export interface AllowlistResult {
   changed: boolean
 }
 
+export interface FilteringRule {
+  id: string
+  name: string
+  target_type: 'device' | 'group' | 'all'
+  target_ids: string[]
+  kind: 'service' | 'category' | 'domain'
+  value: string
+  action: 'block' | 'allow'
+  schedule: Schedule
+  expires_at: number
+  enabled: boolean
+}
+
+export interface FilteringCatalog {
+  services: Array<{ id: string; name: string }>
+  categories: Record<string, { name: string; services: string[] }>
+}
+
 export interface TopologyDevice {
   id: string
   mac: string
@@ -439,6 +457,34 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(input),
     }),
+
+  listFilteringRules: () =>
+    request<{ items: FilteringRule[] }>('/api/v1/filtering/rules'),
+
+  getFilteringCatalog: () =>
+    request<FilteringCatalog>('/api/v1/filtering/catalog'),
+
+  createFilteringRule: (
+    input: Partial<FilteringRule> & {
+      target_type: FilteringRule['target_type']
+      kind: FilteringRule['kind']
+      value: string
+      expires_minutes?: number
+    },
+  ) =>
+    request<FilteringRule>('/api/v1/filtering/rules', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  updateFilteringRule: (id: string, input: Partial<FilteringRule>) =>
+    request<FilteringRule>(`/api/v1/filtering/rules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    }),
+
+  deleteFilteringRule: (id: string) =>
+    request<void>(`/api/v1/filtering/rules/${id}`, { method: 'DELETE' }),
 
   deleteGroup: (id: string) =>
     request<void>(`/api/v1/groups/${id}`, { method: 'DELETE' }),

@@ -111,6 +111,7 @@ class AdGuardClient:
         *,
         safe_search: bool,
         parental: bool,
+        blocked_services: list[str] | None = None,
     ) -> None:
         existing = {client["name"] for client in self.clients()}
         payload = {
@@ -121,8 +122,8 @@ class AdGuardClient:
             "safesearch_enabled": safe_search,
             "safe_search": SAFE_SEARCH if safe_search else {"enabled": False},
             "parental_enabled": parental,
-            "use_global_blocked_services": True,
-            "blocked_services": [],
+            "use_global_blocked_services": False,
+            "blocked_services": list(blocked_services or []),
         }
         if name in existing:
             self._request(
@@ -132,6 +133,21 @@ class AdGuardClient:
             )
         else:
             self._request("POST", "/control/clients/add", payload)
+
+    def sync_user_rules(self, rules: list[str]) -> None:
+        payload = self._request("GET", "/control/filtering/status") or {}
+        current = list(payload.get("user_rules") or [])
+        preserved = [
+            rule for rule in current if "openwalla:" not in rule
+        ]
+        desired = preserved + list(rules)
+        if desired == current:
+            return
+        self._request(
+            "POST",
+            "/control/filtering/set_rules",
+            {"rules": desired},
+        )
 
     def sync_profile(
         self,

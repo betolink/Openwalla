@@ -423,6 +423,43 @@ class ControlApiTest(unittest.TestCase):
             self.app.state.router_data.parental_deletes,
         )
 
+    def test_filtering_rule_crud(self) -> None:
+        catalog = self.client.get("/api/v1/filtering/catalog")
+        self.assertEqual(catalog.status_code, 200)
+        self.assertTrue(catalog.json()["services"])
+        self.assertIn("games", catalog.json()["categories"])
+
+        created = self.client.post(
+            "/api/v1/filtering/rules",
+            json={
+                "name": "Instagram block",
+                "target_type": "all",
+                "kind": "service",
+                "value": "instagram",
+                "action": "block",
+                "schedule": {},
+            },
+        )
+        self.assertEqual(created.status_code, 201)
+        rule = created.json()
+        self.assertEqual(rule["value"], "instagram")
+
+        listed = self.client.get("/api/v1/filtering/rules").json()
+        self.assertEqual(len(listed["items"]), 1)
+
+        updated = self.client.put(
+            f"/api/v1/filtering/rules/{rule['id']}",
+            json={"enabled": False, "expires_minutes": 60},
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertFalse(updated.json()["enabled"])
+        self.assertGreater(updated.json()["expires_at"], 0)
+
+        deleted = self.client.delete(
+            f"/api/v1/filtering/rules/{rule['id']}"
+        )
+        self.assertEqual(deleted.status_code, 204)
+
     def test_network_status_speedtest_topology_and_notification(self) -> None:
         router = self.create_router()
         self.client.post(f"/api/v1/routers/{router['id']}/sync")
