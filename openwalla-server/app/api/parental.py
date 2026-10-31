@@ -206,6 +206,18 @@ def delete_profile(
             "enforcement",
         )
         raise HTTPException(502, str(error)) from error
+    adguard = getattr(request.app.state, "adguard", None)
+    if adguard is not None:
+        try:
+            adguard.remove_profile(profile_id)
+        except Exception as error:
+            send_best_effort(
+                getattr(request.app.state, "notifier", None),
+                "Content filtering cleanup failed",
+                str(error),
+                "warning",
+                "enforcement",
+            )
     if not db.delete_parental(profile_id):
         raise HTTPException(404, "profile not found")
     return None

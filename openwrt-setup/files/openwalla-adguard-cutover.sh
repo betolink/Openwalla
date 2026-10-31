@@ -53,6 +53,15 @@ if ! uci -q get firewall.openwalla_block_dot >/dev/null 2>&1; then
 	uci set "firewall.$section.target=REJECT"
 fi
 
+# Include the public DoH resolver feed in banIP when available.
+feeds="$(uci -q get banip.global.ban_feed 2>/dev/null || true)"
+case " $feeds " in
+*" doh "*) ;;
+*) uci set "banip.global.ban_feed=$feeds doh" ;;
+esac
+uci commit banip
+/etc/init.d/banip restart >/dev/null 2>&1 || true
+
 uci set adblock.global.adb_enabled=0
 uci set dhcp.@dnsmasq[0].port=0
 uci commit adblock

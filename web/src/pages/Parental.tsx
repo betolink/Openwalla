@@ -194,7 +194,7 @@ export function Parental() {
                 onChange={(event) => setLimit(Number(event.target.value))}
               />
             </Field>
-            <Field label="Content filter (stored; enforcement next)">
+            <Field label="Content filter">
               <Select
                 value={filter}
                 onChange={(event) =>

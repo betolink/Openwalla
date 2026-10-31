@@ -157,3 +157,9 @@ class AdGuardClient:
                 safe_search=True,
                 parental=content_filter == "adult",
             )
+
+    def remove_profile(self, profile_id: str) -> None:
+        prefix = f"openwalla:{profile_id}:"
+        for client in self.clients():
+            if client.get("name", "").startswith(prefix):
+                self.delete_client(client["name"])
