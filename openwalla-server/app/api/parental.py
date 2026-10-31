@@ -6,6 +6,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
+from ..adguard_sync import sync_parental_profiles
 from ..control_db import ControlDatabase
 from ..deps import control_db, require_auth
 from ..notifier import send_best_effort
@@ -62,13 +63,21 @@ def _member_macs(db: ControlDatabase, profile: dict[str, Any]) -> list[str]:
     return sorted(set(macs))
 
 
-def _member_devices(db: ControlDatabase, profile: dict[str, Any]) -> list[dict[str, Any]]:
-    devices: list[dict[str, Any]] = []
-    for value in profile.get("member_ids", []):
-        device = db.get_device(str(value))
-        if device and MAC_PATTERN.match(str(device["mac"]).lower()):
-            devices.append(device)
-    return devices
+def _sync_adguard(request: Request, db: ControlDatabase) -> None:
+    adguard = getattr(request.app.state, "adguard", None)
+    if adguard is None:
+        return
+    try:
+        sync_parental_profiles(db, adguard)
+    except Exception as error:
+        send_best_effort(
+            getattr(request.app.state, "notifier", None),
+            "Content filtering sync failed",
+            str(error),
+            "warning",
+            "enforcement",
+        )
+        raise HTTPException(502, str(error)) from error
 
 
 def _schedule(profile: dict[str, Any]) -> tuple[str, str, str]:
@@ -126,24 +135,6 @@ def _apply_parental(
         )
         raise HTTPException(502, str(error)) from error
 
-    adguard = getattr(request.app.state, "adguard", None)
-    if adguard is not None:
-        try:
-            adguard.sync_profile(
-                str(profile["id"]),
-                _member_devices(db, profile),
-                str(profile.get("content_filter") or "none"),
-            )
-        except Exception as error:
-            send_best_effort(
-                getattr(request.app.state, "notifier", None),
-                "Content filtering sync failed",
-                str(error),
-                "warning",
-                "enforcement",
-            )
-            raise HTTPException(502, str(error)) from error
-
 
 @router.get("/profiles")
 def list_profiles(db: Annotated[ControlDatabase, Depends(control_db)]):
@@ -161,6 +152,7 @@ def create_profile(
     profile = db.create_parental(payload)
     try:
         _apply_parental(request, db, profile)
+        _sync_adguard(request, db)
     except HTTPException:
         db.delete_parental(profile["id"])
         raise
@@ -182,6 +174,7 @@ def update_profile(
     value = db.update_parental(profile_id, payload)
     if value is None:
         raise HTTPException(404, "profile not found")
+    _sync_adguard(request, db)
     return value
 
 
@@ -220,4 +213,5 @@ def delete_profile(
             )
     if not db.delete_parental(profile_id):
         raise HTTPException(404, "profile not found")
+    _sync_adguard(request, db)
     return None

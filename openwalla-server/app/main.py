@@ -22,6 +22,7 @@ from .config import Settings
 from .control_db import ControlDatabase
 from .database import FlowDatabase
 from .adguard import AdGuardClient
+from .adguard_sync import sync_parental_profiles
 from .notifier import Notifier
 from .router_data import RouterData
 from .runtime_config import RuntimeConfig, RuntimeOptions, public_settings
@@ -79,6 +80,13 @@ async def lifespan(_: FastAPI):
         daemon=True,
     )
     pause_thread.start()
+    adguard_thread = threading.Thread(
+        target=_watch_adguard,
+        args=(app.state.adguard, notification_stop),
+        name="adguard-sync",
+        daemon=True,
+    )
+    adguard_thread.start()
     try:
         yield
     finally:
@@ -109,6 +117,17 @@ def _watch_collector(notifier: Notifier, stop: threading.Event) -> None:
                 "collector",
             )
         previous = current
+
+
+def _watch_adguard(adguard: AdGuardClient, stop: threading.Event) -> None:
+    """Periodically reconcile parental profiles into AdGuard clients."""
+    while not stop.wait(300):
+        try:
+            result = sync_parental_profiles(control_db, adguard)
+            if any(result.values()):
+                logging.info("AdGuard parental sync: %s", result)
+        except Exception:
+            logging.exception("Unable to reconcile AdGuard parental clients")
 
 
 def _watch_pauses(stop: threading.Event) -> None:
