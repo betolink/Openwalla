@@ -121,7 +121,7 @@ def _watch_collector(notifier: Notifier, stop: threading.Event) -> None:
 
 def _watch_adguard(adguard: AdGuardClient, stop: threading.Event) -> None:
     """Periodically reconcile parental profiles into AdGuard clients."""
-    while not stop.wait(300):
+    while not stop.wait(60):
         try:
             result = sync_parental_profiles(control_db, adguard)
             if any(result.values()):
