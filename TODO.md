@@ -37,8 +37,11 @@ Updated: 2026-10-31
 - [x] Netify flows wired to the API (flows + 5-minute series)
 - [x] Ansible deployment playbook (`clusterfunk/playbooks/29-openwalla.yml`)
 - [x] Adblock page backed by router state (network-wide)
-- [ ] Policies / parental profiles backed by router state
+- [x] Parental profiles backed by router state (members, pause, daily limit,
+      schedules)
 - [x] Device block/pause and adblock enforcement
+- [ ] Policy/group enforcement
+- [ ] Per-client content filtering / safe search
 - [x] Dashboard deployed at `net.betolink.cloud` with app login + basic auth
 - [x] Dedicated host1 → betowrt SSH key mounted into the API container
 
@@ -73,7 +76,7 @@ Updated: 2026-10-31
 | Top websites per device | yes | Netify flows (7d on SSD) |
 | Device block / pause | yes | enforced via `device-access` + nftables/firewall |
 | Adblock | yes | network-wide OpenWrt adblock engine (350k domains) |
-| Parental / policies | UI only (control DB) | enforcement pending |
+| Parental / policies | yes | parental enforced; policy/group next |
 | Traffic / flows | yes | Netify collector connected |
 | Traffic timeseries | yes | `flow_raw` 5-minute buckets |
 | Policies / groups | UI only (control DB) | enforcement pending |
