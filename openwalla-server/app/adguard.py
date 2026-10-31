@@ -94,7 +94,8 @@ class AdGuardClient:
         return self._request("GET", "/control/status") or {}
 
     def clients(self) -> list[dict[str, Any]]:
-        return list(self._request("GET", "/control/clients").get("clients", []))
+        payload = self._request("GET", "/control/clients") or {}
+        return list(payload.get("clients") or [])
 
     def delete_client(self, name: str) -> None:
         try:
