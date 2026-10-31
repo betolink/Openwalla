@@ -13,6 +13,7 @@ fi
 cp -p /etc/config/dhcp "$BACKUP/dhcp"
 cp -p /etc/config/firewall "$BACKUP/firewall"
 cp -p /etc/config/banip "$BACKUP/banip"
+cp -p /etc/config/adblock "$BACKUP/adblock"
 cp -p /etc/adguardhome/adguardhome.yaml "$BACKUP/adguardhome.yaml"
 
 rollback() {
@@ -20,10 +21,12 @@ rollback() {
 	cp -p "$BACKUP/dhcp" /etc/config/dhcp
 	cp -p "$BACKUP/firewall" /etc/config/firewall
 	cp -p "$BACKUP/banip" /etc/config/banip
+	cp -p "$BACKUP/adblock" /etc/config/adblock
 	cp -p "$BACKUP/adguardhome.yaml" /etc/adguardhome/adguardhome.yaml
 	uci commit dhcp
 	uci commit firewall
 	uci commit banip
+	uci commit adblock
 	/etc/init.d/dnsmasq restart >/dev/null 2>&1 || true
 	/etc/init.d/adblock restart >/dev/null 2>&1 || true
 	echo "AdGuard cutover rolled back; dnsmasq/adblock restored" >&2

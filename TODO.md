@@ -48,8 +48,10 @@ Updated: 2026-10-31
 - [x] Deduped flow counts + real per-device traffic endpoint
 - [x] Live SSE traffic stream
 - [x] Per-client content filtering / safe search (AdGuard cutover live)
-- [x] AdGuard per-client profile sync + cleanup
-- [x] AdGuard cutover + rollback scripts (tested)
+- [x] Per-device app/category/domain filtering rules
+- [x] Scheduled and temporary filtering rules (expiry worker)
+- [x] Filtering tab + device targeting
+- [ ] Per-app/category enforcement is DNS-based; game traffic may need DPI/firewall
 - [ ] Upgrade/rollback and E2E/reboot tests
 - [ ] Security hardening + Cloudflare (intentionally last)
 - [x] Dashboard deployed at `net.betolink.cloud` with app login + basic auth
@@ -90,6 +92,7 @@ Updated: 2026-10-31
 | Backups | yes | daily SQLite/env/router archive, 14-day retention |
 | Live traffic | yes | SSE `/traffic/live` |
 | Content filtering | yes | AdGuard Home 53, per-client safe search/parental |
+| Per-device filtering rules | yes | app/category/domain, schedule, expiry |
 | Traffic / flows | yes | Netify collector connected |
 | Traffic timeseries | yes | `flow_raw` 5-minute buckets |
 | Policies / groups | UI only (control DB) | enforcement pending |
