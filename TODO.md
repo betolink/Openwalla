@@ -39,9 +39,16 @@ Updated: 2026-10-31
 - [x] Adblock page backed by router state (network-wide)
 - [x] Parental profiles backed by router state (members, pause, daily limit,
       schedules)
+- [x] Policy/group internet-block enforcement
 - [x] Device block/pause and adblock enforcement
-- [ ] Policy/group enforcement
-- [ ] Per-client content filtering / safe search
+- [x] Backups + restore archive (scheduled, 14-day retention)
+- [x] Enforcement-failure notifications
+- [x] Reproducible router helper bootstrap in Ansible
+- [x] Monthly DB-IP GeoIP refresh
+- [x] Deduped flow counts + real per-device traffic endpoint
+- [x] Live SSE traffic stream
+- [ ] Per-client content filtering / safe search (AdGuard cutover)
+- [ ] Upgrade/rollback and E2E/reboot tests
 - [x] Dashboard deployed at `net.betolink.cloud` with app login + basic auth
 - [x] Dedicated host1 → betowrt SSH key mounted into the API container
 
@@ -76,7 +83,10 @@ Updated: 2026-10-31
 | Top websites per device | yes | Netify flows (7d on SSD) |
 | Device block / pause | yes | enforced via `device-access` + nftables/firewall |
 | Adblock | yes | network-wide OpenWrt adblock engine (350k domains) |
-| Parental / policies | yes | parental enforced; policy/group next |
+| Parental / policies | yes | parental + internet-block policies enforced |
+| Backups | yes | daily SQLite/env/router archive, 14-day retention |
+| Live traffic | yes | SSE `/traffic/live` |
+| Content filtering | no | AdGuard Home cutover pending |
 | Traffic / flows | yes | Netify collector connected |
 | Traffic timeseries | yes | `flow_raw` 5-minute buckets |
 | Policies / groups | UI only (control DB) | enforcement pending |
