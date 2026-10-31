@@ -45,11 +45,15 @@ Updated: 2026-10-31
 - [x] Sync devices/interfaces from `192.168.0.1` over LuCI RPC
 - [ ] Provision a dedicated SSH key from the API host to betowrt
       (`from="192.168.0.0/24"`, no forwarding) for helper install/enforcement
-- [ ] Install feature packages on betowrt:
+- [x] Install feature packages on betowrt:
       `sqlite3-cli conntrack nlbwmon vnstat2 netifyd banip sqm-scripts`
-- [ ] Choose AdGuard Home **or** adblock for DNS filtering
-- [ ] Install OpenWalla helpers via Router Setup (devices, bandwidth, parental,
+- [x] Install OpenWalla helpers via Router Setup (devices, bandwidth, parental,
       scheduler, blocking, conntrack, netify, quarantine, notifications)
+- [x] Configure Netify LAN listener + backend collector (flows flowing)
+- [x] Adblock active (350k domains; adguard/adguard_tracking/certpl feeds)
+- [ ] Choose AdGuard Home **or** keep adblock (adblock is active now)
+- [ ] Enable banIP and configure SQM on WAN
+- [ ] Agent sync for adblock/parental/device data into the API
 - [ ] Suricata feasibility: not packaged in 25.12 (build/external sensor/later)
 - [ ] Screen-time caveat: counts network-active minutes, not screen-on
 - [ ] Dedicated router API user + minimal ACL
