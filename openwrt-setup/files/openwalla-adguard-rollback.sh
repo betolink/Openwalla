@@ -10,6 +10,7 @@ if [ ! -f "$BACKUP/dhcp" ]; then
 fi
 
 /etc/init.d/adguardhome stop >/dev/null 2>&1 || true
+sleep 2
 cp -p "$BACKUP/dhcp" /etc/config/dhcp
 cp -p "$BACKUP/firewall" /etc/config/firewall
 cp -p "$BACKUP/banip" /etc/config/banip
@@ -19,9 +20,10 @@ uci commit dhcp
 uci commit firewall
 uci commit banip
 uci commit adblock
-/etc/init.d/dnsmasq restart
 /etc/init.d/adblock restart
-for attempt in 1 2 3 4 5; do
+sleep 3
+/etc/init.d/dnsmasq restart
+for attempt in $(seq 1 30); do
 	if nslookup example.com 127.0.0.1 >/dev/null 2>&1; then
 		break
 	fi
