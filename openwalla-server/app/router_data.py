@@ -15,8 +15,8 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-BANDWIDTH_DB = "/tmp/openwalla/openwalla-device-bandwidth.sqlite"
-NETIFY_DB = "/tmp/openwalla/openwalla-netify.sqlite"
+BANDWIDTH_DB = "/overlay/openwalla/openwalla-device-bandwidth.sqlite"
+NETIFY_DB = "/overlay/openwalla/openwalla-netify.sqlite"
 DEVICES_DB = "/tmp/openwalla/openwalla-devices.sqlite"
 
 

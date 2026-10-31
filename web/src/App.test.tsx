@@ -77,4 +77,12 @@ describe('App', () => {
     fireEvent.click(await screen.findByLabelText(/switch to light theme/i))
     expect(document.documentElement.dataset.theme).toBe('light')
   })
+
+  it('opens a device detail from the overview card link', async () => {
+    render(<App />)
+    const links = await screen.findAllByText('View details')
+    fireEvent.click(links[0])
+    expect(await screen.findByText('Back')).toBeInTheDocument()
+    expect(screen.getAllByText(/aa:bb:cc:dd:ee:01/).length).toBeGreaterThan(0)
+  })
 })

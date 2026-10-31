@@ -69,7 +69,7 @@ export function DeviceDetail({
     }
   }
 
-  const totals = details?.ranges[range]
+  const totals = details?.ranges?.[range]
   const summary = details?.summary ?? {}
 
   return (
@@ -145,7 +145,7 @@ export function DeviceDetail({
         />
         <Stat
           label="Websites"
-          value={details?.websites.length ?? 0}
+          value={details?.websites?.length ?? 0}
           hint={`${range} top sites`}
         />
         <Stat
@@ -168,7 +168,7 @@ export function DeviceDetail({
       >
         {loading ? (
           <Empty>Loading traffic…</Empty>
-        ) : details && details.series.length > 0 ? (
+        ) : details?.series?.length ? (
           <DeviceTrafficChart data={details.series} />
         ) : (
           <Empty>No bandwidth samples yet for this time slice.</Empty>

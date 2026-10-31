@@ -9,12 +9,23 @@ USE_PROCD=1
 
 PROG="/usr/bin/openwalla-device-bandwidth-collector"
 
+# Remove a leftover collector from a previous stop/restart.
+kill_stale() {
+	local pid
+	for pid in $(ps w | awk '$0 ~ /\/usr\/bin\/[o]penwalla-device-bandwidth-collector/ {print $1}'); do
+		[ "$pid" = "$$" ] && continue
+		kill "$pid" 2>/dev/null
+	done
+	sleep 1
+}
+
 start_service() {
 	local enabled
 	enabled="$(uci -q get openwalla.device_bandwidth.enabled 2>/dev/null || echo 1)"
 	[ "$enabled" = "0" ] && return 0
 	[ -x "$PROG" ] || return 1
 
+	kill_stale
 	procd_open_instance
 	procd_set_param command /bin/sh "$PROG" --daemon
 	procd_set_param env PATH=/usr/sbin:/usr/bin:/sbin:/bin

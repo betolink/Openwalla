@@ -1,4 +1,5 @@
 import {
+  ChevronRight,
   Laptop,
   MonitorSmartphone,
   Printer,
@@ -79,6 +80,20 @@ export function DeviceCard({
           {device.paused ? 'Resume' : 'Pause'}
         </Button>
       </div>
+
+      {onOpen && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            onOpen(device)
+          }}
+          className="mt-3 flex w-full items-center justify-between border-t border-[var(--border)] pt-2 text-left text-xs font-medium text-[var(--accent-text)] hover:text-[var(--accent)]"
+        >
+          <span>View details</span>
+          <ChevronRight size={14} />
+        </button>
+      )}
     </div>
   )
 }
