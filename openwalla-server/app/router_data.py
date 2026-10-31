@@ -10,10 +10,13 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import os
+import shutil
 import shlex
 import subprocess
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 BANDWIDTH_DB = "/overlay/openwalla/openwalla-device-bandwidth.sqlite"
@@ -40,9 +43,14 @@ class RouterData:
             "BatchMode=yes",
             "-o",
             "ConnectTimeout=5",
+            "-o",
+            "StrictHostKeyChecking=accept-new",
+            "-o",
+            "UserKnownHostsFile=/tmp/openwalla_known_hosts",
         ]
-        if self.ssh_key:
-            command += ["-i", self.ssh_key]
+        ssh_key = self._usable_key()
+        if ssh_key:
+            command += ["-i", ssh_key]
         command += [f"{self.ssh_user}@{self.host}", remote]
         try:
             result = subprocess.run(
@@ -58,6 +66,29 @@ class RouterData:
                 result.stderr.strip() or "router query failed"
             )
         return result.stdout
+
+    def _usable_key(self) -> str | None:
+        """Docker secrets are 0444; OpenSSH requires a private 0600 key."""
+        if not self.ssh_key:
+            return None
+        source = Path(self.ssh_key)
+        try:
+            mode = source.stat().st_mode & 0o777
+        except OSError:
+            return self.ssh_key
+        if mode & 0o077 == 0:
+            return self.ssh_key
+        target = Path("/tmp") / f"openwalla-ssh-{os.getuid()}-{source.name}"
+        try:
+            if (
+                not target.exists()
+                or target.stat().st_mtime < source.stat().st_mtime
+            ):
+                shutil.copyfile(source, target)
+                os.chmod(target, 0o600)
+        except OSError:
+            return self.ssh_key
+        return str(target)
 
     def _query(self, database: str, sql: str) -> list[dict[str, Any]]:
         remote = (
