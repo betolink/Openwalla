@@ -58,6 +58,9 @@ class Settings:
     auth_trust_proxy: bool
     auth_secure_cookie: bool
     auth_ban_path: Path
+    adguard_url: str
+    adguard_username: str
+    adguard_password: str
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -106,4 +109,9 @@ class Settings:
                     "OPENWALLA_AUTH_BAN_PATH", "/data/openwalla-auth-bans.json"
                 )
             ),
+            adguard_url=os.getenv(
+                "OPENWALLA_ADGUARD_URL", "http://192.168.0.1:3000"
+            ).strip(),
+            adguard_username=os.getenv("OPENWALLA_ADGUARD_USERNAME", "admin").strip(),
+            adguard_password=_secret_value("OPENWALLA_ADGUARD_PASSWORD", ""),
         )

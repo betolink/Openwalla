@@ -62,6 +62,15 @@ def _member_macs(db: ControlDatabase, profile: dict[str, Any]) -> list[str]:
     return sorted(set(macs))
 
 
+def _member_devices(db: ControlDatabase, profile: dict[str, Any]) -> list[dict[str, Any]]:
+    devices: list[dict[str, Any]] = []
+    for value in profile.get("member_ids", []):
+        device = db.get_device(str(value))
+        if device and MAC_PATTERN.match(str(device["mac"]).lower()):
+            devices.append(device)
+    return devices
+
+
 def _schedule(profile: dict[str, Any]) -> tuple[str, str, str]:
     schedule = profile.get("schedule") or {}
     bedtime = profile.get("bedtime") or {}
@@ -116,6 +125,24 @@ def _apply_parental(
             "enforcement",
         )
         raise HTTPException(502, str(error)) from error
+
+    adguard = getattr(request.app.state, "adguard", None)
+    if adguard is not None:
+        try:
+            adguard.sync_profile(
+                str(profile["id"]),
+                _member_devices(db, profile),
+                str(profile.get("content_filter") or "none"),
+            )
+        except Exception as error:
+            send_best_effort(
+                getattr(request.app.state, "notifier", None),
+                "Content filtering sync failed",
+                str(error),
+                "warning",
+                "enforcement",
+            )
+            raise HTTPException(502, str(error)) from error
 
 
 @router.get("/profiles")

@@ -21,6 +21,7 @@ from .collector import NetifyCollector
 from .config import Settings
 from .control_db import ControlDatabase
 from .database import FlowDatabase
+from .adguard import AdGuardClient
 from .notifier import Notifier
 from .router_data import RouterData
 from .runtime_config import RuntimeConfig, RuntimeOptions, public_settings
@@ -150,6 +151,7 @@ app.state.settings = settings
 app.state.authentication = authentication
 app.state.control_db = control_db
 app.state.flow_db = database
+app.state.adguard = AdGuardClient.from_settings(settings)
 app.include_router(api_router)
 app.mount("/static", StaticFiles(directory=STATIC_DIRECTORY), name="static")
 
