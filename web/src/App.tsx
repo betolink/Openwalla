@@ -5,6 +5,7 @@ import {
   Bell,
   Globe2,
   LayoutDashboard,
+  LogOut,
   MonitorSmartphone,
   Moon,
   RefreshCw,
@@ -15,12 +16,13 @@ import {
   Wifi,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
-import type { Device } from './api'
+import { api, type Device, type User } from './api'
 import { Button } from './components/ui'
 import { Adblock } from './pages/Adblock'
 import { DeviceDetail } from './pages/DeviceDetail'
 import { Devices } from './pages/Devices'
 import { Events } from './pages/Events'
+import { Login } from './pages/Login'
 import { Network } from './pages/Network'
 import { Overview } from './pages/Overview'
 import { Parental } from './pages/Parental'
@@ -63,6 +65,10 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('overview')
   const [refreshKey, setRefreshKey] = useState(0)
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null)
+  const [authState, setAuthState] = useState<
+    'checking' | 'authenticated' | 'login'
+  >('checking')
+  const [user, setUser] = useState<User | null>(null)
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === 'undefined') return 'dark'
     return window.localStorage.getItem('openwalla-theme') === 'light'
@@ -88,12 +94,58 @@ export default function App() {
     }
   }, [theme])
 
+  useEffect(() => {
+    let active = true
+    void api
+      .me()
+      .then((value) => {
+        if (!active) return
+        setUser(value)
+        setAuthState('authenticated')
+      })
+      .catch(() => {
+        if (active) setAuthState('login')
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const logout = async () => {
+    try {
+      await api.logout()
+    } finally {
+      setUser(null)
+      setSelectedDevice(null)
+      setAuthState('login')
+    }
+  }
+
   const refresh = () => setRefreshKey((value) => value + 1)
   const toggleTheme = () =>
     setTheme((value) => (value === 'dark' ? 'light' : 'dark'))
   const selectTab = (id: Tab) => {
     setTab(id)
     setSelectedDevice(null)
+  }
+
+  if (authState === 'checking') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[var(--bg)] text-sm text-[var(--subtle)]">
+        Checking session…
+      </div>
+    )
+  }
+
+  if (authState === 'login') {
+    return (
+      <Login
+        onSuccess={(value) => {
+          setUser(value)
+          setAuthState('authenticated')
+        }}
+      />
+    )
   }
 
   return (
@@ -134,7 +186,19 @@ export default function App() {
           <p className="flex items-center gap-1.5">
             <Wifi size={12} /> betowrt · 192.168.0.1
           </p>
-          <p className="mt-1">OpenWalla 0.1 · local</p>
+          <p className="mt-1">OpenWalla 0.1 · production</p>
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <span className="truncate text-[var(--muted)]">
+              {user?.username || 'admin'}
+            </span>
+            <button
+              type="button"
+              onClick={() => void logout()}
+              className="flex items-center gap-1 text-[var(--subtle)] hover:text-[var(--danger)]"
+            >
+              <LogOut size={12} /> Sign out
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -145,10 +209,19 @@ export default function App() {
               {selectedDevice ? 'Device details' : current.label}
             </p>
             <p className="text-[11px] text-[var(--subtle)]">
-              Router control plane · local test instance
+              Network control plane
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="Sign out"
+              title="Sign out"
+              onClick={() => void logout()}
+              className="rounded-md bg-[var(--surface-2)] p-1.5 text-[var(--muted)] hover:bg-[var(--surface-3)]"
+            >
+              <LogOut size={14} />
+            </button>
             <button
               type="button"
               aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}

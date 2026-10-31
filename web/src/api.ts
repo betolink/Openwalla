@@ -289,6 +289,22 @@ export interface NotificationItem {
   data?: Record<string, unknown>
 }
 
+export interface User {
+  id: string
+  username: string
+  role: string
+}
+
+export class ApiError extends Error {
+  status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
 export interface FlowDashboard {
   collector?: {
     connected?: boolean
@@ -323,11 +339,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     let message = `HTTP ${response.status}`
     try {
       const text = await response.text()
-      if (text) message = text
+      if (text) {
+        try {
+          const parsed = JSON.parse(text) as { detail?: unknown }
+          message =
+            typeof parsed.detail === 'string' ? parsed.detail : text
+        } catch {
+          message = text
+        }
+      }
     } catch {
       // keep the status message
     }
-    throw new Error(message)
+    throw new ApiError(response.status, message)
   }
   if (response.status === 204) {
     return undefined as T
@@ -513,4 +537,15 @@ export const api = {
     request<NotificationResult>('/api/v1/network/notifications/test', {
       method: 'POST',
     }),
+
+  me: () => request<User>('/api/v1/auth/me'),
+
+  login: (username: string, password: string) =>
+    request<{ user: User; expires_at: string | null }>('/api/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    }),
+
+  logout: () =>
+    request<void>('/api/v1/auth/logout', { method: 'POST' }),
 }

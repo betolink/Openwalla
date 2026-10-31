@@ -178,4 +178,25 @@ describe('api', () => {
       JSON.stringify({ display_name: 'Kitchen' }),
     )
   })
+
+  it('handles the dashboard session', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: 'admin', username: 'admin', role: 'admin' }),
+    })
+    await api.me()
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/auth/me')
+
+    await api.login('admin', 'secret')
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/auth/login')
+    expect(fetchMock.mock.calls[1][1]?.method).toBe('POST')
+    expect(fetchMock.mock.calls[1][1]?.body).toBe(
+      JSON.stringify({ username: 'admin', password: 'secret' }),
+    )
+
+    await api.logout()
+    expect(fetchMock.mock.calls[2][0]).toBe('/api/v1/auth/logout')
+    expect(fetchMock.mock.calls[2][1]?.method).toBe('POST')
+  })
 })
