@@ -79,6 +79,45 @@ class FakeRouterData:
         }
 
 
+class FakeNetworkData:
+    def network_status(self):
+        return {
+            "sqm": {
+                "enabled": True,
+                "download_kbit": 720000,
+                "upload_kbit": 230000,
+                "qdisc": "cake",
+            },
+            "banip": {
+                "enabled": True,
+                "active": True,
+                "element_count": 100,
+                "feeds": ["dshield", "feodo"],
+            },
+            "geoip": {"countries": [], "enabled": True},
+            "speedtests": [],
+        }
+
+    def run_speedtest(self):
+        return {
+            "status": "OK",
+            "download": 900.0,
+            "upload": 300.0,
+            "server": "test",
+        }
+
+    def set_geoip_countries(self, countries):
+        return {"countries": countries, "enabled": True}
+
+
+class FakeNotifier:
+    def test(self):
+        return {
+            "notification": {"id": "n1", "title": "test"},
+            "channels": {"ntfy": "ok"},
+        }
+
+
 class ControlApiTest(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
@@ -89,6 +128,8 @@ class ControlApiTest(unittest.TestCase):
         self.app.state.router_client_factory = lambda router: FakeRouterClient()
         self.app.state.flow_db = FakeFlowDB()
         self.app.state.router_data = FakeRouterData()
+        self.app.state.network_data = FakeNetworkData()
+        self.app.state.notifier = FakeNotifier()
         self.app.include_router(api_router)
         self.app.dependency_overrides[require_auth] = lambda: None
         self.app.dependency_overrides[require_agent] = lambda: {
@@ -227,6 +268,68 @@ class ControlApiTest(unittest.TestCase):
         self.assertEqual(body["hours"], 1)
         self.assertEqual(body["ranges"]["1h"]["download"], 1000)
         self.assertEqual(body["websites"][0]["domain"], "example.com")
+
+    def test_device_display_name_survives_sync(self) -> None:
+        router = self.create_router()
+        self.client.post(f"/api/v1/routers/{router['id']}/sync")
+        device = self.client.get(
+            "/api/v1/devices", params={"router_id": router["id"]}
+        ).json()["items"][0]
+
+        renamed = self.client.patch(
+            f"/api/v1/devices/{device['id']}",
+            json={"display_name": "  Kitchen phone  "},
+        )
+        self.assertEqual(renamed.status_code, 200)
+        self.assertEqual(renamed.json()["display_name"], "Kitchen phone")
+        self.assertEqual(renamed.json()["hostname"], "phone")
+
+        self.client.post(f"/api/v1/routers/{router['id']}/sync")
+        fetched = self.client.get(f"/api/v1/devices/{device['id']}").json()
+        self.assertEqual(fetched["display_name"], "Kitchen phone")
+        self.assertEqual(fetched["hostname"], "phone")
+
+        cleared = self.client.patch(
+            f"/api/v1/devices/{device['id']}", json={"display_name": ""}
+        )
+        self.assertEqual(cleared.json()["display_name"], "")
+
+    def test_network_status_speedtest_topology_and_notification(self) -> None:
+        router = self.create_router()
+        self.client.post(f"/api/v1/routers/{router['id']}/sync")
+
+        status = self.client.get("/api/v1/network/status")
+        self.assertEqual(status.status_code, 200)
+        self.assertTrue(status.json()["sqm"]["enabled"])
+        self.assertEqual(status.json()["banip"]["element_count"], 100)
+
+        speedtest = self.client.post("/api/v1/network/speedtest")
+        self.assertEqual(speedtest.status_code, 200)
+        self.assertEqual(speedtest.json()["download"], 900.0)
+
+        geoip = self.client.put(
+            "/api/v1/network/geoip", json={"countries": ["VA"]}
+        )
+        self.assertEqual(geoip.status_code, 200)
+        self.assertEqual(geoip.json()["countries"], ["va"])
+        invalid = self.client.put(
+            "/api/v1/network/geoip", json={"countries": ["USA"]}
+        )
+        self.assertEqual(invalid.status_code, 422)
+
+        invalid_ip = self.client.get(
+            "/api/v1/network/geoip/lookup", params={"ip": "not-an-ip"}
+        )
+        self.assertEqual(invalid_ip.status_code, 422)
+
+        topology = self.client.get("/api/v1/network/topology")
+        self.assertEqual(topology.status_code, 200)
+        self.assertEqual(topology.json()["router"]["address"], "192.168.0.1")
+        self.assertEqual(topology.json()["total_devices"], 1)
+
+        notification = self.client.post("/api/v1/network/notifications/test")
+        self.assertEqual(notification.status_code, 200)
+        self.assertEqual(notification.json()["channels"]["ntfy"], "ok")
 
     # ------------------------------------------------------------- policies
 

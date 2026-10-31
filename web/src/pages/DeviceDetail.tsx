@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   ArrowLeft,
+  Check,
   Download,
+  Pencil,
   Upload,
+  X,
 } from 'lucide-react'
 import { api, type Device, type DeviceDetails } from '../api'
 import { DeviceTrafficChart } from '../components/DeviceTrafficChart'
-import { Badge, Button, Card, Empty, Stat } from '../components/ui'
+import { Badge, Button, Card, Empty, Input, Stat } from '../components/ui'
 import { formatBytes, formatDateTime } from '../utils/format'
 
 const ranges = [
@@ -31,6 +34,11 @@ export function DeviceDetail({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [name, setName] = useState(
+    device.display_name || device.hostname || device.mac,
+  )
+  const [editingName, setEditingName] = useState(false)
+  const [draftName, setDraftName] = useState(name)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -69,6 +77,22 @@ export function DeviceDetail({
     }
   }
 
+  const saveName = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      const updated = await api.updateDevice(device.id, {
+        display_name: draftName.trim(),
+      })
+      setName(updated.display_name || updated.hostname || updated.mac)
+      setEditingName(false)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Rename failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const totals = details?.ranges?.[range]
   const summary = details?.summary ?? {}
 
@@ -83,9 +107,51 @@ export function DeviceDetail({
           </Button>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-semibold text-[var(--text-strong)]">
-                {device.hostname || device.mac}
-              </h1>
+              {editingName ? (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Input
+                    autoFocus
+                    className="w-56 py-1"
+                    value={draftName}
+                    onChange={(event) => setDraftName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') void saveName()
+                      if (event.key === 'Escape') {
+                        setDraftName(name)
+                        setEditingName(false)
+                      }
+                    }}
+                  />
+                  <Button onClick={() => void saveName()} disabled={busy}>
+                    <Check size={13} />
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setDraftName(name)
+                      setEditingName(false)
+                    }}
+                  >
+                    <X size={13} />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <h1 className="text-2xl font-semibold text-[var(--text-strong)]">
+                    {name}
+                  </h1>
+                  <button
+                    type="button"
+                    aria-label="Rename device"
+                    onClick={() => {
+                      setDraftName(name)
+                      setEditingName(true)
+                    }}
+                    className="rounded p-1 text-[var(--subtle)] hover:bg-[var(--surface-3)] hover:text-[var(--accent-text)]"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                </div>
+              )}
               <Badge tone={device.online ? 'emerald' : 'slate'}>
                 {device.online ? 'online' : 'offline'}
               </Badge>
@@ -228,6 +294,8 @@ export function DeviceDetail({
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 p-4 text-xs">
             <dt className="text-[var(--subtle)]">MAC</dt>
             <dd className="font-mono text-[var(--text)]">{device.mac}</dd>
+            <dt className="text-[var(--subtle)]">Hostname</dt>
+            <dd className="text-[var(--text)]">{device.hostname || '—'}</dd>
             <dt className="text-[var(--subtle)]">IP</dt>
             <dd className="text-[var(--text)]">{device.ipv4 || '—'}</dd>
             <dt className="text-[var(--subtle)]">Vendor</dt>

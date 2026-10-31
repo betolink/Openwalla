@@ -101,6 +101,7 @@ class ControlDatabase:
                     ipv4 TEXT NOT NULL DEFAULT '',
                     ipv6 TEXT NOT NULL DEFAULT '[]',
                     hostname TEXT NOT NULL DEFAULT '',
+                    display_name TEXT NOT NULL DEFAULT '',
                     vendor TEXT NOT NULL DEFAULT '',
                     device_type TEXT NOT NULL DEFAULT '',
                     connection TEXT NOT NULL DEFAULT 'unknown',
@@ -209,6 +210,14 @@ class ControlDatabase:
                 );
                 """
             )
+            device_columns = {
+                row[1]
+                for row in self._connection.execute("PRAGMA table_info(devices)")
+            }
+            if "display_name" not in device_columns:
+                self._connection.execute(
+                    "ALTER TABLE devices ADD COLUMN display_name TEXT NOT NULL DEFAULT ''"
+                )
             self._connection.execute(
                 "INSERT OR IGNORE INTO adblock (id) VALUES (1)"
             )
@@ -348,9 +357,9 @@ class ControlDatabase:
         if query:
             like = f"%{query}%"
             where.append(
-                "(hostname LIKE ? OR ipv4 LIKE ? OR mac LIKE ? OR vendor LIKE ?)"
+                "(hostname LIKE ? OR display_name LIKE ? OR ipv4 LIKE ? OR mac LIKE ? OR vendor LIKE ?)"
             )
-            args.extend([like, like, like, like])
+            args.extend([like, like, like, like, like])
         clause = f"WHERE {' AND '.join(where)}" if where else ""
         total_row = self._one(
             f"SELECT COUNT(*) AS count FROM devices {clause}", args
@@ -366,7 +375,14 @@ class ControlDatabase:
         return self._one("SELECT * FROM devices WHERE id = ?", (device_id,))
 
     def update_device(self, device_id: str, data: dict[str, Any]) -> dict[str, Any] | None:
-        allowed = {"hostname", "device_type", "group_id", "vendor", "tags"}
+        allowed = {
+            "hostname",
+            "display_name",
+            "device_type",
+            "group_id",
+            "vendor",
+            "tags",
+        }
         updates: list[str] = []
         values: list[Any] = []
         for key in allowed:

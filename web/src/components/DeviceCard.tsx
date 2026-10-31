@@ -42,7 +42,7 @@ export function DeviceCard({
           </div>
           <div>
             <p className="text-sm font-medium text-[var(--text)]">
-              {device.hostname || 'unknown'}
+              {device.display_name || device.hostname || 'unknown'}
             </p>
             <p className="text-[11px] text-[var(--subtle)]">{device.ipv4 || '—'}</p>
           </div>

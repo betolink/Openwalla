@@ -9,6 +9,7 @@ from . import (
     devices,
     events,
     interfaces,
+    network,
     parental,
     policies,
     routers,
@@ -20,6 +21,7 @@ api_router.include_router(auth.router)
 api_router.include_router(routers.router)
 api_router.include_router(devices.router)
 api_router.include_router(interfaces.router)
+api_router.include_router(network.router)
 api_router.include_router(policies.router)
 api_router.include_router(parental.router)
 api_router.include_router(adblock.router)

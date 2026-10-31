@@ -31,8 +31,15 @@ install_rpcd_acl
 set_uci openwalla.features.banip "1"
 uci commit openwalla
 
-set_uci banip.global.ban_countrysplit "1"
-set_uci banip.global.ban_nftcount "1"
+set_uci_default banip.global.ban_enabled "1"
+set_uci banip.global.ban_enabled "1"
+set_uci_default banip.global.ban_autodetect "1"
+set_uci_default banip.global.ban_feed "dshield feodo threat bogon country"
+set_uci_default banip.global.ban_country ""
+set_uci_default banip.global.ban_countrysplit "0"
+set_uci_default banip.global.ban_logchain "1"
+set_uci_default banip.global.ban_loglimit "100"
+set_uci_default banip.global.ban_nftcount "1"
 uci commit banip
 
 enable_restart_service banip

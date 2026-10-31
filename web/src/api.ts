@@ -23,6 +23,7 @@ export interface Device {
   ipv4: string
   ipv6?: string[]
   hostname: string
+  display_name?: string
   vendor: string
   device_type: string
   connection: 'wired' | 'wireless' | 'unknown'
@@ -165,6 +166,101 @@ export interface DeviceDetails {
   websites: DeviceWebsite[]
 }
 
+export interface SpeedTestResult {
+  timestamp: string
+  status: string
+  download: number | null
+  upload: number | null
+  server: string
+  message: string
+}
+
+export interface NetworkStatus {
+  sqm: {
+    enabled: boolean
+    interface: string
+    download_kbit: number
+    upload_kbit: number
+    qdisc: string
+    script: string
+    qdiscs: string[]
+  }
+  banip: {
+    enabled: boolean
+    active: boolean
+    status: string
+    element_count: number
+    feeds: string[]
+    active_feeds: string[]
+    last_run: string
+  }
+  geoip: {
+    countries: string[]
+    enabled: boolean
+  }
+  speedtests: SpeedTestResult[]
+}
+
+export interface GeoIPStatus {
+  countries: string[]
+  enabled: boolean
+}
+
+export interface GeoIPLookupResult {
+  ip: string
+  country_code: string
+  country: string
+  continent: string
+}
+
+export interface TopologyDevice {
+  id: string
+  mac: string
+  ipv4: string
+  hostname: string
+  display_name?: string
+  vendor: string
+  device_type: string
+  connection: string
+  online: boolean
+}
+
+export interface Topology {
+  router: {
+    name: string
+    address: string
+    status: string
+    model: string
+  }
+  wan: { label: string; detail: string }
+  lan: { label: string; detail: string }
+  access_points: TopologyDevice[]
+  wired: { count: number; devices: TopologyDevice[] }
+  wireless: { count: number; devices: TopologyDevice[] }
+  unclassified: { count: number; devices: TopologyDevice[] }
+  total_devices: number
+}
+
+export interface NotificationResult {
+  notification: {
+    id: string
+    title: string
+    body?: string
+    created_at?: string
+  }
+  channels: Record<string, string>
+}
+
+export interface NotificationItem {
+  id: string
+  type: string
+  title: string
+  body: string
+  read: boolean
+  created_at: string
+  data?: Record<string, unknown>
+}
+
 export interface FlowDashboard {
   collector?: {
     connected?: boolean
@@ -255,6 +351,12 @@ export const api = {
   blockDevice: (id: string) =>
     request<Device>(`/api/v1/devices/${id}/block`, { method: 'POST' }),
 
+  updateDevice: (id: string, data: { display_name?: string }) =>
+    request<Device>(`/api/v1/devices/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
   unblockDevice: (id: string) =>
     request<Device>(`/api/v1/devices/${id}/unblock`, { method: 'POST' }),
 
@@ -339,4 +441,32 @@ export const api = {
 
   getDeviceDetails: (id: string, hours = 24) =>
     request<DeviceDetails>(`/api/v1/devices/${id}/details${query({ hours })}`),
+
+  getNetworkStatus: () => request<NetworkStatus>('/api/v1/network/status'),
+
+  runSpeedtest: () =>
+    request<SpeedTestResult>('/api/v1/network/speedtest', { method: 'POST' }),
+
+  getTopology: () => request<Topology>('/api/v1/network/topology'),
+
+  setGeoIP: (countries: string[]) =>
+    request<GeoIPStatus>('/api/v1/network/geoip', {
+      method: 'PUT',
+      body: JSON.stringify({ countries }),
+    }),
+
+  lookupGeoIP: (ip: string) =>
+    request<GeoIPLookupResult>(
+      `/api/v1/network/geoip/lookup?ip=${encodeURIComponent(ip)}`,
+    ),
+
+  listNotifications: () =>
+    request<{ items: NotificationItem[]; unread: number }>(
+      '/api/v1/notifications',
+    ),
+
+  testNotification: () =>
+    request<NotificationResult>('/api/v1/network/notifications/test', {
+      method: 'POST',
+    }),
 }

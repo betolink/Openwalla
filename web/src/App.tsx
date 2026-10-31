@@ -3,6 +3,7 @@ import {
   Activity,
   Ban,
   Bell,
+  Globe2,
   LayoutDashboard,
   MonitorSmartphone,
   Moon,
@@ -20,6 +21,7 @@ import { Adblock } from './pages/Adblock'
 import { DeviceDetail } from './pages/DeviceDetail'
 import { Devices } from './pages/Devices'
 import { Events } from './pages/Events'
+import { Network } from './pages/Network'
 import { Overview } from './pages/Overview'
 import { Parental } from './pages/Parental'
 import { Policies } from './pages/Policies'
@@ -30,6 +32,7 @@ const tabs = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'devices', label: 'Devices', icon: MonitorSmartphone },
   { id: 'traffic', label: 'Traffic', icon: Activity },
+  { id: 'network', label: 'Network', icon: Globe2 },
   { id: 'policies', label: 'Policies', icon: Shield },
   { id: 'parental', label: 'Parental', icon: Users },
   { id: 'adblock', label: 'Adblock', icon: Ban },
@@ -48,6 +51,7 @@ const pages: Record<Tab, ComponentType<PageProps>> = {
   overview: Overview,
   devices: Devices,
   traffic: Traffic,
+  network: Network,
   policies: Policies,
   parental: Parental,
   adblock: Adblock,

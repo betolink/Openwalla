@@ -42,7 +42,7 @@ export function Devices({
     return devices.filter((device) => {
       if (onlineOnly && !device.online) return false
       if (!needle) return true
-      return [device.hostname, device.ipv4, device.mac, device.vendor, device.device_type]
+      return [device.display_name, device.hostname, device.ipv4, device.mac, device.vendor, device.device_type]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(needle))
     })
@@ -69,6 +69,19 @@ export function Devices({
     }
   }
 
+  const handleRename = async (device: Device, name: string) => {
+    setBusy(device.id)
+    setError(null)
+    try {
+      await api.updateDevice(device.id, { display_name: name })
+      await load()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Rename failed')
+    } finally {
+      setBusy(null)
+    }
+  }
+
   const syncAll = async () => {
     setBusy('sync-all')
     setError(null)
@@ -88,7 +101,7 @@ export function Devices({
     <div className="space-y-6">
       <PageHeader
         title="Devices"
-        subtitle={`${devices.length} imported · ${filtered.length} shown · click a device for details`}
+        subtitle={`${devices.length} imported · ${filtered.length} shown · click a device for details, pencil to rename`}
         actions={
           <Button onClick={() => void syncAll()} disabled={busy !== null}>
             {busy === 'sync-all' ? 'Syncing…' : 'Sync routers'}
@@ -127,6 +140,7 @@ export function Devices({
           devices={filtered}
           onAction={handleAction}
           onSelect={onOpenDevice}
+          onRename={handleRename}
         />
       </Card>
     </div>

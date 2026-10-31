@@ -132,4 +132,41 @@ describe('api', () => {
       '/api/v1/devices/d1/details?hours=12',
     )
   })
+
+  it('loads network status and runs a speed test', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+    })
+    await api.getNetworkStatus()
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/network/status')
+
+    await api.runSpeedtest()
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/network/speedtest')
+    expect(fetchMock.mock.calls[1][1]?.method).toBe('POST')
+
+    await api.setGeoIP(['va'])
+    expect(fetchMock.mock.calls[2][0]).toBe('/api/v1/network/geoip')
+    expect(fetchMock.mock.calls[2][1]?.method).toBe('PUT')
+
+    await api.lookupGeoIP('1.1.1.1')
+    expect(fetchMock.mock.calls[3][0]).toBe(
+      '/api/v1/network/geoip/lookup?ip=1.1.1.1',
+    )
+  })
+
+  it('renames a device', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: 'd1', display_name: 'Kitchen' }),
+    })
+    await api.updateDevice('d1', { display_name: 'Kitchen' })
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/devices/d1')
+    expect(fetchMock.mock.calls[0][1]?.method).toBe('PATCH')
+    expect(fetchMock.mock.calls[0][1]?.body).toBe(
+      JSON.stringify({ display_name: 'Kitchen' }),
+    )
+  })
 })

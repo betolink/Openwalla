@@ -78,10 +78,28 @@ def update_device(
     payload: Annotated[dict[str, Any], Body()],
     db: Annotated[ControlDatabase, Depends(control_db)],
 ):
-    value = db.update_device(device_id, payload)
-    if value is None:
+    if "display_name" in payload:
+        value = payload["display_name"]
+        if not isinstance(value, str):
+            raise HTTPException(422, "display_name must be a string")
+        payload["display_name"] = value.strip()[:80]
+    before = _get(db, device_id)
+    updated = db.update_device(device_id, payload)
+    if updated is None:
         raise HTTPException(404, "device not found")
-    return value
+    if "display_name" in payload and before.get("display_name") != updated.get(
+        "display_name"
+    ):
+        db.create_event(
+            {
+                "type": "device_renamed",
+                "severity": "info",
+                "message": f"renamed device: {before.get('hostname') or before['mac']} -> {updated.get('display_name') or updated.get('hostname') or updated['mac']}",
+                "router_id": updated["router_id"],
+                "device_id": device_id,
+            }
+        )
+    return updated
 
 
 @router.get("/{device_id}/traffic")

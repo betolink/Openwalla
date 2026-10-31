@@ -16,6 +16,8 @@ require_file "$RPCD_ACL"
 update_package_feeds
 install_pkg_if_available "sqm-scripts"
 install_pkg_if_available "luci-app-sqm"
+install_first_available_pkg "speedtest-go" "speedtest" "speedtestcpp" "python3-speedtest-cli"
+install_file "$FILES_DIR/openwalla-sqm-autotune.sh" /usr/bin/openwalla-sqm-autotune 0755
 
 ensure_openwalla_config
 ensure_uci_section features ui

@@ -9,9 +9,9 @@ PATH="/usr/sbin:/usr/bin:/sbin:/bin"
 export PATH
 mkdir -p /tmp/openwalla
 
-DEFAULT_OUTPUT="/tmp/openwalla/openwalla-speedtest-monitor.txt"
+DEFAULT_OUTPUT="/overlay/openwalla/openwalla-speedtest-monitor.txt"
 DEFAULT_MAX_LINES="365"
-DEFAULT_BIN="/usr/bin/speedtest"
+DEFAULT_BIN="/usr/bin/speedtest-go"
 
 SPEEDTEST_OUTPUT="$DEFAULT_OUTPUT"
 SPEEDTEST_MAX_LINES="$DEFAULT_MAX_LINES"

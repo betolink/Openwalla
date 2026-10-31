@@ -15,7 +15,7 @@ require_file "$FILES_DIR/openwalla.config"
 require_file "$RPCD_ACL"
 
 update_package_feeds
-install_first_available_pkg "speedtest" speedtestcpp python3-speedtest-cli
+install_first_available_pkg "speedtest-go" "speedtest" "speedtestcpp" "python3-speedtest-cli"
 
 ensure_openwalla_config
 ensure_uci_section speedtest_monitor speedtest
@@ -27,8 +27,8 @@ set_uci_default openwalla.speedtest_monitor.enabled "1"
 uci -q delete openwalla.speedtest_monitor.run_date >/dev/null 2>&1 || true
 set_uci_default openwalla.speedtest_monitor.run_hour "3"
 set_uci_default openwalla.speedtest_monitor.run_minute "15"
-set_uci_default openwalla.speedtest_monitor.bin "/usr/bin/speedtest"
-set_uci_default openwalla.speedtest_monitor.output_file "/tmp/openwalla/openwalla-speedtest-monitor.txt"
+set_uci_default openwalla.speedtest_monitor.bin "/usr/bin/speedtest-go"
+set_uci_default openwalla.speedtest_monitor.output_file "/overlay/openwalla/openwalla-speedtest-monitor.txt"
 set_uci_default openwalla.speedtest_monitor.max_lines "365"
 uci commit openwalla
 

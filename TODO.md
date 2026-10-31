@@ -28,6 +28,7 @@ Updated: 2026-10-31
 - [x] Device detail: 1h / 12h / 1d / 7d ranges, MB totals, chart
 - [x] Device detail: most-visited websites (Netify) and device info
 - [x] Overview device cards expose a “View details” link
+- [x] Devices table + detail header allow renaming (persists across router syncs)
 - [x] Fixed nlbwmon separator parsing and netlink buffer (MB data flows)
 - [x] Moved Netify + bandwidth DBs to `/overlay` SSD; 7-day retention
 - [x] Single collector instance (init kills stale worker processes)
@@ -39,12 +40,33 @@ Updated: 2026-10-31
 - [ ] Agent sync + enforcement (block/pause/parental/adblock)
 - [ ] Auth login/logout in the UI
 
+## Phase 2-A — implemented 2026-10-31
+
+- [x] SQM/CAKE enabled on `eth1` at 720/230 Mbps (90% of measured link)
+- [x] `speedtest-go` installed; daily monitor writes to
+      `/overlay/openwalla/openwalla-speedtest-monitor.txt`
+- [x] Network page: SQM, speed tests, banIP, GeoIP, topology, alerts
+- [x] banIP enabled with `dshield feodo threat bogon` (~4k elements)
+- [x] GeoIP country blocking via banIP/IPdeny; set/clear from dashboard
+- [x] Offline GeoIP lookup (DB-IP Lite MMDB) via API
+- [x] Notification storage + ntfy/webhook delivery + test button
+- [x] Collector disconnect/recovery alert monitor
+- [x] Basic topology from inventory and AP hostnames
+
+## Phase 2-B — next
+
+- [ ] AdGuard Home per-client DNS + safe search
+- [ ] NordVPN policy routing for one test VLAN/device
+- [ ] Per-device bandwidth limits
+- [ ] Then per-app/category rules
+
 ## Feature wiring status
 
 | Feature | Dashboard | Router side |
 |---------|-----------|-------------|
 | Router list / sync | yes | LuCI RPC |
 | Device inventory | yes | LuCI RPC + collectors |
+| Device rename | yes | control DB display-name override |
 | Device detail (1h/12h/1d/7d) | yes | router bandwidth DB via SSH |
 | Top websites per device | yes | Netify flows (7d on SSD) |
 | Device block / pause | yes (desired state) | agent enforcement pending |
@@ -54,7 +76,12 @@ Updated: 2026-10-31
 | Parental / schedules | UI only (control DB) | helpers installed; enforcement pending |
 | Policies / groups | UI only (control DB) | enforcement pending |
 | Events | yes (control DB) | router event sync pending |
-| banIP / SQM | no | installed, not configured |
+| SQM / bufferbloat | yes | CAKE on `eth1` (720/230 Mbps) |
+| Speed tests | yes | `speedtest-go` daily + on demand |
+| banIP threat feeds | yes | dshield/feodo/threat/bogon |
+| GeoIP country blocks | yes | banIP + IPdeny; offline MMDB lookup |
+| Notifications | yes | ntfy/webhook + control DB |
+| Topology | basic | inventory + AP hostnames |
 | AdGuard | no | adblock active instead |
 | Suricata | no | not packaged in 25.12 |
 

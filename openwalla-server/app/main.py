@@ -18,6 +18,7 @@ from .collector import NetifyCollector
 from .config import Settings
 from .control_db import ControlDatabase
 from .database import FlowDatabase
+from .notifier import Notifier
 from .runtime_config import RuntimeConfig, RuntimeOptions, public_settings
 from .api import api_router
 
@@ -56,12 +57,46 @@ def authorize(
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     collector.start()
+    notifier = Notifier(control_db)
+    app.state.notifier = notifier
+    notification_stop = threading.Event()
+    notification_thread = threading.Thread(
+        target=_watch_collector,
+        args=(notifier, notification_stop),
+        name="notification-monitor",
+        daemon=True,
+    )
+    notification_thread.start()
     try:
         yield
     finally:
+        notification_stop.set()
         collector.stop()
         database.close()
         control_db.close()
+
+
+def _watch_collector(notifier: Notifier, stop: threading.Event) -> None:
+    previous = True
+    while not stop.wait(60):
+        current = collector.status.connected
+        if current == previous:
+            continue
+        if current:
+            notifier.send(
+                "Netify collector recovered",
+                "Flow ingestion is connected again.",
+                "info",
+                "collector",
+            )
+        else:
+            notifier.send(
+                "Netify collector offline",
+                "Flow ingestion has stopped. Check betowrt and the Netify stream.",
+                "warning",
+                "collector",
+            )
+        previous = current
 
 
 app = FastAPI(title="Openwalla Server", version="1.0.0", lifespan=lifespan)
