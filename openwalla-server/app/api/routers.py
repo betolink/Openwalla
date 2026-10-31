@@ -44,6 +44,24 @@ def _factory(request, router_value: dict[str, Any]):
     )
 
 
+def _board_fields(board: dict[str, Any]) -> tuple[str, str]:
+    model = board.get("model")
+    if isinstance(model, dict):
+        model_name = str(model.get("name") or model.get("id") or "")
+    elif model:
+        model_name = str(model)
+    else:
+        model_name = str(board.get("board_name") or "")
+    release = board.get("release")
+    if isinstance(release, dict):
+        version = str(release.get("description") or release.get("version") or "")
+    elif release:
+        version = str(release)
+    else:
+        version = str(board.get("system") or "")
+    return model_name, version
+
+
 @router.get("")
 def list_routers(db: Annotated[ControlDatabase, Depends(control_db)]):
     items = [public_router(value) for value in db.list_routers()]
@@ -115,12 +133,8 @@ def sync_router(
         {
             "status": "online",
             "last_seen": _now(),
-            "model": str(board.get("model") or ""),
-            "openwrt_version": str(
-                (board.get("release") or {}).get("description")
-                or board.get("system")
-                or ""
-            ),
+            "model": _board_fields(board)[0],
+            "openwrt_version": _board_fields(board)[1],
         },
     )
     return {

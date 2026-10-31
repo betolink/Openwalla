@@ -127,6 +127,23 @@ class ControlApiTest(unittest.TestCase):
         self.assertEqual(len(interfaces["items"]), 1)
         self.assertEqual(interfaces["items"][0]["name"], "br-lan")
 
+    def test_router_sync_normalizes_model_object(self) -> None:
+        class DictModelClient(FakeRouterClient):
+            def fetch_board(self):
+                return {
+                    "model": {
+                        "id": "intel-corporation-crescentbay",
+                        "name": "INTEL Corporation CRESCENTBAY",
+                    },
+                    "release": {"description": "OpenWrt 25.12.6"},
+                }
+
+        self.app.state.router_client_factory = lambda router: DictModelClient()
+        router = self.create_router()
+        body = self.client.post(f"/api/v1/routers/{router['id']}/sync").json()
+        self.assertEqual(body["router"]["model"], "INTEL Corporation CRESCENTBAY")
+        self.assertEqual(body["router"]["openwrt_version"], "OpenWrt 25.12.6")
+
     # ------------------------------------------------------------- devices
 
     def test_device_metadata_and_actions(self) -> None:
