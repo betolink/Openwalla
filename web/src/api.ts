@@ -143,6 +143,28 @@ export interface TrafficPoint {
   devices: number
 }
 
+export interface DeviceRange {
+  download: number
+  upload: number
+}
+
+export interface DeviceWebsite {
+  domain: string
+  app: string
+  protocol: string
+  visits: number
+  last_seen: number
+}
+
+export interface DeviceDetails {
+  mac: string
+  hours: number
+  summary: Record<string, unknown>
+  ranges: Record<'1h' | '12h' | '1d' | '7d', DeviceRange>
+  series: Array<{ timestamp: number; download: number; upload: number }>
+  websites: DeviceWebsite[]
+}
+
 export interface FlowDashboard {
   collector?: {
     connected?: boolean
@@ -314,4 +336,7 @@ export const api = {
     request<{ items: TrafficPoint[] }>(
       `/api/v1/traffic/series${query({ hours, bucket })}`,
     ),
+
+  getDeviceDetails: (id: string, hours = 24) =>
+    request<DeviceDetails>(`/api/v1/devices/${id}/details${query({ hours })}`),
 }

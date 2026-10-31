@@ -131,7 +131,7 @@ prune_db() {
 }
 
 parse_nlbw_csv() {
-	nlbw -c csv -g mac -o mac -s "|" -q 2>/dev/null | awk -F'|' '
+	nlbw -c csv -g mac -o mac -q 2>/dev/null | awk '
 		BEGIN { OFS="\t" }
 		NR == 1 {
 			for (i = 1; i <= NF; i++) {

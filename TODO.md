@@ -24,12 +24,17 @@ Updated: 2026-10-31
 - [x] Firewalla-style layout: sidebar, network hero, device cards
 - [x] Dark/light theme switch (light = Material purple palette)
 - [x] Traffic timeseries chart on Overview and Traffic
+- [x] Click-through from Overview/Devices to a device detail page
+- [x] Device detail: 1h / 12h / 1d / 7d ranges, MB totals, chart
+- [x] Device detail: most-visited websites (Netify) and device info
+- [x] Fixed nlbwmon separator parsing and netlink buffer (MB data flows)
 - [x] Web tests + production build green (11 tests)
 - [x] Run backend locally and connect betowrt (26 devices synced)
 - [x] Netify flows wired to the API (flows + 5-minute series)
 - [x] Ansible deployment playbook (`clusterfunk/playbooks/29-openwalla.yml`)
 - [ ] Policies / parental / adblock pages backed by router state
 - [ ] Agent sync + enforcement (block/pause/parental/adblock)
+- [ ] 7-day website aggregation (raw Netify flows are kept 24h)
 - [ ] Auth login/logout in the UI
 
 ## Feature wiring status
@@ -38,6 +43,8 @@ Updated: 2026-10-31
 |---------|-----------|-------------|
 | Router list / sync | yes | LuCI RPC |
 | Device inventory | yes | LuCI RPC + collectors |
+| Device detail (1h/12h/1d/7d) | yes | router bandwidth DB via SSH |
+| Top websites per device | yes | Netify flows (24h retention) |
 | Device block / pause | yes (desired state) | agent enforcement pending |
 | Traffic / flows | yes | Netify collector connected |
 | Traffic timeseries | yes | `flow_raw` 5-minute buckets |

@@ -19,7 +19,11 @@ function formatTime(value?: string) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
 }
 
-export function Overview() {
+export function Overview({
+  onOpenDevice,
+}: {
+  onOpenDevice?: (device: Device) => void
+}) {
   const [routers, setRouters] = useState<Router[]>([])
   const [devices, setDevices] = useState<Device[]>([])
   const [adblock, setAdblock] = useState<AdblockStatus | null>(null)
@@ -245,6 +249,7 @@ export function Overview() {
               key={device.id}
               device={device}
               onAction={handleAction}
+              onOpen={onOpenDevice}
             />
           ))}
           {devices.length === 0 && <Empty>No devices imported yet.</Empty>}

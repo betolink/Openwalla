@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import os
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 
 from ..control_db import ControlDatabase
 from ..deps import control_db, require_auth
+from ..router_data import RouterData, RouterDataError
 
 router = APIRouter(
     prefix="/devices", tags=["Devices"], dependencies=[Depends(require_auth)]
@@ -95,6 +97,28 @@ def device_traffic(
         "tx_bytes": 0,
         "samples": [],
     }
+
+
+@router.get("/{device_id}/details")
+def device_details(
+    device_id: str,
+    request: Request,
+    db: Annotated[ControlDatabase, Depends(control_db)],
+    hours: int = Query(24, ge=1, le=168),
+):
+    device = _get(db, device_id)
+    router = db.get_router(device["router_id"])
+    if router is None:
+        raise HTTPException(404, "router not found")
+    source = getattr(request.app.state, "router_data", None)
+    if source is None:
+        source = RouterData(
+            router["address"], ssh_key=os.getenv("OPENWALLA_ROUTER_SSH_KEY")
+        )
+    try:
+        return source.device_details(device["mac"], hours)
+    except RouterDataError as error:
+        raise HTTPException(502, str(error)) from error
 
 
 @router.post("/{device_id}/pause")

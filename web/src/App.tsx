@@ -14,8 +14,10 @@ import {
   Wifi,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
+import type { Device } from './api'
 import { Button } from './components/ui'
 import { Adblock } from './pages/Adblock'
+import { DeviceDetail } from './pages/DeviceDetail'
 import { Devices } from './pages/Devices'
 import { Events } from './pages/Events'
 import { Overview } from './pages/Overview'
@@ -38,7 +40,11 @@ const tabs = [
 type Tab = (typeof tabs)[number]['id']
 type Theme = 'dark' | 'light'
 
-const pages: Record<Tab, ComponentType> = {
+type PageProps = {
+  onOpenDevice?: (device: Device) => void
+}
+
+const pages: Record<Tab, ComponentType<PageProps>> = {
   overview: Overview,
   devices: Devices,
   traffic: Traffic,
@@ -52,6 +58,7 @@ const pages: Record<Tab, ComponentType> = {
 export default function App() {
   const [tab, setTab] = useState<Tab>('overview')
   const [refreshKey, setRefreshKey] = useState(0)
+  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null)
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === 'undefined') return 'dark'
     return window.localStorage.getItem('openwalla-theme') === 'light'
@@ -80,6 +87,10 @@ export default function App() {
   const refresh = () => setRefreshKey((value) => value + 1)
   const toggleTheme = () =>
     setTheme((value) => (value === 'dark' ? 'light' : 'dark'))
+  const selectTab = (id: Tab) => {
+    setTab(id)
+    setSelectedDevice(null)
+  }
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
@@ -101,7 +112,7 @@ export default function App() {
             return (
               <button
                 key={item.id}
-                onClick={() => setTab(item.id)}
+                onClick={() => selectTab(item.id)}
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${
                   active
                     ? 'bg-[var(--accent-soft)] text-[var(--accent-text)]'
@@ -126,7 +137,9 @@ export default function App() {
       <div className="md:pl-60">
         <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--bg)] px-5 py-3 backdrop-blur">
           <div>
-            <p className="text-sm font-medium text-[var(--text)]">{current.label}</p>
+            <p className="text-sm font-medium text-[var(--text)]">
+              {selectedDevice ? 'Device details' : current.label}
+            </p>
             <p className="text-[11px] text-[var(--subtle)]">
               Router control plane · local test instance
             </p>
@@ -157,7 +170,7 @@ export default function App() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => setTab(item.id)}
+                  onClick={() => selectTab(item.id)}
                   className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs ${
                     active
                       ? 'bg-[var(--accent-soft)] text-[var(--accent-text)]'
@@ -173,7 +186,18 @@ export default function App() {
         </div>
 
         <main className="mx-auto max-w-[1500px] px-5 py-6">
-          <Page key={`${tab}-${refreshKey}`} />
+          {selectedDevice ? (
+            <DeviceDetail
+              key={`device-${selectedDevice.id}-${refreshKey}`}
+              device={selectedDevice}
+              onBack={() => setSelectedDevice(null)}
+            />
+          ) : (
+            <Page
+              key={`${tab}-${refreshKey}`}
+              onOpenDevice={setSelectedDevice}
+            />
+          )}
         </main>
       </div>
     </div>

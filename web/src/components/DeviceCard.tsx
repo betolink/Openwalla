@@ -21,12 +21,19 @@ function DeviceIcon({ type }: { type?: string }) {
 export function DeviceCard({
   device,
   onAction,
+  onOpen,
 }: {
   device: Device
   onAction?: (device: Device, action: 'block' | 'pause') => void
+  onOpen?: (device: Device) => void
 }) {
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
+    <div
+      onClick={() => onOpen?.(device)}
+      className={`rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3 ${
+        onOpen ? 'cursor-pointer hover:border-[var(--accent)]' : ''
+      }`}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--surface-2)] text-[var(--text)]">
@@ -55,10 +62,20 @@ export function DeviceCard({
       </div>
 
       <div className="mt-3 flex gap-1.5">
-        <Button onClick={() => onAction?.(device, 'block')}>
+        <Button
+          onClick={(event) => {
+            event.stopPropagation()
+            onAction?.(device, 'block')
+          }}
+        >
           {device.blocked ? 'Unblock' : 'Block'}
         </Button>
-        <Button onClick={() => onAction?.(device, 'pause')}>
+        <Button
+          onClick={(event) => {
+            event.stopPropagation()
+            onAction?.(device, 'pause')
+          }}
+        >
           {device.paused ? 'Resume' : 'Pause'}
         </Button>
       </div>

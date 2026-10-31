@@ -52,6 +52,33 @@ class FakeFlowDB:
         return [{"timestamp": 1, "flows": 3, "devices": 2}]
 
 
+class FakeRouterData:
+    def device_details(self, mac: str, hours: int):
+        return {
+            "mac": mac,
+            "hours": hours,
+            "summary": {"vendor": "Acme", "status": "online"},
+            "ranges": {
+                "1h": {"download": 1000, "upload": 500},
+                "12h": {"download": 2000, "upload": 1000},
+                "1d": {"download": 3000, "upload": 1500},
+                "7d": {"download": 4000, "upload": 2000},
+            },
+            "series": [
+                {"timestamp": 1, "download": 1000, "upload": 500},
+            ],
+            "websites": [
+                {
+                    "domain": "example.com",
+                    "app": "HTTP/S",
+                    "protocol": "HTTP/S",
+                    "visits": 3,
+                    "last_seen": 1,
+                }
+            ],
+        }
+
+
 class ControlApiTest(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
@@ -61,6 +88,7 @@ class ControlApiTest(unittest.TestCase):
         self.app.state.settings = SimpleNamespace(api_token="", session_hours=24)
         self.app.state.router_client_factory = lambda router: FakeRouterClient()
         self.app.state.flow_db = FakeFlowDB()
+        self.app.state.router_data = FakeRouterData()
         self.app.include_router(api_router)
         self.app.dependency_overrides[require_auth] = lambda: None
         self.app.dependency_overrides[require_agent] = lambda: {
@@ -184,6 +212,21 @@ class ControlApiTest(unittest.TestCase):
         traffic = self.client.get(f"/api/v1/devices/{device_id}/traffic")
         self.assertEqual(traffic.status_code, 200)
         self.assertEqual(traffic.json()["samples"], [])
+
+    def test_device_details(self) -> None:
+        router = self.create_router()
+        self.client.post(f"/api/v1/routers/{router['id']}/sync")
+        device = self.client.get(
+            "/api/v1/devices", params={"router_id": router["id"]}
+        ).json()["items"][0]
+        response = self.client.get(
+            f"/api/v1/devices/{device['id']}/details", params={"hours": 1}
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["hours"], 1)
+        self.assertEqual(body["ranges"]["1h"]["download"], 1000)
+        self.assertEqual(body["websites"][0]["domain"], "example.com")
 
     # ------------------------------------------------------------- policies
 

@@ -1,20 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, type Device, type Router } from '../api'
 import { DeviceTable } from '../components/DeviceTable'
-import { Badge, Button, Card, Empty, Input, PageHeader } from '../components/ui'
+import { Button, Card, Input, PageHeader } from '../components/ui'
 
-function formatTime(value?: string) {
-  if (!value) return '—'
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
-}
-
-export function Devices() {
+export function Devices({
+  onOpenDevice,
+}: {
+  onOpenDevice?: (device: Device) => void
+}) {
   const [devices, setDevices] = useState<Device[]>([])
   const [routers, setRouters] = useState<Router[]>([])
   const [query, setQuery] = useState('')
   const [onlineOnly, setOnlineOnly] = useState(false)
-  const [selected, setSelected] = useState<Device | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -29,11 +26,6 @@ export function Devices() {
       ])
       setRouters(routerList.items)
       setDevices(deviceList.items)
-      setSelected((current) =>
-        current
-          ? (deviceList.items.find((item) => item.id === current.id) ?? null)
-          : null,
-      )
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to load')
     } finally {
@@ -96,7 +88,7 @@ export function Devices() {
     <div className="space-y-6">
       <PageHeader
         title="Devices"
-        subtitle={`${devices.length} imported · ${filtered.length} shown`}
+        subtitle={`${devices.length} imported · ${filtered.length} shown · click a device for details`}
         actions={
           <Button onClick={() => void syncAll()} disabled={busy !== null}>
             {busy === 'sync-all' ? 'Syncing…' : 'Sync routers'}
@@ -105,7 +97,7 @@ export function Devices() {
       />
 
       {error && (
-        <div className="rounded-lg border border-[var(--danger)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">
+        <div className="rounded-xl border border-[var(--danger)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">
           {error}
         </div>
       )}
@@ -130,69 +122,13 @@ export function Devices() {
         </Button>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
-        <Card title="Inventory">
-          <DeviceTable
-            devices={filtered}
-            onAction={handleAction}
-            onSelect={setSelected}
-            selectedId={selected?.id}
-          />
-        </Card>
-
-        <Card title="Device details">
-          {selected ? (
-            <div className="space-y-4 p-4 text-sm">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-base font-semibold text-[var(--text-strong)]">
-                    {selected.hostname || selected.mac}
-                  </span>
-                  <Badge tone={selected.online ? 'emerald' : 'slate'}>
-                    {selected.online ? 'online' : 'offline'}
-                  </Badge>
-                  {selected.blocked && <Badge tone="rose">blocked</Badge>}
-                  {selected.paused && <Badge tone="amber">paused</Badge>}
-                </div>
-                <p className="mt-1 text-xs text-[var(--subtle)]">
-                  {selected.device_type || 'unknown type'} ·{' '}
-                  {selected.connection}
-                </p>
-              </div>
-
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
-                <dt className="text-[var(--subtle)]">IPv4</dt>
-                <dd className="text-[var(--text)]">{selected.ipv4 || '—'}</dd>
-                <dt className="text-[var(--subtle)]">IPv6</dt>
-                <dd className="break-all text-[var(--text)]">
-                  {selected.ipv6?.join(', ') || '—'}
-                </dd>
-                <dt className="text-[var(--subtle)]">MAC</dt>
-                <dd className="font-mono text-[var(--text)]">{selected.mac}</dd>
-                <dt className="text-[var(--subtle)]">Vendor</dt>
-                <dd className="text-[var(--text)]">{selected.vendor || '—'}</dd>
-                <dt className="text-[var(--subtle)]">First seen</dt>
-                <dd className="text-[var(--text)]">{formatTime(selected.first_seen)}</dd>
-                <dt className="text-[var(--subtle)]">Last seen</dt>
-                <dd className="text-[var(--text)]">{formatTime(selected.last_seen)}</dd>
-                <dt className="text-[var(--subtle)]">Tags</dt>
-                <dd className="text-[var(--text)]">{selected.tags?.join(', ') || '—'}</dd>
-              </dl>
-
-              <div className="flex gap-2">
-                <Button onClick={() => void handleAction(selected, 'block')}>
-                  {selected.blocked ? 'Unblock' : 'Block'}
-                </Button>
-                <Button onClick={() => void handleAction(selected, 'pause')}>
-                  {selected.paused ? 'Resume' : 'Pause'}
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <Empty>Select a device to see details and actions.</Empty>
-          )}
-        </Card>
-      </div>
+      <Card title="Inventory">
+        <DeviceTable
+          devices={filtered}
+          onAction={handleAction}
+          onSelect={onOpenDevice}
+        />
+      </Card>
     </div>
   )
 }

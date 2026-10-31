@@ -120,4 +120,16 @@ describe('api', () => {
       '/api/v1/traffic/series?hours=24&bucket=300',
     )
   })
+
+  it('gets device details', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ mac: 'aa:bb', hours: 12 }),
+    })
+    await api.getDeviceDetails('d1', 12)
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      '/api/v1/devices/d1/details?hours=12',
+    )
+  })
 })
