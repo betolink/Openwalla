@@ -36,8 +36,9 @@ Updated: 2026-10-31
 - [x] Run backend locally and connect betowrt (26 devices synced)
 - [x] Netify flows wired to the API (flows + 5-minute series)
 - [x] Ansible deployment playbook (`clusterfunk/playbooks/29-openwalla.yml`)
-- [ ] Policies / parental / adblock pages backed by router state
-- [ ] Agent sync + enforcement (block/pause/parental/adblock)
+- [x] Adblock page backed by router state (network-wide)
+- [ ] Policies / parental profiles backed by router state
+- [x] Device block/pause and adblock enforcement
 - [x] Dashboard deployed at `net.betolink.cloud` with app login + basic auth
 - [x] Dedicated host1 → betowrt SSH key mounted into the API container
 
@@ -70,11 +71,11 @@ Updated: 2026-10-31
 | Device rename | yes | control DB display-name override |
 | Device detail (1h/12h/1d/7d) | yes | router bandwidth DB via SSH |
 | Top websites per device | yes | Netify flows (7d on SSD) |
-| Device block / pause | yes (desired state) | agent enforcement pending |
+| Device block / pause | yes | enforced via `device-access` + nftables/firewall |
+| Adblock | yes | network-wide OpenWrt adblock engine (350k domains) |
+| Parental / policies | UI only (control DB) | enforcement pending |
 | Traffic / flows | yes | Netify collector connected |
 | Traffic timeseries | yes | `flow_raw` 5-minute buckets |
-| Adblock | UI only (control DB) | adblock active; sync pending |
-| Parental / schedules | UI only (control DB) | helpers installed; enforcement pending |
 | Policies / groups | UI only (control DB) | enforcement pending |
 | Events | yes (control DB) | router event sync pending |
 | SQM / bufferbloat | yes | CAKE on `eth1` (720/230 Mbps) |
