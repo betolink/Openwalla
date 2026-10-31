@@ -45,6 +45,13 @@ Updated: 2026-10-31
 - [x] Sync devices/interfaces from `192.168.0.1` over LuCI RPC
 - [ ] Provision a dedicated SSH key from the API host to betowrt
       (`from="192.168.0.0/24"`, no forwarding) for helper install/enforcement
+- [ ] Install feature packages on betowrt:
+      `sqlite3-cli conntrack nlbwmon vnstat2 netifyd banip sqm-scripts`
+- [ ] Choose AdGuard Home **or** adblock for DNS filtering
+- [ ] Install OpenWalla helpers via Router Setup (devices, bandwidth, parental,
+      scheduler, blocking, conntrack, netify, quarantine, notifications)
+- [ ] Suricata feasibility: not packaged in 25.12 (build/external sensor/later)
+- [ ] Screen-time caveat: counts network-active minutes, not screen-on
 - [ ] Dedicated router API user + minimal ACL
 - [ ] Agent/tunnel for remote routers (outbound only)
 - [ ] Enforce device actions through the agent (`openwalla-device-access`)

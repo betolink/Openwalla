@@ -63,4 +63,49 @@ describe('api', () => {
     })
     await expect(api.listRouters()).rejects.toThrow('boom')
   })
+
+  it('lists policies', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ items: [] }),
+    })
+    await api.listPolicies()
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/policies')
+  })
+
+  it('creates a parental profile', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: 'p1', name: 'Kids' }),
+    })
+    await api.createParentalProfile({ name: 'Kids', daily_limit_minutes: 120 })
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/api/v1/parental/profiles')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body).daily_limit_minutes).toBe(120)
+  })
+
+  it('updates adblock settings', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ enabled: true, blocklists: [] }),
+    })
+    await api.updateAdblockSettings({ enabled: true, blocklists: ['stevenblack'] })
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/api/v1/adblock/settings')
+    expect(init.method).toBe('PUT')
+  })
+
+  it('lists events', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ items: [], total: 0 }),
+    })
+    await api.listEvents()
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/events')
+  })
 })
