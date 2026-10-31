@@ -47,8 +47,11 @@ Updated: 2026-10-31
 - [x] Monthly DB-IP GeoIP refresh
 - [x] Deduped flow counts + real per-device traffic endpoint
 - [x] Live SSE traffic stream
-- [ ] Per-client content filtering / safe search (AdGuard cutover)
+- [x] Per-client content filtering / safe search (AdGuard cutover live)
+- [x] AdGuard per-client profile sync + cleanup
+- [x] AdGuard cutover + rollback scripts (tested)
 - [ ] Upgrade/rollback and E2E/reboot tests
+- [ ] Security hardening + Cloudflare (intentionally last)
 - [x] Dashboard deployed at `net.betolink.cloud` with app login + basic auth
 - [x] Dedicated host1 → betowrt SSH key mounted into the API container
 
@@ -67,7 +70,7 @@ Updated: 2026-10-31
 
 ## Phase 2-B — next
 
-- [ ] AdGuard Home per-client DNS + safe search
+- [x] AdGuard Home per-client DNS + safe search
 - [ ] NordVPN policy routing for one test VLAN/device
 - [ ] Per-device bandwidth limits
 - [ ] Then per-app/category rules
@@ -86,7 +89,7 @@ Updated: 2026-10-31
 | Parental / policies | yes | parental + internet-block policies enforced |
 | Backups | yes | daily SQLite/env/router archive, 14-day retention |
 | Live traffic | yes | SSE `/traffic/live` |
-| Content filtering | no | AdGuard Home cutover pending |
+| Content filtering | yes | AdGuard Home 53, per-client safe search/parental |
 | Traffic / flows | yes | Netify collector connected |
 | Traffic timeseries | yes | `flow_raw` 5-minute buckets |
 | Policies / groups | UI only (control DB) | enforcement pending |
@@ -97,7 +100,7 @@ Updated: 2026-10-31
 | GeoIP country blocks | yes | banIP + IPdeny; offline MMDB lookup |
 | Notifications | yes | ntfy/webhook + control DB |
 | Topology | basic | inventory + AP hostnames |
-| AdGuard | no | adblock active instead |
+| AdGuard | yes | live on port 53; adblock retired |
 | Suricata | no | not packaged in 25.12 |
 
 ## Next — Web dashboard (primary deliverable)
@@ -123,7 +126,7 @@ Updated: 2026-10-31
       scheduler, blocking, conntrack, netify, quarantine, notifications)
 - [x] Configure Netify LAN listener + backend collector (flows flowing)
 - [x] Adblock active (350k domains; adguard/adguard_tracking/certpl feeds)
-- [ ] Choose AdGuard Home **or** keep adblock (adblock is active now)
+- [x] Choose AdGuard Home **or** keep adblock (AdGuard is live; adblock disabled)
 - [ ] Enable banIP and configure SQM on WAN
 - [ ] Agent sync for adblock/parental/device data into the API
 - [ ] Suricata feasibility: not packaged in 25.12 (build/external sensor/later)
@@ -156,7 +159,7 @@ Updated: 2026-10-31
 ## Known placeholders (do not ship as final)
 
 - Device traffic endpoint returns empty samples.
-- Live traffic SSE endpoint not implemented yet.
+- Live traffic SSE endpoint implemented.
 - Device actions update desired state in SQLite; router enforcement is pending.
 - Vendor lookup is empty; `clients.md`/OUI can seed it.
 - Multi-router server support is single-DB first.
