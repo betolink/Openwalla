@@ -119,7 +119,7 @@ export function Policies() {
       />
 
       {error && (
-        <div className="rounded-lg border border-rose-900 bg-rose-950/50 px-4 py-3 text-sm text-rose-200">
+        <div className="rounded-lg border border-[var(--danger)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">
           {error}
         </div>
       )}
@@ -128,7 +128,7 @@ export function Policies() {
         <Card title="Groups">
           <form
             onSubmit={(event) => void addGroup(event)}
-            className="flex items-end gap-2 border-b border-slate-800 px-4 py-3"
+            className="flex items-end gap-2 border-b border-[var(--border)] px-4 py-3"
           >
             <Field label="New group">
               <Input
@@ -139,15 +139,15 @@ export function Policies() {
             </Field>
             <Button type="submit">Add</Button>
           </form>
-          <div className="divide-y divide-slate-800">
+          <div className="divide-y divide-[var(--border)]">
             {groups.map((group) => (
               <div
                 key={group.id}
                 className="flex items-center justify-between px-4 py-2 text-sm"
               >
                 <div>
-                  <span className="text-slate-200">{group.name}</span>
-                  <span className="ml-2 text-xs text-slate-500">
+                  <span className="text-[var(--text)]">{group.name}</span>
+                  <span className="ml-2 text-xs text-[var(--subtle)]">
                     {group.member_ids.length} member(s)
                   </span>
                 </div>
@@ -163,7 +163,7 @@ export function Policies() {
         <Card title="Policies">
           <form
             onSubmit={(event) => void addPolicy(event)}
-            className="grid gap-3 border-b border-slate-800 px-4 py-3"
+            className="grid gap-3 border-b border-[var(--border)] px-4 py-3"
           >
             <Field label="Policy name">
               <Input
@@ -199,7 +199,7 @@ export function Policies() {
                 </Select>
               </Field>
             </div>
-            <label className="flex items-center gap-2 text-sm text-slate-400">
+            <label className="flex items-center gap-2 text-sm text-[var(--muted)]">
               <input
                 type="checkbox"
                 checked={enabled}
@@ -212,18 +212,18 @@ export function Policies() {
             </Button>
           </form>
 
-          <div className="divide-y divide-slate-800">
+          <div className="divide-y divide-[var(--border)]">
             {policies.map((policy) => (
               <div
                 key={policy.id}
                 className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm"
               >
                 <div>
-                  <span className="text-slate-200">{policy.name}</span>{' '}
+                  <span className="text-[var(--text)]">{policy.name}</span>{' '}
                   <Badge tone={policy.enabled ? 'emerald' : 'slate'}>
                     {policy.enabled ? 'enabled' : 'disabled'}
                   </Badge>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-[var(--subtle)]">
                     {policy.scope} · {policy.rules.length} rule(s)
                   </p>
                 </div>

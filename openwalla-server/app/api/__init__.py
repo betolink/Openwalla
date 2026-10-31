@@ -2,7 +2,18 @@
 
 from fastapi import APIRouter
 
-from . import adblock, agent, auth, devices, events, interfaces, parental, policies, routers
+from . import (
+    adblock,
+    agent,
+    auth,
+    devices,
+    events,
+    interfaces,
+    parental,
+    policies,
+    routers,
+    traffic,
+)
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth.router)
@@ -13,4 +24,5 @@ api_router.include_router(policies.router)
 api_router.include_router(parental.router)
 api_router.include_router(adblock.router)
 api_router.include_router(events.router)
+api_router.include_router(traffic.router)
 api_router.include_router(agent.router)

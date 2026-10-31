@@ -1,8 +1,10 @@
-import { render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
 beforeEach(() => {
+  window.localStorage.clear()
+  delete document.documentElement.dataset.theme
   vi.stubGlobal(
     'fetch',
     vi.fn((url: string) => {
@@ -59,13 +61,20 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  cleanup()
   vi.unstubAllGlobals()
 })
 
 describe('App', () => {
   it('renders routers and devices from the API', async () => {
     render(<App />)
-    expect(await screen.findByText('betowrt')).toBeInTheDocument()
+    expect(await screen.findByText(/betowrt/)).toBeInTheDocument()
     expect((await screen.findAllByText('phone')).length).toBeGreaterThan(0)
+  })
+
+  it('switches to the light theme', async () => {
+    render(<App />)
+    fireEvent.click(await screen.findByLabelText(/switch to light theme/i))
+    expect(document.documentElement.dataset.theme).toBe('light')
   })
 })

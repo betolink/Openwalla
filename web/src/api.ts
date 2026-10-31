@@ -137,6 +137,12 @@ export interface Flow {
   [key: string]: unknown
 }
 
+export interface TrafficPoint {
+  timestamp: number
+  flows: number
+  devices: number
+}
+
 export interface FlowDashboard {
   collector?: {
     connected?: boolean
@@ -303,4 +309,9 @@ export const api = {
 
   listFlows: (params: { limit?: number; hours?: number; search?: string } = {}) =>
     request<{ items: Flow[] }>(`/api/v1/flows${query(params)}`),
+
+  getTrafficSeries: (hours = 24, bucket = 300) =>
+    request<{ items: TrafficPoint[] }>(
+      `/api/v1/traffic/series${query({ hours, bucket })}`,
+    ),
 }

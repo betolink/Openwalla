@@ -13,11 +13,11 @@ export function Badge({
   tone?: 'slate' | 'emerald' | 'amber' | 'rose' | 'sky'
 }) {
   const tones: Record<string, string> = {
-    slate: 'bg-slate-800 text-slate-300',
-    emerald: 'bg-emerald-950 text-emerald-300',
-    amber: 'bg-amber-950 text-amber-300',
-    rose: 'bg-rose-950 text-rose-300',
-    sky: 'bg-sky-950 text-sky-300',
+    slate: 'bg-[var(--surface-2)] text-[var(--muted)]',
+    emerald: 'bg-[var(--success-soft)] text-[var(--success)]',
+    amber: 'bg-[var(--warning-soft)] text-[var(--warning)]',
+    rose: 'bg-[var(--danger-soft)] text-[var(--danger)]',
+    sky: 'bg-[var(--accent-soft)] text-[var(--accent-text)]',
   }
   return (
     <span className={`rounded-full px-2 py-0.5 text-xs ${tones[tone]}`}>
@@ -41,16 +41,16 @@ export function Card({
 }) {
   return (
     <section
-      className={`rounded-xl border border-slate-800 bg-[#0e1420] ${className}`}
+      className={`rounded-2xl border border-[var(--border)] bg-[var(--surface)] ${className}`}
     >
       {(title || actions) && (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-3">
           <div>
             {title && (
-              <h2 className="text-sm font-semibold text-white">{title}</h2>
+              <h2 className="text-sm font-semibold text-[var(--text-strong)]">{title}</h2>
             )}
             {subtitle && (
-              <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>
+              <p className="mt-0.5 text-xs text-[var(--subtle)]">{subtitle}</p>
             )}
           </div>
           {actions}
@@ -71,10 +71,10 @@ export function Stat({
   hint?: string
 }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-[#0e1420] p-4">
-      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-white">{value}</p>
-      {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
+    <div className="rounded-2xl border border-[var(--border)] bg-gradient-to-br from-[var(--surface-3)] to-[var(--surface)] p-4">
+      <p className="text-xs uppercase tracking-wide text-[var(--subtle)]">{label}</p>
+      <p className="mt-1 text-2xl font-semibold text-[var(--text-strong)]">{value}</p>
+      {hint && <p className="mt-1 text-xs text-[var(--subtle)]">{hint}</p>}
     </div>
   )
 }
@@ -93,9 +93,12 @@ export function Button({
   disabled?: boolean
 }) {
   const variants = {
-    primary: 'bg-sky-600 text-white hover:bg-sky-500',
-    secondary: 'bg-slate-800 text-slate-200 hover:bg-slate-700',
-    danger: 'bg-rose-900 text-rose-100 hover:bg-rose-800',
+    primary:
+      'bg-[var(--accent)] text-[var(--on-accent)] hover:bg-[var(--accent-strong)]',
+    secondary:
+      'bg-[var(--surface-2)] text-[var(--text)] hover:bg-[var(--surface-3)]',
+    danger:
+      'bg-[var(--danger-soft)] text-[var(--danger)] hover:opacity-90',
   }
   return (
     <button
@@ -118,7 +121,7 @@ export function Field({
 }) {
   return (
     <label className="grid gap-1 text-sm">
-      <span className="text-slate-400">{label}</span>
+      <span className="text-[var(--muted)]">{label}</span>
       {children}
     </label>
   )
@@ -128,7 +131,7 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`rounded-lg border border-slate-700 bg-[#0b0f17] px-3 py-2 text-slate-100 outline-none focus:border-sky-500 ${props.className ?? ''}`}
+      className={`rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-[var(--text)] outline-none focus:border-[var(--accent)] ${props.className ?? ''}`}
     />
   )
 }
@@ -137,13 +140,13 @@ export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className={`rounded-lg border border-slate-700 bg-[#0b0f17] px-3 py-2 text-slate-100 outline-none focus:border-sky-500 ${props.className ?? ''}`}
+      className={`rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-[var(--text)] outline-none focus:border-[var(--accent)] ${props.className ?? ''}`}
     />
   )
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <p className="px-4 py-6 text-sm text-slate-500">{children}</p>
+  return <p className="px-4 py-6 text-sm text-[var(--subtle)]">{children}</p>
 }
 
 export function PageHeader({
@@ -158,8 +161,8 @@ export function PageHeader({
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="text-xl font-semibold text-white">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+        <h1 className="text-2xl font-semibold text-[var(--text-strong)]">{title}</h1>
+        {subtitle && <p className="mt-1 text-sm text-[var(--subtle)]">{subtitle}</p>}
       </div>
       {actions}
     </div>

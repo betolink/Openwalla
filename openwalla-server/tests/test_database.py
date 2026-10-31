@@ -79,6 +79,13 @@ class FlowDatabaseTest(unittest.TestCase):
         self.assertGreater(rows[0]["timeinsert"], 0)
         self.assertNotIn("json", rows[0])
 
+    def test_traffic_series_buckets(self) -> None:
+        series = self.database.traffic_series(hours=24, bucket_seconds=300)
+        self.assertTrue(series)
+        self.assertEqual(series[0]["flows"], 2)
+        self.assertEqual(series[0]["devices"], 2)
+        self.assertGreater(series[0]["timestamp"], 0)
+
     def test_dashboard_summary(self) -> None:
         summary = self.database.dashboard_summary(24)
 

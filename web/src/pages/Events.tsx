@@ -41,7 +41,7 @@ export function Events() {
         actions={
           <div className="flex gap-2">
             <select
-              className="rounded-lg border border-slate-700 bg-[#0b0f17] px-3 py-1.5 text-sm text-slate-200"
+              className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-1.5 text-sm text-[var(--text)]"
               value={severity}
               onChange={(event) => setSeverity(event.target.value)}
             >
@@ -58,13 +58,13 @@ export function Events() {
       />
 
       {error && (
-        <div className="rounded-lg border border-rose-900 bg-rose-950/50 px-4 py-3 text-sm text-rose-200">
+        <div className="rounded-lg border border-[var(--danger)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">
           {error}
         </div>
       )}
 
       <Card>
-        <div className="divide-y divide-slate-800">
+        <div className="divide-y divide-[var(--border)]">
           {events.map((event) => (
             <div key={event.id} className="px-4 py-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -79,12 +79,12 @@ export function Events() {
                 >
                   {event.severity}
                 </Badge>
-                <span className="text-xs text-slate-500">{event.type}</span>
-                <span className="text-xs text-slate-600">
+                <span className="text-xs text-[var(--subtle)]">{event.type}</span>
+                <span className="text-xs text-[var(--subtle)]">
                   {formatTime(event.created_at)}
                 </span>
               </div>
-              <p className="mt-1 text-sm text-slate-300">{event.message}</p>
+              <p className="mt-1 text-sm text-[var(--text)]">{event.message}</p>
             </div>
           ))}
           {events.length === 0 && <Empty>No events recorded.</Empty>}

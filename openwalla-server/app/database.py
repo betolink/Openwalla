@@ -220,6 +220,34 @@ class FlowDatabase:
             "recent_flows": [dict(row) for row in recent],
         }
 
+    def traffic_series(
+        self, hours: int = 24, bucket_seconds: int = 300
+    ) -> list[dict[str, int]]:
+        """Flow/device counts per time bucket for the dashboard chart."""
+        bucket = max(60, min(int(bucket_seconds), 86400))
+        cutoff = int(time.time()) - (max(1, int(hours)) * 3600)
+        with self._lock:
+            rows = self._connection.execute(
+                """
+                SELECT (timeinsert / ?) * ? AS bucket,
+                       COUNT(*) AS flows,
+                       COUNT(DISTINCT NULLIF(local_mac, '')) AS devices
+                FROM flow_raw
+                WHERE timeinsert >= ?
+                GROUP BY bucket
+                ORDER BY bucket
+                """,
+                (bucket, bucket, cutoff),
+            ).fetchall()
+        return [
+            {
+                "timestamp": int(row["bucket"]),
+                "flows": int(row["flows"]),
+                "devices": int(row["devices"]),
+            }
+            for row in rows
+        ]
+
     def prune(self, retention_hours: int) -> int:
         cutoff = int(time.time()) - (retention_hours * 3600)
         with self._lock, self._connection:

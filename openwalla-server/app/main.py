@@ -68,6 +68,7 @@ app = FastAPI(title="Openwalla Server", version="1.0.0", lifespan=lifespan)
 app.state.settings = settings
 app.state.authentication = authentication
 app.state.control_db = control_db
+app.state.flow_db = database
 app.include_router(api_router)
 app.mount("/static", StaticFiles(directory=STATIC_DIRECTORY), name="static")
 

@@ -102,7 +102,7 @@ export function Setup() {
       />
 
       {error && (
-        <div className="rounded-lg border border-rose-900 bg-rose-950/50 px-4 py-3 text-sm text-rose-200">
+        <div className="rounded-lg border border-[var(--danger)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">
           {error}
         </div>
       )}
@@ -165,7 +165,7 @@ export function Setup() {
       </Card>
 
       <Card title="Configured routers">
-        <div className="divide-y divide-slate-800">
+        <div className="divide-y divide-[var(--border)]">
           {routers.map((router) => (
             <div
               key={router.id}
@@ -176,9 +176,9 @@ export function Setup() {
                   <Badge tone={router.status === 'online' ? 'emerald' : 'slate'}>
                     {router.status}
                   </Badge>
-                  <span className="font-medium text-white">{router.name}</span>
+                  <span className="font-medium text-[var(--text-strong)]">{router.name}</span>
                 </div>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-[var(--subtle)]">
                   {router.address} · {router.model || 'model unknown'} ·{' '}
                   {router.openwrt_version || 'version unknown'} ·{' '}
                   {router.has_credentials ? 'credentials stored' : 'no credentials'}

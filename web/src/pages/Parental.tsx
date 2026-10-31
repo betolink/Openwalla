@@ -85,7 +85,7 @@ export function Parental() {
       />
 
       {error && (
-        <div className="rounded-lg border border-rose-900 bg-rose-950/50 px-4 py-3 text-sm text-rose-200">
+        <div className="rounded-lg border border-[var(--danger)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">
           {error}
         </div>
       )}
@@ -128,7 +128,7 @@ export function Parental() {
       </Card>
 
       <Card title="Profiles">
-        <div className="divide-y divide-slate-800">
+        <div className="divide-y divide-[var(--border)]">
           {profiles.map((profile) => (
             <div
               key={profile.id}
@@ -136,7 +136,7 @@ export function Parental() {
             >
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-medium text-slate-100">
+                  <span className="text-sm font-medium text-[var(--text)]">
                     {profile.name}
                   </span>
                   <Badge tone={profile.paused ? 'amber' : 'emerald'}>
@@ -144,7 +144,7 @@ export function Parental() {
                   </Badge>
                   <Badge tone="slate">{profile.content_filter}</Badge>
                 </div>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-[var(--subtle)]">
                   {profile.daily_limit_minutes} min/day · used{' '}
                   {profile.used_minutes_today ?? 0} min ·{' '}
                   {profile.member_ids.length} member(s)

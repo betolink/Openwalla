@@ -108,4 +108,16 @@ describe('api', () => {
     await api.listEvents()
     expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/events')
   })
+
+  it('lists traffic series', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ items: [] }),
+    })
+    await api.getTrafficSeries(24, 300)
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      '/api/v1/traffic/series?hours=24&bucket=300',
+    )
+  })
 })

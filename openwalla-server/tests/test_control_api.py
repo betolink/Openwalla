@@ -47,6 +47,11 @@ class FakeRouterClient:
         ]
 
 
+class FakeFlowDB:
+    def traffic_series(self, hours: int, bucket: int):
+        return [{"timestamp": 1, "flows": 3, "devices": 2}]
+
+
 class ControlApiTest(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
@@ -55,6 +60,7 @@ class ControlApiTest(unittest.TestCase):
         self.app.state.control_db = self.db
         self.app.state.settings = SimpleNamespace(api_token="", session_hours=24)
         self.app.state.router_client_factory = lambda router: FakeRouterClient()
+        self.app.state.flow_db = FakeFlowDB()
         self.app.include_router(api_router)
         self.app.dependency_overrides[require_auth] = lambda: None
         self.app.dependency_overrides[require_agent] = lambda: {
@@ -216,6 +222,15 @@ class ControlApiTest(unittest.TestCase):
         )
         self.assertTrue(settings.json()["enabled"])
         self.assertEqual(settings.json()["blocklists"], ["stevenblack"])
+
+    def test_traffic_series(self) -> None:
+        response = self.client.get(
+            "/api/v1/traffic/series", params={"hours": 24, "bucket": 300}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json()["items"], [{"timestamp": 1, "flows": 3, "devices": 2}]
+        )
 
     # ------------------------------------------------------------- agent
 

@@ -72,7 +72,7 @@ export function Adblock() {
       />
 
       {error && (
-        <div className="rounded-lg border border-rose-900 bg-rose-950/50 px-4 py-3 text-sm text-rose-200">
+        <div className="rounded-lg border border-[var(--danger)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">
           {error}
         </div>
       )}
@@ -90,7 +90,7 @@ export function Adblock() {
 
       <Card title="Settings">
         <form onSubmit={(event) => void save(event)} className="grid gap-4 p-4">
-          <label className="flex items-center gap-2 text-sm text-slate-300">
+          <label className="flex items-center gap-2 text-sm text-[var(--text)]">
             <input
               type="checkbox"
               checked={enabled}
@@ -129,7 +129,7 @@ export function Adblock() {
             </Badge>
           ))}
           {(status?.blocklists ?? []).length === 0 && (
-            <p className="text-sm text-slate-500">No blocklists configured.</p>
+            <p className="text-sm text-[var(--subtle)]">No blocklists configured.</p>
           )}
         </div>
       </Card>

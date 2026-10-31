@@ -1,10 +1,19 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>web</title>
+    <title>OpenWalla</title>
+    <script>
+      try {
+        if (localStorage.getItem('openwalla-theme') === 'light') {
+          document.documentElement.dataset.theme = 'light'
+        }
+      } catch (error) {
+        /* storage disabled */
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

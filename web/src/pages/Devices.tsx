@@ -105,7 +105,7 @@ export function Devices() {
       />
 
       {error && (
-        <div className="rounded-lg border border-rose-900 bg-rose-950/50 px-4 py-3 text-sm text-rose-200">
+        <div className="rounded-lg border border-[var(--danger)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">
           {error}
         </div>
       )}
@@ -117,7 +117,7 @@ export function Devices() {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
-        <label className="flex items-center gap-2 text-sm text-slate-400">
+        <label className="flex items-center gap-2 text-sm text-[var(--muted)]">
           <input
             type="checkbox"
             checked={onlineOnly}
@@ -145,7 +145,7 @@ export function Devices() {
             <div className="space-y-4 p-4 text-sm">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-base font-semibold text-white">
+                  <span className="text-base font-semibold text-[var(--text-strong)]">
                     {selected.hostname || selected.mac}
                   </span>
                   <Badge tone={selected.online ? 'emerald' : 'slate'}>
@@ -154,29 +154,29 @@ export function Devices() {
                   {selected.blocked && <Badge tone="rose">blocked</Badge>}
                   {selected.paused && <Badge tone="amber">paused</Badge>}
                 </div>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-[var(--subtle)]">
                   {selected.device_type || 'unknown type'} ·{' '}
                   {selected.connection}
                 </p>
               </div>
 
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
-                <dt className="text-slate-500">IPv4</dt>
-                <dd className="text-slate-300">{selected.ipv4 || '—'}</dd>
-                <dt className="text-slate-500">IPv6</dt>
-                <dd className="break-all text-slate-300">
+                <dt className="text-[var(--subtle)]">IPv4</dt>
+                <dd className="text-[var(--text)]">{selected.ipv4 || '—'}</dd>
+                <dt className="text-[var(--subtle)]">IPv6</dt>
+                <dd className="break-all text-[var(--text)]">
                   {selected.ipv6?.join(', ') || '—'}
                 </dd>
-                <dt className="text-slate-500">MAC</dt>
-                <dd className="font-mono text-slate-300">{selected.mac}</dd>
-                <dt className="text-slate-500">Vendor</dt>
-                <dd className="text-slate-300">{selected.vendor || '—'}</dd>
-                <dt className="text-slate-500">First seen</dt>
-                <dd className="text-slate-300">{formatTime(selected.first_seen)}</dd>
-                <dt className="text-slate-500">Last seen</dt>
-                <dd className="text-slate-300">{formatTime(selected.last_seen)}</dd>
-                <dt className="text-slate-500">Tags</dt>
-                <dd className="text-slate-300">{selected.tags?.join(', ') || '—'}</dd>
+                <dt className="text-[var(--subtle)]">MAC</dt>
+                <dd className="font-mono text-[var(--text)]">{selected.mac}</dd>
+                <dt className="text-[var(--subtle)]">Vendor</dt>
+                <dd className="text-[var(--text)]">{selected.vendor || '—'}</dd>
+                <dt className="text-[var(--subtle)]">First seen</dt>
+                <dd className="text-[var(--text)]">{formatTime(selected.first_seen)}</dd>
+                <dt className="text-[var(--subtle)]">Last seen</dt>
+                <dd className="text-[var(--text)]">{formatTime(selected.last_seen)}</dd>
+                <dt className="text-[var(--subtle)]">Tags</dt>
+                <dd className="text-[var(--text)]">{selected.tags?.join(', ') || '—'}</dd>
               </dl>
 
               <div className="flex gap-2">

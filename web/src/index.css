@@ -1,5 +1,59 @@
 @import "tailwindcss";
 
+:root,
+[data-theme="dark"] {
+  --bg: #060a12;
+  --surface: #0b1220;
+  --surface-2: #0a111d;
+  --surface-3: #111a2b;
+  --border: #1e293b;
+  --border-strong: #334155;
+  --input-bg: #070c15;
+  --text: #e2e8f0;
+  --text-strong: #f8fafc;
+  --muted: #94a3b8;
+  --subtle: #64748b;
+  --accent: #38bdf8;
+  --accent-strong: #0ea5e9;
+  --accent-soft: rgba(56, 189, 248, 0.12);
+  --accent-text: #7dd3fc;
+  --success: #34d399;
+  --success-soft: rgba(16, 185, 129, 0.12);
+  --warning: #fbbf24;
+  --warning-soft: rgba(245, 158, 11, 0.12);
+  --danger: #fb7185;
+  --danger-soft: rgba(244, 63, 94, 0.12);
+  --on-accent: #04121f;
+  --shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="light"] {
+  /* Material 3 light palette with purple accents */
+  --bg: #faf7ff;
+  --surface: #ffffff;
+  --surface-2: #f3edf7;
+  --surface-3: #eadff4;
+  --border: #e7e0ec;
+  --border-strong: #cac4d0;
+  --input-bg: #ffffff;
+  --text: #1d1b20;
+  --text-strong: #141218;
+  --muted: #49454f;
+  --subtle: #79747e;
+  --accent: #6750a4;
+  --accent-strong: #4f378b;
+  --accent-soft: #eaddff;
+  --accent-text: #4f378b;
+  --success: #146c2e;
+  --success-soft: #d7f5dd;
+  --warning: #7d5260;
+  --warning-soft: #ffd8e4;
+  --danger: #b3261e;
+  --danger-soft: #f9dedc;
+  --on-accent: #ffffff;
+  --shadow: 0 20px 50px rgba(103, 80, 164, 0.12);
+}
+
 html,
 body,
 #root {
@@ -8,8 +62,9 @@ body,
 
 body {
   margin: 0;
-  background: #0b0f17;
-  color: #e6e8ee;
+  background: var(--bg);
+  color: var(--text);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }

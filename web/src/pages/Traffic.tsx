@@ -58,7 +58,7 @@ export function Traffic() {
       />
 
       {error && (
-        <div className="rounded-lg border border-rose-900 bg-rose-950/50 px-4 py-3 text-sm text-rose-200">
+        <div className="rounded-lg border border-[var(--danger)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">
           {error}
         </div>
       )}
@@ -75,7 +75,7 @@ export function Traffic() {
       </section>
 
       {!collectorConnected && (
-        <div className="rounded-lg border border-amber-900 bg-amber-950/40 px-4 py-3 text-sm text-amber-200">
+        <div className="rounded-lg border border-[var(--warning)] bg-[var(--warning-soft)] px-4 py-3 text-sm text-[var(--warning)]">
           The Netify collector is not connected. Install the OpenWalla Standard or
           Everything router components on betowrt to populate flows and DPI.
         </div>
@@ -83,13 +83,13 @@ export function Traffic() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
         <Card title="Top applications">
-          <div className="divide-y divide-slate-800">
+          <div className="divide-y divide-[var(--border)]">
             {(flows?.top_applications ?? []).map((app) => (
               <div
                 key={app.name}
                 className="flex items-center justify-between px-4 py-2 text-sm"
               >
-                <span className="text-slate-300">{app.name}</span>
+                <span className="text-[var(--text)]">{app.name}</span>
                 <Badge tone="sky">{app.count}</Badge>
               </div>
             ))}
@@ -105,7 +105,7 @@ export function Traffic() {
         >
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
-              <thead className="text-xs uppercase tracking-wide text-slate-500">
+              <thead className="text-xs uppercase tracking-wide text-[var(--subtle)]">
                 <tr>
                   <th className="px-3 py-2">Time</th>
                   <th className="px-3 py-2">Source</th>
@@ -119,27 +119,27 @@ export function Traffic() {
                 {recent.map((flow, index) => {
                   const row = flow as Record<string, unknown>
                   return (
-                    <tr key={index} className="border-t border-slate-800">
-                      <td className="px-3 py-2 text-xs text-slate-500">
+                    <tr key={index} className="border-t border-[var(--border)]">
+                      <td className="px-3 py-2 text-xs text-[var(--subtle)]">
                         {formatEpoch(Number(row.timeinsert ?? 0))}
                       </td>
-                      <td className="px-3 py-2 text-slate-300">
+                      <td className="px-3 py-2 text-[var(--text)]">
                         {String(row.local_ip ?? '—')}
                       </td>
-                      <td className="px-3 py-2 text-slate-400">
+                      <td className="px-3 py-2 text-[var(--muted)]">
                         {String(row.fqdn || row.dest_ip || '—')}
                       </td>
-                      <td className="px-3 py-2 text-slate-300">
+                      <td className="px-3 py-2 text-[var(--text)]">
                         {String(row.detected_app_name || row.detected_protocol_name || '—')}
                       </td>
-                      <td className="px-3 py-2 text-slate-400">
+                      <td className="px-3 py-2 text-[var(--muted)]">
                         {String(row.detected_protocol_name || '—')}
                       </td>
                       <td className="px-3 py-2">
                         {Number(row.ndpi_risk_score ?? 0) > 0 ? (
                           <Badge tone="rose">{String(row.ndpi_risk_score)}</Badge>
                         ) : (
-                          <span className="text-slate-600">0</span>
+                          <span className="text-[var(--subtle)]">0</span>
                         )}
                       </td>
                     </tr>
@@ -148,7 +148,7 @@ export function Traffic() {
                 {recent.length === 0 && (
                   <tr>
                     <td
-                      className="px-3 py-6 text-center text-slate-500"
+                      className="px-3 py-6 text-center text-[var(--subtle)]"
                       colSpan={6}
                     >
                       No flows recorded yet.

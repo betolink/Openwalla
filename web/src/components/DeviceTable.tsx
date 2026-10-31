@@ -15,7 +15,7 @@ export function DeviceTable({
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full text-left text-sm">
-        <thead className="text-xs uppercase tracking-wide text-slate-500">
+        <thead className="text-xs uppercase tracking-wide text-[var(--subtle)]">
           <tr>
             <th className="px-3 py-2">Device</th>
             <th className="px-3 py-2">IP</th>
@@ -30,18 +30,18 @@ export function DeviceTable({
             <tr
               key={device.id}
               onClick={() => onSelect?.(device)}
-              className={`border-t border-slate-800 ${
-                onSelect ? 'cursor-pointer hover:bg-slate-900/60' : ''
-              } ${selectedId === device.id ? 'bg-slate-900' : ''}`}
+              className={`border-t border-[var(--border)] ${
+                onSelect ? 'cursor-pointer hover:bg-[var(--surface-3)]' : ''
+              } ${selectedId === device.id ? 'bg-[var(--surface-2)]' : ''}`}
             >
-              <td className="px-3 py-2 font-medium text-slate-100">
+              <td className="px-3 py-2 font-medium text-[var(--text)]">
                 {device.hostname || 'unknown'}
               </td>
-              <td className="px-3 py-2 text-slate-400">{device.ipv4 || '—'}</td>
-              <td className="px-3 py-2 font-mono text-xs text-slate-500">
+              <td className="px-3 py-2 text-[var(--muted)]">{device.ipv4 || '—'}</td>
+              <td className="px-3 py-2 font-mono text-xs text-[var(--subtle)]">
                 {device.mac}
               </td>
-              <td className="px-3 py-2 text-slate-400">
+              <td className="px-3 py-2 text-[var(--muted)]">
                 {device.device_type || device.connection || '—'}
               </td>
               <td className="px-3 py-2">
@@ -80,7 +80,7 @@ export function DeviceTable({
           {devices.length === 0 && (
             <tr>
               <td
-                className="px-3 py-6 text-center text-slate-500"
+                className="px-3 py-6 text-center text-[var(--subtle)]"
                 colSpan={onAction ? 6 : 5}
               >
                 No devices match.
