@@ -1,0 +1,66 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { api } from './api'
+
+const fetchMock = vi.fn()
+
+beforeEach(() => {
+  fetchMock.mockReset()
+  vi.stubGlobal('fetch', fetchMock)
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+describe('api', () => {
+  it('lists devices with query parameters', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ items: [], total: 0 }),
+    })
+    await api.listDevices({ router_id: 'r1', online: true })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/devices?router_id=r1&online=true',
+      expect.anything(),
+    )
+  })
+
+  it('creates a router with JSON', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: 'r1', name: 'betowrt', address: '192.168.0.1' }),
+    })
+    await api.createRouter({
+      name: 'betowrt',
+      address: '192.168.0.1',
+      username: 'root',
+      password: 'secret',
+    })
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/api/v1/routers')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body)).toMatchObject({ name: 'betowrt' })
+  })
+
+  it('blocks a device', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: 'd1', blocked: true }),
+    })
+    await api.blockDevice('d1')
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/devices/d1/block')
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST')
+  })
+
+  it('throws on an error response', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: async () => 'boom',
+    })
+    await expect(api.listRouters()).rejects.toThrow('boom')
+  })
+})

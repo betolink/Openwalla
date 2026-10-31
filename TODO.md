@@ -16,25 +16,35 @@ Updated: 2026-10-31
 - [x] Full server test suite green (42 tests)
 - [x] Commit + push the backend slice
 
+## Now — Local dashboard
+
+- [x] Web scaffold (Vite + React + TS + Tailwind)
+- [x] Typed API client
+- [x] Overview + Devices + Router setup pages
+- [x] Web tests + production build green (5 tests)
+- [ ] Run backend locally and connect betowrt
+- [ ] Verify device sync against 192.168.0.1
+- [ ] Policies / parental / adblock pages
+- [ ] Live traffic charts
+- [ ] Auth login/logout in the UI
+
 ## Next — Web dashboard (primary deliverable)
 
-- [ ] Scaffold `web/` (Vite + React + TypeScript + Tailwind)
-- [ ] API client generated/typed from `openapi.yaml`
-- [ ] Overview page (WAN/LAN, devices online, live throughput)
-- [ ] Devices list + device detail + pause/block
+- [ ] Generate a typed client from `openapi.yaml` (replace hand-written client)
 - [ ] Traffic history/live charts
 - [ ] Policies + groups builder
 - [ ] Parental profiles/schedules/quotas
 - [ ] Adblock status/settings
 - [ ] Events + notifications
 - [ ] System/settings page
-- [ ] Auth login/logout
 - [ ] Deploy at `net.betolink.cloud` via Traefik + Cloudflare Access
 
 ## Next — Router integration
 
-- [ ] Register betowrt in the API (`POST /api/v1/routers`)
-- [ ] Sync devices/interfaces from `192.168.0.1` over LuCI RPC
+- [x] Register betowrt in the API (`POST /api/v1/routers`)
+- [x] Sync devices/interfaces from `192.168.0.1` over LuCI RPC
+- [ ] Provision a dedicated SSH key from the API host to betowrt
+      (`from="192.168.0.0/24"`, no forwarding) for helper install/enforcement
 - [ ] Dedicated router API user + minimal ACL
 - [ ] Agent/tunnel for remote routers (outbound only)
 - [ ] Enforce device actions through the agent (`openwalla-device-access`)
