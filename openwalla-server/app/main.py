@@ -16,8 +16,10 @@ from fastapi.staticfiles import StaticFiles
 from .auth import AuthenticationManager, SESSION_COOKIE
 from .collector import NetifyCollector
 from .config import Settings
+from .control_db import ControlDatabase
 from .database import FlowDatabase
 from .runtime_config import RuntimeConfig, RuntimeOptions, public_settings
+from .api import api_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,6 +31,9 @@ settings_lock = threading.Lock()
 database = FlowDatabase(settings.database_path)
 collector = NetifyCollector(settings, database)
 authentication = AuthenticationManager(settings)
+control_db = ControlDatabase(
+    Path(settings.database_path).with_name("openwalla-control.sqlite")
+)
 STATIC_DIRECTORY = Path(__file__).parent / "static"
 
 
@@ -56,9 +61,14 @@ async def lifespan(_: FastAPI):
     finally:
         collector.stop()
         database.close()
+        control_db.close()
 
 
 app = FastAPI(title="Openwalla Server", version="1.0.0", lifespan=lifespan)
+app.state.settings = settings
+app.state.authentication = authentication
+app.state.control_db = control_db
+app.include_router(api_router)
 app.mount("/static", StaticFiles(directory=STATIC_DIRECTORY), name="static")
 
 
@@ -124,6 +134,7 @@ def update_settings(options: RuntimeOptions, request: Request) -> dict:
                 500, "Unable to save settings to the data volume"
             ) from error
         settings = updated
+        app.state.settings = updated
         collector.reconfigure(updated)
         authentication.reconfigure(updated)
     return {

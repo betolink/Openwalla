@@ -26,11 +26,16 @@ class DashboardPagesTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.main.database.close()
+        cls.main.control_db.close()
         cls.tempdir.cleanup()
 
     def test_html_routes_have_no_generated_response_model(self):
         for path in ("/", "/login", "/netify", "/tunnel", "/settings"):
-            route = next(route for route in self.main.app.routes if route.path == path)
+            route = next(
+                route
+                for route in self.main.app.routes
+                if getattr(route, "path", None) == path
+            )
             self.assertIsNone(route.response_model)
 
     def test_http_pages_and_local_assets(self):
