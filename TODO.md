@@ -38,7 +38,8 @@ Updated: 2026-10-31
 - [x] Ansible deployment playbook (`clusterfunk/playbooks/29-openwalla.yml`)
 - [ ] Policies / parental / adblock pages backed by router state
 - [ ] Agent sync + enforcement (block/pause/parental/adblock)
-- [ ] Auth login/logout in the UI
+- [x] Dashboard deployed at `net.betolink.cloud` with app login + basic auth
+- [x] Dedicated host1 → betowrt SSH key mounted into the API container
 
 ## Phase 2-A — implemented 2026-10-31
 
@@ -100,8 +101,8 @@ Updated: 2026-10-31
 
 - [x] Register betowrt in the API (`POST /api/v1/routers`)
 - [x] Sync devices/interfaces from `192.168.0.1` over LuCI RPC
-- [ ] Provision a dedicated SSH key from the API host to betowrt
-      (`from="192.168.0.0/24"`, no forwarding) for helper install/enforcement
+- [x] Provision a dedicated SSH key from the API host to betowrt for
+      helper reads and enforcement
 - [x] Install feature packages on betowrt:
       `sqlite3-cli conntrack nlbwmon vnstat2 netifyd banip sqm-scripts`
 - [x] Install OpenWalla helpers via Router Setup (devices, bandwidth, parental,
