@@ -9,6 +9,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 
 from ..control_db import ControlDatabase
 from ..deps import control_db, require_auth
+from ..notifier import send_best_effort
 from ..router_data import RouterData, RouterDataError
 
 router = APIRouter(
@@ -55,6 +56,13 @@ def _action(
                 device["mac"], False, uuid.uuid4().hex
             )
     except RouterDataError as error:
+        send_best_effort(
+            getattr(request.app.state, "notifier", None),
+            "Device enforcement failed",
+            f"{event_type.replace('_', ' ')}: {error}",
+            "warning",
+            "enforcement",
+        )
         raise HTTPException(502, str(error)) from error
 
     value = db.set_device_state(device_id, blocked=blocked)
@@ -189,6 +197,13 @@ def pause_device(
                 device["mac"], True, uuid.uuid4().hex
             )
     except RouterDataError as error:
+        send_best_effort(
+            getattr(request.app.state, "notifier", None),
+            "Device pause failed",
+            str(error),
+            "warning",
+            "enforcement",
+        )
         raise HTTPException(502, str(error)) from error
     value = db.set_device_state(
         device_id,
@@ -223,6 +238,13 @@ def resume_device(
                 device["mac"], False, uuid.uuid4().hex
             )
     except RouterDataError as error:
+        send_best_effort(
+            getattr(request.app.state, "notifier", None),
+            "Device resume failed",
+            str(error),
+            "warning",
+            "enforcement",
+        )
         raise HTTPException(502, str(error)) from error
     value = db.set_device_state(
         device_id, paused=False, pause_until=0

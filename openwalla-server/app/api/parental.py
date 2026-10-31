@@ -8,6 +8,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
 from ..control_db import ControlDatabase
 from ..deps import control_db, require_auth
+from ..notifier import send_best_effort
 from ..router_data import RouterData, RouterDataError
 
 router = APIRouter(
@@ -107,6 +108,13 @@ def _apply_parental(
             _member_macs(db, profile),
         )
     except RouterDataError as error:
+        send_best_effort(
+            getattr(request.app.state, "notifier", None),
+            "Parental enforcement failed",
+            str(error),
+            "warning",
+            "enforcement",
+        )
         raise HTTPException(502, str(error)) from error
 
 
@@ -163,6 +171,13 @@ def delete_profile(
     try:
         source.delete_parental(profile_id)
     except RouterDataError as error:
+        send_best_effort(
+            getattr(request.app.state, "notifier", None),
+            "Parental deletion failed",
+            str(error),
+            "warning",
+            "enforcement",
+        )
         raise HTTPException(502, str(error)) from error
     if not db.delete_parental(profile_id):
         raise HTTPException(404, "profile not found")

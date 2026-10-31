@@ -123,3 +123,18 @@ class Notifier:
         except (urllib.error.URLError, TimeoutError, OSError) as error:
             LOGGER.warning("Notification delivery failed: %s", error)
             return f"failed: {error}"
+
+
+def send_best_effort(
+    notifier: Notifier | None,
+    title: str,
+    body: str,
+    severity: str = "warning",
+    notification_type: str = "system",
+) -> None:
+    if notifier is None:
+        return
+    try:
+        notifier.send(title, body, severity, notification_type)
+    except Exception:
+        LOGGER.exception("Unable to send notification")

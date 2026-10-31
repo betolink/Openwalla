@@ -7,6 +7,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
 from ..control_db import ControlDatabase
 from ..deps import control_db, require_auth
+from ..notifier import send_best_effort
 from ..router_data import RouterData, RouterDataError
 
 router = APIRouter(
@@ -68,6 +69,13 @@ def update_settings(
     try:
         applied = _source(request, db).set_adblock(enabled, blocklists)
     except RouterDataError as error:
+        send_best_effort(
+            getattr(request.app.state, "notifier", None),
+            "Adblock enforcement failed",
+            str(error),
+            "warning",
+            "enforcement",
+        )
         raise HTTPException(502, str(error)) from error
     db.update_adblock(payload)
     return {

@@ -8,6 +8,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
 from ..control_db import ControlDatabase
 from ..deps import control_db, require_auth
+from ..notifier import send_best_effort
 from ..router_data import RouterData, RouterDataError
 
 router = APIRouter(tags=["Policies"], dependencies=[Depends(require_auth)])
@@ -100,6 +101,13 @@ def _apply_policy(
         try:
             source.delete_parental(synthetic_id)
         except RouterDataError as error:
+            send_best_effort(
+                getattr(request.app.state, "notifier", None),
+                "Policy disable failed",
+                str(error),
+                "warning",
+                "enforcement",
+            )
             raise HTTPException(502, str(error)) from error
         return
 
@@ -124,6 +132,13 @@ def _apply_policy(
             _policy_macs(db, policy),
         )
     except RouterDataError as error:
+        send_best_effort(
+            getattr(request.app.state, "notifier", None),
+            "Policy enforcement failed",
+            str(error),
+            "warning",
+            "enforcement",
+        )
         raise HTTPException(502, str(error)) from error
 
 
@@ -198,6 +213,13 @@ def delete_policy(
     try:
         source.delete_parental(f"policy_{policy_id}")
     except RouterDataError as error:
+        send_best_effort(
+            getattr(request.app.state, "notifier", None),
+            "Policy deletion failed",
+            str(error),
+            "warning",
+            "enforcement",
+        )
         raise HTTPException(502, str(error)) from error
     if not db.delete_policy(policy_id):
         raise HTTPException(404, "policy not found")
