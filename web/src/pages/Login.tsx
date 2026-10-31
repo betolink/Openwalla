@@ -80,11 +80,6 @@ export function Login({ onSuccess }: { onSuccess: (user: User) => void }) {
             {busy ? 'Signing in…' : 'Sign in'}
           </Button>
         </form>
-
-        <p className="mt-4 text-[11px] leading-relaxed text-[var(--subtle)]">
-          Use the OpenWalla GUI password (<span className="font-mono">vault_openwalla_gui_password</span>).
-          This is separate from the betowrt/router password used in Router setup.
-        </p>
       </div>
     </div>
   )

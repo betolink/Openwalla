@@ -93,7 +93,11 @@ export function Setup() {
     <div className="space-y-6">
       <PageHeader
         title="Router setup"
-        subtitle="LuCI RPC credentials are stored by the backend and never returned."
+        subtitle={
+          routers.length
+            ? `${routers.length} router configured · credentials are stored by the backend`
+            : 'Add the OpenWrt router that OpenWalla should manage.'
+        }
         actions={
           <Button onClick={() => void load()} disabled={loading}>
             Refresh
@@ -107,8 +111,9 @@ export function Setup() {
         </div>
       )}
 
-      <Card title="Add a router">
-        <form onSubmit={(event) => void submit(event)} className="grid gap-4 p-4">
+      {routers.length === 0 && (
+        <Card title="Add a router">
+          <form onSubmit={(event) => void submit(event)} className="grid gap-4 p-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Name">
               <Input
@@ -162,7 +167,8 @@ export function Setup() {
             </Button>
           </div>
         </form>
-      </Card>
+        </Card>
+      )}
 
       <Card title="Configured routers">
         <div className="divide-y divide-[var(--border)]">

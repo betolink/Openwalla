@@ -20,6 +20,20 @@ def _boolean(name: str, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _secret_value(name: str, default: str = "") -> str:
+    """Read a secret from an env var or an env-var *_FILE path."""
+    direct = os.getenv(name)
+    if direct is not None:
+        return direct
+    file_path = os.getenv(f"{name}_FILE", "").strip()
+    if file_path:
+        try:
+            return Path(file_path).read_text().rstrip("\r\n")
+        except OSError:
+            return default
+    return default
+
+
 @dataclass(frozen=True)
 class Settings:
     netify_host: str
@@ -74,8 +88,8 @@ class Settings:
             ),
             ui_username=os.getenv("OPENWALLA_UI_USERNAME", "admin").strip()
             or "admin",
-            ui_password=os.getenv("OPENWALLA_UI_PASSWORD", ""),
-            ui_password_hash=os.getenv("OPENWALLA_UI_PASSWORD_HASH", "").strip(),
+            ui_password=_secret_value("OPENWALLA_UI_PASSWORD", ""),
+            ui_password_hash=_secret_value("OPENWALLA_UI_PASSWORD_HASH", "").strip(),
             session_secret=os.getenv("OPENWALLA_SESSION_SECRET", "").strip(),
             session_hours=_integer("OPENWALLA_SESSION_HOURS", 24, 1, 720),
             auth_max_failures=_integer("OPENWALLA_AUTH_MAX_FAILURES", 5, 2, 100),
