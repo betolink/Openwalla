@@ -431,6 +431,15 @@ export const api = {
       body: JSON.stringify(input),
     }),
 
+  updateGroup: (
+    id: string,
+    input: { name?: string; description?: string; member_ids?: string[] },
+  ) =>
+    request<Group>(`/api/v1/groups/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    }),
+
   deleteGroup: (id: string) =>
     request<void>(`/api/v1/groups/${id}`, { method: 'DELETE' }),
 

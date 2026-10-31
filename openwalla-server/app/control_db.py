@@ -568,6 +568,31 @@ class ControlDatabase:
             )
         return self._one("SELECT * FROM groups WHERE id = ?", (group_id,))  # type: ignore[return-value]
 
+    def update_group(self, group_id: str, data: dict[str, Any]) -> dict[str, Any] | None:
+        current = self._one("SELECT * FROM groups WHERE id = ?", (group_id,))
+        if current is None:
+            return None
+        updates: list[str] = []
+        values: list[Any] = []
+        for key in ("name", "description"):
+            if key in data:
+                updates.append(f"{key} = ?")
+                values.append(data[key])
+        if "member_ids" in data:
+            updates.append("member_ids = ?")
+            values.append(_encode(data["member_ids"]))
+        if not updates:
+            return current
+        updates.append("updated_at = ?")
+        values.append(_now())
+        values.append(group_id)
+        with self._lock, self._connection:
+            self._connection.execute(
+                f"UPDATE groups SET {', '.join(updates)} WHERE id = ?",
+                values,
+            )
+        return self._one("SELECT * FROM groups WHERE id = ?", (group_id,))
+
     def delete_group(self, group_id: str) -> bool:
         with self._lock, self._connection:
             cursor = self._connection.execute("DELETE FROM groups WHERE id = ?", (group_id,))

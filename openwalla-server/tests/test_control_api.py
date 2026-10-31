@@ -378,6 +378,49 @@ class ControlApiTest(unittest.TestCase):
             [profile.json()["id"]],
         )
 
+    def test_policy_enforcement_and_group_members(self) -> None:
+        router = self.create_router()
+        self.client.post(f"/api/v1/routers/{router['id']}/sync")
+        device = self.client.get(
+            "/api/v1/devices", params={"router_id": router["id"]}
+        ).json()["items"][0]
+        group = self.client.post(
+            "/api/v1/groups",
+            json={"name": "Kids", "member_ids": [device["id"]]},
+        )
+        self.assertEqual(group.status_code, 201)
+        group_id = group.json()["id"]
+        policy = self.client.post(
+            "/api/v1/policies",
+            json={
+                "name": "Bedtime",
+                "scope": "group",
+                "target_ids": [group_id],
+                "enabled": True,
+            },
+        )
+        self.assertEqual(policy.status_code, 201)
+        syncs = self.app.state.router_data.parental_syncs
+        self.assertEqual(syncs[-1][0][-1], [device["mac"].lower()])
+        self.assertTrue(syncs[-1][0][3])
+
+        changed = self.client.put(
+            f"/api/v1/groups/{group_id}", json={"member_ids": []}
+        )
+        self.assertEqual(changed.status_code, 200)
+        self.assertEqual(
+            self.app.state.router_data.parental_syncs[-1][0][-1], []
+        )
+
+        disabled = self.client.put(
+            f"/api/v1/policies/{policy.json()['id']}", json={"enabled": False}
+        )
+        self.assertFalse(disabled.json()["enabled"])
+        self.assertIn(
+            f"policy_{policy.json()['id']}",
+            self.app.state.router_data.parental_deletes,
+        )
+
     def test_network_status_speedtest_topology_and_notification(self) -> None:
         router = self.create_router()
         self.client.post(f"/api/v1/routers/{router['id']}/sync")
