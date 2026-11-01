@@ -66,7 +66,8 @@ Updated: 2026-10-31
 - [ ] OpenWrt version downgrade/rollback test (the reflash test used the same 25.12.6 image)
 - [x] Cloudflare Access + GitHub MFA in front of net.betolink.cloud
 - [x] Removed Traefik basic auth from the OpenWalla route (app login remains)
-- [ ] Router SSH hardening and backup encryption
+- [x] Router SSH hardening: key-only + source-IP allowlist
+- [ ] Encrypt backups and rotate router/API/AdGuard credentials
 - [x] Dashboard deployed at `net.betolink.cloud` with app login + basic auth
 - [x] Dedicated host1 → betowrt SSH key mounted into the API container
 
