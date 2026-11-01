@@ -62,7 +62,7 @@ Updated: 2026-10-31
 - [x] P1 acceptance: filtering rules survive a production Swarm redeploy
 - [x] P1 acceptance: backup archive integrity + required config files verified
 - [x] OpenWrt sysupgrade/reflash-recovery test on betowrt
-- [ ] Grow the 1.1 GB ext4 overlay to the full disk (online resize blocked by image metadata; needs offline resize or rebuilt image)
+- [x] Grow the ext4 filesystem to the full disk via offline GParted Live resize (117.3 GB available)
 - [ ] OpenWrt version downgrade/rollback test (the reflash test used the same 25.12.6 image)
 - [ ] Security hardening + Cloudflare (intentionally last)
 - [x] Dashboard deployed at `net.betolink.cloud` with app login + basic auth
