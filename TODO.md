@@ -68,6 +68,8 @@ Updated: 2026-10-31
 - [x] Removed Traefik basic auth from the OpenWalla route (app login remains)
 - [x] Router SSH hardening: key-only + source-IP allowlist
 - [ ] Encrypt backups and rotate router/API/AdGuard credentials
+- [ ] Single-admin audit trail + session hardening (no RBAC; admin-only deployment)
+- [ ] Other Traefik routes stay on basic auth; per-route Cloudflare Access deferred
 - [x] Dashboard deployed at `net.betolink.cloud` with app login + basic auth
 - [x] Dedicated host1 → betowrt SSH key mounted into the API container
 
