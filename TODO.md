@@ -1,6 +1,6 @@
 # OpenWalla TODO
 
-Updated: 2026-10-31
+Updated: 2026-11-01
 
 ## Now — API backend (TDD)
 
@@ -67,11 +67,38 @@ Updated: 2026-10-31
 - [x] Cloudflare Access + GitHub MFA in front of net.betolink.cloud
 - [x] Removed Traefik basic auth from the OpenWalla route (app login remains)
 - [x] Router SSH hardening: key-only + source-IP allowlist
-- [ ] Encrypt backups and rotate router/API/AdGuard credentials
+- [ ] Encrypt backups (credential rotation deferred)
 - [ ] Single-admin audit trail + session hardening (no RBAC; admin-only deployment)
-- [ ] Other Traefik routes stay on basic auth; per-route Cloudflare Access deferred
-- [x] Dashboard deployed at `net.betolink.cloud` with app login + basic auth
+- [x] Other Traefik routes stay on basic auth; per-route Cloudflare Access deferred
+- [x] Dashboard deployed at `net.betolink.cloud` with Cloudflare Access + GitHub MFA and app login (Traefik basic auth removed from this route)
 - [x] Dedicated host1 → betowrt SSH key mounted into the API container
+
+## Next session — 2026-11-02
+
+Lightweight traffic enforcement without Suricata/IPS:
+
+- [ ] Add a router-side Netify flow enforcer (small SQLite/nftables worker, not a packet-inspection engine)
+  - read recent `flow_raw` rows for `local_mac`, `detected_app_name`, `dest_ip`, `dest_port`
+  - maintain per-device nftables sets with element timeouts
+  - refresh on a short interval; flush conntrack when a target set changes
+- [ ] Add an `observed`/`app_ip` enforcement mode to filtering rules and the UI
+  - DNS rule remains the default
+  - ASN remains the strict known-app mode
+  - observed mode learns IPs from Netify classification and blocks future flows
+- [ ] Add manual `ip`/`cidr` filtering kinds for known CDN/app ranges
+- [ ] Strengthen target-device bypass controls (DNS redirect, DoT/DoH, optional QUIC block)
+- [ ] Measure worker CPU/memory and confirm it does not affect SQM
+- [ ] Acceptance: create an observed app rule for a test device, confirm DNS + observed-IP blocking, delete the rule, confirm sets/conntrack cleanup
+- [ ] Do not add Suricata, inline IPS, or a full DPI engine
+
+Explicitly deferred:
+
+- RBAC/viewer/operator roles (single-admin deployment)
+- Cloudflare Access for other Traefik routes (keep basic auth)
+- Credential rotation (GUI/AdGuard/router/API)
+- Suricata IDS/IPS
+- AdGuard privilege reduction
+- Omada/VLAN work
 
 ## Phase 2-A — implemented 2026-10-31
 
@@ -91,7 +118,7 @@ Updated: 2026-10-31
 - [x] AdGuard Home per-client DNS + safe search
 - [ ] NordVPN policy routing for one test VLAN/device
 - [ ] Per-device bandwidth limits
-- [ ] Then per-app/category rules
+- [ ] Netify-derived app/IP enforcement
 
 ## Feature wiring status
 
@@ -147,7 +174,7 @@ Updated: 2026-10-31
 - [x] Configure Netify LAN listener + backend collector (flows flowing)
 - [x] Adblock active (350k domains; adguard/adguard_tracking/certpl feeds)
 - [x] Choose AdGuard Home **or** keep adblock (AdGuard is live; adblock disabled)
-- [ ] Enable banIP and configure SQM on WAN
+- [x] Enable banIP and configure SQM on WAN
 - [ ] Agent sync for adblock/parental/device data into the API
 - [x] Suricata/IPS probe rejected: too much overhead; removed Podman/image
 - [ ] Lightweight Netify DPI + nftables app enforcement
