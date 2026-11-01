@@ -451,9 +451,14 @@ class RouterData:
         item = by_name[selected]
         created = item.get("created") or {}
         created_at = created.get("timestamp")
-        month_row = RouterData._latest_vnstat(item.get("month") or [])
-        day_row = RouterData._latest_vnstat(item.get("day") or [])
-        total_row = item.get("total") or {}
+        # vnstat 2.x nests traffic series under "traffic"; accept the flat
+        # shape as well so this parser stays easy to test.
+        traffic = item.get("traffic")
+        if not isinstance(traffic, dict):
+            traffic = item
+        month_row = RouterData._latest_vnstat(traffic.get("month") or [])
+        day_row = RouterData._latest_vnstat(traffic.get("day") or [])
+        total_row = traffic.get("total") or {}
 
         def transfer(row: dict[str, Any]) -> dict[str, int]:
             rx = int(row.get("rx") or 0)

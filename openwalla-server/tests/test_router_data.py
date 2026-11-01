@@ -37,9 +37,11 @@ class RouterDataParsingTest(unittest.TestCase):
                 {
                     "name": "eth1",
                     "updated": {"timestamp": 123},
-                    "month": [{"timestamp": 2, "rx": 300, "tx": 200}],
-                    "day": [{"timestamp": 2, "rx": 30, "tx": 20}],
-                    "total": {"rx": 3000, "tx": 2000},
+                    "traffic": {
+                        "month": [{"timestamp": 2, "rx": 300, "tx": 200}],
+                        "day": [{"timestamp": 2, "rx": 30, "tx": 20}],
+                        "total": {"rx": 3000, "tx": 2000},
+                    },
                 }
             ]
         }
