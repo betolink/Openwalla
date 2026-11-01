@@ -269,11 +269,26 @@ def sync_filtering(
         else:
             updated += 1
 
-    adguard.sync_user_rules(managed_rules)
+    rules_changed = adguard.sync_user_rules(managed_rules)
+    if removed or updated or added or rules_changed:
+        try:
+            adguard.clear_cache()
+        except Exception:
+            pass
+    desired_macs = {
+        value["name"].split(":", 1)[1] for value in desired.values()
+    }
     return {
         "added": added,
         "updated": updated,
         "removed": removed,
+        "rules_changed": rules_changed,
+        "ips": sorted(
+            str(device["ipv4"])
+            for device in devices
+            if str(device.get("mac") or "").lower() in desired_macs
+            and device.get("ipv4")
+        ),
     }
 
 

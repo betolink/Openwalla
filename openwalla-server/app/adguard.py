@@ -134,7 +134,7 @@ class AdGuardClient:
         else:
             self._request("POST", "/control/clients/add", payload)
 
-    def sync_user_rules(self, rules: list[str]) -> None:
+    def sync_user_rules(self, rules: list[str]) -> bool:
         payload = self._request("GET", "/control/filtering/status") or {}
         current = list(payload.get("user_rules") or [])
         preserved = [
@@ -142,12 +142,16 @@ class AdGuardClient:
         ]
         desired = preserved + list(rules)
         if desired == current:
-            return
+            return False
         self._request(
             "POST",
             "/control/filtering/set_rules",
             {"rules": desired},
         )
+        return True
+
+    def clear_cache(self) -> None:
+        self._request("POST", "/control/cache_clear")
 
     def sync_profile(
         self,

@@ -124,7 +124,21 @@ def _watch_adguard(adguard: AdGuardClient, stop: threading.Event) -> None:
     while not stop.wait(60):
         try:
             result = sync_parental_profiles(control_db, adguard)
-            if any(result.values()):
+            if any(
+                result.get(key)
+                for key in ("added", "updated", "removed", "rules_changed")
+            ):
+                routers = control_db.list_routers()
+                if routers:
+                    source = RouterData(
+                        routers[0]["address"],
+                        ssh_key=os.getenv("OPENWALLA_ROUTER_SSH_KEY"),
+                    )
+                    for address in result.get("ips", []):
+                        try:
+                            source.clear_conntrack(address)
+                        except Exception:
+                            continue
                 logging.info("AdGuard parental sync: %s", result)
         except Exception:
             logging.exception("Unable to reconcile AdGuard parental clients")

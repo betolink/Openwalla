@@ -359,6 +359,14 @@ class RouterData:
         results = self.speedtests(1)
         return results[0] if results else {}
 
+    def clear_conntrack(self, address: str) -> dict[str, Any]:
+        remote = (
+            f"conntrack -D -f ipv4 -s {shlex.quote(address)} >/dev/null 2>&1 || true; "
+            f"conntrack -D -f ipv4 -d {shlex.quote(address)} >/dev/null 2>&1 || true"
+        )
+        self._run(remote, timeout=15)
+        return {"address": address}
+
     def apply_device_access(
         self, mac: str, blocked: bool, operation: str
     ) -> dict[str, Any]:

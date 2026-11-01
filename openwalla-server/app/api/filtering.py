@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import time
 from typing import Annotated, Any
 
@@ -10,6 +11,7 @@ from ..adguard_sync import sync_filtering
 from ..control_db import ControlDatabase
 from ..deps import control_db, require_auth
 from ..filtering_catalog import CATEGORIES, SERVICES, SERVICE_IDS
+from ..router_data import RouterData
 
 router = APIRouter(
     prefix="/filtering", tags=["Filtering"], dependencies=[Depends(require_auth)]
@@ -25,9 +27,33 @@ def _sync(request: Request, db: ControlDatabase) -> None:
     if adguard is None:
         return
     try:
-        sync_filtering(db, adguard)
+        result = sync_filtering(db, adguard)
     except Exception as error:
         raise HTTPException(502, f"AdGuard sync failed: {error}") from error
+    # Even when the desired state is unchanged, an explicit rule change should
+    # force the device to reconnect so cached DNS/sockets cannot bypass it.
+    _reset_device_connections(request, db, result.get("ips", []))
+
+
+def _reset_device_connections(
+    request: Request, db: ControlDatabase, addresses: list[str]
+) -> None:
+    if not addresses:
+        return
+    source = getattr(request.app.state, "router_data", None)
+    if source is None:
+        routers = db.list_routers()
+        if not routers:
+            return
+        source = RouterData(
+            routers[0]["address"],
+            ssh_key=os.getenv("OPENWALLA_ROUTER_SSH_KEY"),
+        )
+    for address in addresses:
+        try:
+            source.clear_conntrack(address)
+        except Exception:
+            continue
 
 
 def _validate(payload: dict[str, Any]) -> dict[str, Any]:
