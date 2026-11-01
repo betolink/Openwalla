@@ -64,7 +64,9 @@ Updated: 2026-10-31
 - [x] OpenWrt sysupgrade/reflash-recovery test on betowrt
 - [x] Grow the ext4 filesystem to the full disk via offline GParted Live resize (117.3 GB available)
 - [ ] OpenWrt version downgrade/rollback test (the reflash test used the same 25.12.6 image)
-- [ ] Security hardening + Cloudflare (intentionally last)
+- [x] Cloudflare Access + GitHub MFA in front of net.betolink.cloud
+- [x] Removed Traefik basic auth from the OpenWalla route (app login remains)
+- [ ] Router SSH hardening and backup encryption
 - [x] Dashboard deployed at `net.betolink.cloud` with app login + basic auth
 - [x] Dedicated host1 → betowrt SSH key mounted into the API container
 
@@ -127,7 +129,7 @@ Updated: 2026-10-31
 - [ ] Adblock status/settings
 - [ ] Events + notifications
 - [ ] System/settings page
-- [ ] Deploy at `net.betolink.cloud` via Traefik + Cloudflare Access
+- [x] Deploy at `net.betolink.cloud` via Traefik + Cloudflare Access
 
 ## Next — Router integration
 
@@ -165,7 +167,7 @@ Updated: 2026-10-31
 
 - [ ] API container in Docker Swarm
 - [ ] Traefik router for `net.betolink.cloud`
-- [ ] Cloudflare Access policy + MFA
+- [x] Cloudflare Access policy + MFA
 - [ ] Secrets in vault
 - [ ] Backups (API DB, OpenWrt config, switch config)
 - [ ] Health checks + rollback procedure
