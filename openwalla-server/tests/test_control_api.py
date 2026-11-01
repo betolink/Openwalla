@@ -73,6 +73,11 @@ class FakeRouterData:
         self.app_filters.append(ruleset)
         return {"applied": bool(ruleset)}
 
+    def clear_conntrack(self, address: str):
+        self.conntrack_clears = getattr(self, "conntrack_clears", [])
+        self.conntrack_clears.append(address)
+        return {"address": address}
+
     def adblock_status(self):
         return dict(self.adblock)
 
@@ -503,6 +508,31 @@ class ControlApiTest(unittest.TestCase):
             f"/api/v1/filtering/rules/{rule['id']}"
         )
         self.assertEqual(deleted.status_code, 204)
+
+    def test_delete_filtering_rule_flushes_target_connections(self) -> None:
+        router = self.create_router()
+        self.client.post(f"/api/v1/routers/{router['id']}/sync")
+        device = self.client.get("/api/v1/devices").json()["items"][0]
+        created = self.client.post(
+            "/api/v1/filtering/rules",
+            json={
+                "name": "Temporary block",
+                "target_type": "device",
+                "target_ids": [device["id"]],
+                "kind": "service",
+                "value": "instagram",
+                "action": "block",
+            },
+        )
+        self.assertEqual(created.status_code, 201)
+        self.app.state.router_data.conntrack_clears = []
+        deleted = self.client.delete(
+            f"/api/v1/filtering/rules/{created.json()['id']}"
+        )
+        self.assertEqual(deleted.status_code, 204)
+        self.assertIn(
+            "192.168.0.50", self.app.state.router_data.conntrack_clears
+        )
 
     def test_network_status_speedtest_topology_and_notification(self) -> None:
         router = self.create_router()

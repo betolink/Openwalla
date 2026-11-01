@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { Activity, Ban, Bell, ShieldCheck, Wifi } from 'lucide-react'
 import {
   api,
-  type AdblockStatus,
   type Device,
   type EventItem,
+  type FilteringStatus,
   type FlowDashboard,
   type NetworkUsage,
   type Router,
@@ -28,7 +28,7 @@ export function Overview({
 }) {
   const [routers, setRouters] = useState<Router[]>([])
   const [devices, setDevices] = useState<Device[]>([])
-  const [adblock, setAdblock] = useState<AdblockStatus | null>(null)
+  const [filtering, setFiltering] = useState<FilteringStatus | null>(null)
   const [events, setEvents] = useState<EventItem[]>([])
   const [series, setSeries] = useState<TrafficPoint[]>([])
   const [flows, setFlows] = useState<FlowDashboard | null>(null)
@@ -48,15 +48,22 @@ export function Overview({
       setRouters(routerList.items)
       setDevices(deviceList.items)
 
-      const [adblockResult, eventResult, seriesResult, flowResult, usageResult] =
-        await Promise.allSettled([
-          api.getAdblockStatus(),
-          api.listEvents({ limit: 6 }),
-          api.getTrafficSeries(24, 300),
-          api.getFlowDashboard(24),
-          api.getNetworkUsage(),
-        ])
-      setAdblock(adblockResult.status === 'fulfilled' ? adblockResult.value : null)
+      const [
+        filteringResult,
+        eventResult,
+        seriesResult,
+        flowResult,
+        usageResult,
+      ] = await Promise.allSettled([
+        api.getFilteringStatus(),
+        api.listEvents({ limit: 6 }),
+        api.getTrafficSeries(24, 300),
+        api.getFlowDashboard(24),
+        api.getNetworkUsage(),
+      ])
+      setFiltering(
+        filteringResult.status === 'fulfilled' ? filteringResult.value : null,
+      )
       setEvents(
         eventResult.status === 'fulfilled' ? (eventResult.value.items ?? []) : [],
       )
@@ -117,6 +124,9 @@ export function Overview({
   const primaryRouter = routers[0]
   const onlineRouters = routers.filter((router) => router.status === 'online').length
   const onlineDevices = devices.filter((device) => device.online).length
+  const dnsActive = Boolean(
+    filtering?.running && filtering?.protection_enabled,
+  )
   const topApps = flows?.flows?.top_applications ?? []
   const maxApp = Math.max(1, ...topApps.map((app) => app.count))
 
@@ -219,11 +229,11 @@ export function Overview({
             </div>
             <div>
               <p className="text-[11px] uppercase tracking-wide text-[var(--subtle)]">
-                Adblock
+                DNS filtering
               </p>
               <p className="mt-1 flex items-center gap-1.5 text-[var(--text)]">
                 <Ban size={14} />
-                {adblock?.block_percent ?? 0}%
+                {dnsActive ? 'AdGuard active' : 'AdGuard off'}
               </p>
             </div>
           </div>
@@ -238,9 +248,13 @@ export function Overview({
         />
         <Stat label="Flows (24h)" value={flows?.flows?.flow_count ?? 0} />
         <Stat
-          label="Adblock status"
-          value={adblock?.enabled ? 'enabled' : 'disabled'}
-          hint={`${adblock?.blocked_queries ?? 0} blocked queries`}
+          label="DNS filtering"
+          value={dnsActive ? 'enabled' : 'disabled'}
+          hint={
+            filtering?.version
+              ? `AdGuard Home ${filtering.version}`
+              : 'AdGuard Home status unavailable'
+          }
         />
       </section>
 

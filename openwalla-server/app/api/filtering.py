@@ -7,7 +7,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
 from ..adguard import AdGuardClient
-from ..adguard_sync import sync_filtering
+from ..adguard_sync import _target_devices, sync_filtering
 from ..asn_filter import ASNFilterError, sync_app_filter
 from ..control_db import ControlDatabase
 from ..deps import control_db, require_auth
@@ -41,17 +41,41 @@ def _router_source(request: Request, db: ControlDatabase) -> RouterData | None:
     )
 
 
-def _sync(request: Request, db: ControlDatabase) -> None:
+def _rule_addresses(db: ControlDatabase, rule: dict[str, Any]) -> list[str]:
+    """IPs belonging to a rule even after it has been deleted."""
+    devices, _ = db.list_devices(limit=10000)
+    groups = db.list_groups()
+    return sorted(
+        {
+            str(device.get("ipv4"))
+            for device in _target_devices(rule, devices, groups)
+            if device.get("ipv4")
+        }
+    )
+
+
+def _sync(
+    request: Request,
+    db: ControlDatabase,
+    extra_addresses: list[str] | None = None,
+) -> None:
     adguard = _source(request)
-    if adguard is None:
-        return
-    try:
-        result = sync_filtering(db, adguard)
-    except Exception as error:
-        raise HTTPException(502, f"AdGuard sync failed: {error}") from error
+    addresses = set(extra_addresses or [])
+    if adguard is not None:
+        try:
+            result = sync_filtering(db, adguard)
+        except Exception as error:
+            raise HTTPException(502, f"AdGuard sync failed: {error}") from error
+        addresses.update(result.get("ips", []))
+        # Every explicit rule change must invalidate cached DNS, including a
+        # delete where no managed client remains.
+        try:
+            adguard.clear_cache()
+        except Exception:
+            pass
     # Even when the desired state is unchanged, an explicit rule change should
     # force the device to reconnect so cached DNS/sockets cannot bypass it.
-    _reset_device_connections(request, db, result.get("ips", []))
+    _reset_device_connections(request, db, sorted(addresses))
     source = _router_source(request, db)
     if source is None:
         return
@@ -202,10 +226,12 @@ def delete_rule(
     request: Request,
     db: Annotated[ControlDatabase, Depends(control_db)],
 ):
-    if not db.get_filtering_rule(rule_id):
+    rule = db.get_filtering_rule(rule_id)
+    if rule is None:
         raise HTTPException(404, "rule not found")
+    addresses = _rule_addresses(db, rule)
     db.delete_filtering_rule(rule_id)
-    _sync(request, db)
+    _sync(request, db, addresses)
     return None
 
 

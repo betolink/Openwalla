@@ -151,7 +151,8 @@ class AdGuardClient:
         return True
 
     def clear_cache(self) -> None:
-        self._request("POST", "/control/cache_clear")
+        # AdGuard requires a JSON body; an empty POST is rejected with 415.
+        self._request("POST", "/control/cache_clear", {})
 
     def sync_profile(
         self,

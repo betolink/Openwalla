@@ -257,6 +257,16 @@ export interface FilteringRule {
   enabled: boolean
 }
 
+export interface FilteringStatus {
+  version?: string
+  dns_port?: number
+  http_port?: number
+  protection_enabled?: boolean
+  protection_disabled_duration?: number
+  running?: boolean
+  start_time?: number
+}
+
 export interface FilteringCatalog {
   services: Array<{ id: string; name: string; asns?: number[] }>
   categories: Record<
@@ -484,6 +494,9 @@ export const api = {
 
   getFilteringCatalog: () =>
     request<FilteringCatalog>('/api/v1/filtering/catalog'),
+
+  getFilteringStatus: () =>
+    request<FilteringStatus>('/api/v1/filtering/status'),
 
   createFilteringRule: (
     input: Partial<FilteringRule> & {
