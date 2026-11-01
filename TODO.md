@@ -55,7 +55,13 @@ Updated: 2026-10-31
 - [x] Apply-now/cache/conntrack reset on every rule create/update
 - [x] Monthly WAN usage + total network transfer on Overview
 - [ ] Generic app/category DPI enforcement; many game transports lack ASN mapping
-- [ ] Upgrade/rollback and E2E/reboot tests
+- [x] P1 acceptance: DNS rule create → Apply now → delete → DNS recovery
+- [x] P1 acceptance: strict ASN rule create → nftables apply → delete → fragment cleanup
+- [x] P1 acceptance: schedule window activates/deactivates through the 60-second worker
+- [x] P1 acceptance: rules and ASN fragment survive firewall reload and router reboot
+- [x] P1 acceptance: filtering rules survive a production Swarm redeploy
+- [x] P1 acceptance: backup archive integrity + required config files verified
+- [ ] OpenWrt sysupgrade/rollback test (separate from app redeploy)
 - [ ] Security hardening + Cloudflare (intentionally last)
 - [x] Dashboard deployed at `net.betolink.cloud` with app login + basic auth
 - [x] Dedicated host1 → betowrt SSH key mounted into the API container
