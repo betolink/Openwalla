@@ -33,28 +33,55 @@ rollback() {
 }
 trap 'rollback; exit 1' HUP INT TERM
 
+# Firewall rules refer to a zone *name*, not the network name. This install
+# calls the LAN zone "trusted", while stock OpenWrt calls it "lan"; resolve it.
+lan_zone="lan"
+for zone_section in $(uci -q show firewall | sed -n 's/^firewall\.\([^.=]*\)=zone$/\1/p'); do
+	zone_networks="$(uci -q get "firewall.$zone_section.network" 2>/dev/null || true)"
+	case " $zone_networks " in
+	*" lan "*)
+		lan_zone="$(uci -q get "firewall.$zone_section.name" 2>/dev/null || echo lan)"
+		break
+		;;
+	esac
+done
+
 # Force LAN clients to use the router for DNS.
 if ! uci -q get firewall.openwalla_dns_redirect >/dev/null 2>&1; then
 	section="$(uci add firewall redirect)"
 	uci set "firewall.$section.name=openwalla_dns_redirect"
-	uci set "firewall.$section.src=lan"
 	uci set "firewall.$section.proto=tcp udp"
 	uci set "firewall.$section.src_dport=53"
-	uci set "firewall.$section.dest=lan"
 	uci set "firewall.$section.dest_ip=192.168.0.1"
 	uci set "firewall.$section.dest_port=53"
 	uci set "firewall.$section.target=DNAT"
 fi
+section="$(uci -q show firewall | sed -n 's/^firewall\.\([^.=]*\)\.name=.openwalla_dns_redirect.$/\1/p' | head -n 1)"
+[ -n "$section" ] || section="$(uci add firewall redirect)"
+uci set "firewall.$section.name=openwalla_dns_redirect"
+uci set "firewall.$section.src=$lan_zone"
+uci set "firewall.$section.dest=$lan_zone"
+uci set "firewall.$section.proto=tcp udp"
+uci set "firewall.$section.src_dport=53"
+uci set "firewall.$section.dest_ip=192.168.0.1"
+uci set "firewall.$section.dest_port=53"
+uci set "firewall.$section.target=DNAT"
 
 # Block DNS-over-TLS as a basic bypass path.
 if ! uci -q get firewall.openwalla_block_dot >/dev/null 2>&1; then
 	section="$(uci add firewall rule)"
 	uci set "firewall.$section.name=openwalla_block_dot"
-	uci set "firewall.$section.src=lan"
 	uci set "firewall.$section.proto=tcp udp"
 	uci set "firewall.$section.dest_port=853"
 	uci set "firewall.$section.target=REJECT"
 fi
+section="$(uci -q show firewall | sed -n 's/^firewall\.\([^.=]*\)\.name=.openwalla_block_dot.$/\1/p' | head -n 1)"
+[ -n "$section" ] || section="$(uci add firewall rule)"
+uci set "firewall.$section.name=openwalla_block_dot"
+uci set "firewall.$section.src=$lan_zone"
+uci set "firewall.$section.proto=tcp udp"
+uci set "firewall.$section.dest_port=853"
+uci set "firewall.$section.target=REJECT"
 
 # Include the public DoH resolver feed in banIP when available.
 feeds="$(uci -q get banip.global.ban_feed 2>/dev/null || true)"
