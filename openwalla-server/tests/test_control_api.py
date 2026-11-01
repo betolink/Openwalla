@@ -68,6 +68,11 @@ class FakeRouterData:
         self.access_calls.append((mac, blocked, operation))
         return {"mac": mac, "blocked": blocked}
 
+    def apply_app_filter(self, ruleset: str):
+        self.app_filters = getattr(self, "app_filters", [])
+        self.app_filters.append(ruleset)
+        return {"applied": bool(ruleset)}
+
     def adblock_status(self):
         return dict(self.adblock)
 
@@ -117,6 +122,15 @@ class FakeRouterData:
 
 
 class FakeNetworkData:
+    def network_usage(self):
+        return {
+            "interface": "eth1",
+            "source": "vnstat-wan",
+            "month": {"download": 3, "upload": 2, "total": 5},
+            "today": {"download": 1, "upload": 1, "total": 2},
+            "all_time": {"download": 30, "upload": 20, "total": 50},
+        }
+
     def network_status(self):
         return {
             "sqm": {
@@ -443,6 +457,36 @@ class ControlApiTest(unittest.TestCase):
         self.assertEqual(created.status_code, 201)
         rule = created.json()
         self.assertEqual(rule["value"], "instagram")
+        self.assertEqual(rule["mode"], "dns")
+
+        strict = self.client.post(
+            "/api/v1/filtering/rules",
+            json={
+                "name": "Strict Instagram",
+                "target_type": "all",
+                "kind": "service",
+                "value": "instagram",
+                "action": "block",
+                "mode": "asn",
+                "schedule": {},
+            },
+        )
+        self.assertEqual(strict.status_code, 201)
+        self.assertEqual(strict.json()["mode"], "asn")
+        self.client.delete(f"/api/v1/filtering/rules/{strict.json()['id']}")
+
+        unsupported = self.client.post(
+            "/api/v1/filtering/rules",
+            json={
+                "name": "Strict Snapchat",
+                "target_type": "all",
+                "kind": "service",
+                "value": "snapchat",
+                "action": "block",
+                "mode": "asn",
+            },
+        )
+        self.assertEqual(unsupported.status_code, 422)
 
         listed = self.client.get("/api/v1/filtering/rules").json()
         self.assertEqual(len(listed["items"]), 1)
@@ -468,6 +512,10 @@ class ControlApiTest(unittest.TestCase):
         self.assertEqual(status.status_code, 200)
         self.assertTrue(status.json()["sqm"]["enabled"])
         self.assertEqual(status.json()["banip"]["element_count"], 100)
+
+        usage = self.client.get("/api/v1/network/usage")
+        self.assertEqual(usage.status_code, 200)
+        self.assertEqual(usage.json()["month"]["total"], 5)
 
         speedtest = self.client.post("/api/v1/network/speedtest")
         self.assertEqual(speedtest.status_code, 200)

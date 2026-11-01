@@ -30,6 +30,9 @@ if uci -q get uhttpd.main >/dev/null 2>&1; then
 fi
 
 configure_vnstat_interface "br-lan"
+wan_interface="$(detect_wan_interface)"
+[ -z "$wan_interface" ] || [ "$wan_interface" = "br-lan" ] || \
+	configure_vnstat_interface "$wan_interface"
 enable_restart_service vnstat
 enable_restart_service nlbwmon
 

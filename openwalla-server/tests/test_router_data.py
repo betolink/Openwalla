@@ -1,3 +1,4 @@
+import json
 import unittest
 
 from app.router_data import RouterData
@@ -29,6 +30,42 @@ class RouterDataParsingTest(unittest.TestCase):
         self.assertEqual(values["sqm.eth1.enabled"], "1")
         self.assertEqual(values["sqm.eth1.download"], "720000")
         self.assertEqual(values["sqm.eth1.interface"], "eth1")
+
+    def test_vnstat_usage_prefers_wan_and_normalizes_direction(self) -> None:
+        payload = {
+            "interfaces": [
+                {
+                    "name": "eth1",
+                    "updated": {"timestamp": 123},
+                    "month": [{"timestamp": 2, "rx": 300, "tx": 200}],
+                    "day": [{"timestamp": 2, "rx": 30, "tx": 20}],
+                    "total": {"rx": 3000, "tx": 2000},
+                }
+            ]
+        }
+        usage = RouterData._vnstat_usage(json.dumps(payload), "eth1")
+        self.assertEqual(usage["source"], "vnstat-wan")
+        self.assertEqual(usage["month"]["download"], 300)
+        self.assertEqual(usage["month"]["upload"], 200)
+        self.assertEqual(usage["month"]["total"], 500)
+        self.assertEqual(usage["all_time"]["total"], 5000)
+
+    def test_vnstat_usage_reverses_directions_for_br_lan_fallback(self) -> None:
+        payload = {
+            "interfaces": [
+                {
+                    "name": "br-lan",
+                    "month": [{"timestamp": 2, "rx": 300, "tx": 200}],
+                    "day": [],
+                    "total": {"rx": 0, "tx": 0},
+                }
+            ]
+        }
+        usage = RouterData._vnstat_usage(json.dumps(payload), "eth1")
+        self.assertEqual(usage["source"], "vnstat-lan-fallback")
+        self.assertEqual(usage["month"]["download"], 200)
+        self.assertEqual(usage["month"]["upload"], 300)
+        self.assertIn("WAN interface", usage["warning"])
 
 
 if __name__ == "__main__":

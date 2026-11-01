@@ -36,7 +36,13 @@ class RouterData:
     ssh_key: str | None = None
     timeout: float = 8.0
 
-    def _run(self, remote: str, timeout: float | None = None) -> str:
+    def _run(
+        self,
+        remote: str,
+        timeout: float | None = None,
+        *,
+        input_data: str | None = None,
+    ) -> str:
         command = [
             "ssh",
             "-o",
@@ -57,6 +63,7 @@ class RouterData:
                 command,
                 capture_output=True,
                 text=True,
+                input=input_data,
                 timeout=timeout or self.timeout,
             )
         except subprocess.TimeoutExpired as error:
@@ -366,6 +373,146 @@ class RouterData:
         )
         self._run(remote, timeout=15)
         return {"address": address}
+
+    def apply_app_filter(self, ruleset: str) -> dict[str, Any]:
+        """Install strict ASN rules through fw4's nftables include directory.
+
+        The control plane generates the complete fragment; the router only
+        writes it atomically and reloads the firewall when the content changed.
+        Passing an empty string removes all strict rules.
+        """
+        temporary = "/tmp/openwalla-app-filter.nft"
+        self._run(f"cat > {shlex.quote(temporary)}", input_data=ruleset)
+        remote = f"""
+        tmp={shlex.quote(temporary)}
+        dest=/etc/nftables.d/90-openwalla-app-filter.nft
+        if [ -s "$tmp" ]; then
+          if [ -f "$dest" ] && cmp -s "$tmp" "$dest"; then
+            rm -f "$tmp"
+            echo OPENWALLA_APP_FILTER_UNCHANGED
+            exit 0
+          fi
+          mkdir -p /etc/nftables.d
+          mv "$tmp" "$dest"
+        else
+          rm -f "$tmp"
+          if [ ! -f "$dest" ]; then
+            echo OPENWALLA_APP_FILTER_UNCHANGED
+            exit 0
+          fi
+          rm -f "$dest"
+        fi
+        /etc/init.d/firewall reload >/dev/null 2>&1 || fw4 reload >/dev/null 2>&1 || true
+        echo OPENWALLA_APP_FILTER_APPLIED
+        """
+        output = self._run(remote, timeout=60).strip()
+        return {"applied": "OPENWALLA_APP_FILTER_APPLIED" in output, "output": output}
+
+    @staticmethod
+    def _latest_vnstat(rows: list[dict[str, Any]]) -> dict[str, Any]:
+        if not rows:
+            return {}
+        return max(rows, key=lambda row: int(row.get("timestamp") or 0))
+
+    @staticmethod
+    def _vnstat_usage(
+        raw: str, preferred_wan: str = ""
+    ) -> dict[str, Any]:
+        """Normalize vnStat's JSON into dashboard transfer totals."""
+        try:
+            payload = json.loads(raw or "{}")
+        except ValueError as error:
+            raise RouterDataError("invalid vnstat response") from error
+        interfaces = payload.get("interfaces") or []
+        by_name = {
+            str(item.get("name") or ""): item
+            for item in interfaces
+            if isinstance(item, dict)
+        }
+        selected = preferred_wan if preferred_wan in by_name else ""
+        source = "wan"
+        if not selected and "br-lan" in by_name:
+            selected = "br-lan"
+            source = "lan-fallback"
+        if not selected and by_name:
+            selected = next(iter(by_name))
+            source = "other"
+        if not selected:
+            return {
+                "interface": preferred_wan,
+                "source": "none",
+                "month": {"download": 0, "upload": 0, "total": 0},
+                "today": {"download": 0, "upload": 0, "total": 0},
+                "all_time": {"download": 0, "upload": 0, "total": 0},
+                "updated_at": None,
+                "warning": "vnStat has no interface database yet",
+            }
+
+        item = by_name[selected]
+        created = item.get("created") or {}
+        created_at = created.get("timestamp")
+        month_row = RouterData._latest_vnstat(item.get("month") or [])
+        day_row = RouterData._latest_vnstat(item.get("day") or [])
+        total_row = item.get("total") or {}
+
+        def transfer(row: dict[str, Any]) -> dict[str, int]:
+            rx = int(row.get("rx") or 0)
+            tx = int(row.get("tx") or 0)
+            if source == "wan":
+                download, upload = rx, tx
+            else:
+                # br-lan's receive direction is LAN -> router (upload); its
+                # transmit direction is router -> LAN (download).
+                download, upload = tx, rx
+            return {
+                "download": download,
+                "upload": upload,
+                "total": download + upload,
+            }
+
+        return {
+            "interface": selected,
+            "source": "vnstat-wan" if source == "wan" else f"vnstat-{source}",
+            "month": transfer(month_row),
+            "today": transfer(day_row),
+            "all_time": transfer(total_row),
+            "updated_at": item.get("updated") or created_at,
+            "warning": (
+                "WAN interface is not in vnStat yet; showing br-lan totals"
+                if source == "lan-fallback"
+                else ""
+            ),
+        }
+
+    def network_usage(self) -> dict[str, Any]:
+        raw = self._run(
+            "echo '###WAN'; "
+            "uci -q get network.wan.device 2>/dev/null; "
+            "ip -4 route show default 2>/dev/null; "
+            "echo '###VNSTAT'; vnstat --json 2>/dev/null",
+            timeout=20,
+        )
+        wan = ""
+        vnstat = ""
+        current = ""
+        for line in raw.splitlines():
+            if line == "###WAN":
+                current = "wan"
+                continue
+            if line == "###VNSTAT":
+                current = "vnstat"
+                continue
+            if current == "wan" and line.strip() and not wan:
+                fields = line.split()
+                if "dev" in fields:
+                    wan = fields[fields.index("dev") + 1]
+                else:
+                    wan = fields[0].split("/")[0]
+            elif current == "vnstat":
+                vnstat += line + "\n"
+        usage = self._vnstat_usage(vnstat, wan)
+        usage["wan_interface"] = wan
+        return usage
 
     def apply_device_access(
         self, mac: str, blocked: bool, operation: str

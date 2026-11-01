@@ -163,6 +163,7 @@ class ControlDatabase:
                     kind TEXT NOT NULL DEFAULT 'service',
                     value TEXT NOT NULL,
                     action TEXT NOT NULL DEFAULT 'block',
+                    mode TEXT NOT NULL DEFAULT 'dns',
                     schedule TEXT NOT NULL DEFAULT '{}',
                     expires_at INTEGER NOT NULL DEFAULT 0,
                     enabled INTEGER NOT NULL DEFAULT 1,
@@ -237,6 +238,16 @@ class ControlDatabase:
             if "pause_until" not in device_columns:
                 self._connection.execute(
                     "ALTER TABLE devices ADD COLUMN pause_until INTEGER NOT NULL DEFAULT 0"
+                )
+            filtering_columns = {
+                row[1]
+                for row in self._connection.execute(
+                    "PRAGMA table_info(filtering_rules)"
+                )
+            }
+            if "mode" not in filtering_columns:
+                self._connection.execute(
+                    "ALTER TABLE filtering_rules ADD COLUMN mode TEXT NOT NULL DEFAULT 'dns'"
                 )
             self._connection.execute(
                 "INSERT OR IGNORE INTO adblock (id) VALUES (1)"
@@ -702,8 +713,8 @@ class ControlDatabase:
                 """
                 INSERT INTO filtering_rules
                     (id, name, target_type, target_ids, kind, value, action,
-                     schedule, expires_at, enabled, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     mode, schedule, expires_at, enabled, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     rule_id,
@@ -713,6 +724,7 @@ class ControlDatabase:
                     data.get("kind", "service"),
                     data.get("value", ""),
                     data.get("action", "block"),
+                    data.get("mode", "dns"),
                     _encode(data.get("schedule", {})),
                     int(data.get("expires_at", 0) or 0),
                     1 if data.get("enabled", True) else 0,
@@ -730,7 +742,7 @@ class ControlDatabase:
             return None
         updates: list[str] = []
         values: list[Any] = []
-        for key in ("name", "target_type", "kind", "value", "action"):
+        for key in ("name", "target_type", "kind", "value", "action", "mode"):
             if key in data:
                 updates.append(f"{key} = ?")
                 values.append(data[key])

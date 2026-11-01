@@ -45,6 +45,7 @@ export function Filtering() {
   const [kind, setKind] = useState<'service' | 'category' | 'domain'>('service')
   const [value, setValue] = useState('')
   const [action, setAction] = useState<'block' | 'allow'>('block')
+  const [mode, setMode] = useState<'dns' | 'asn'>('dns')
   const [enabled, setEnabled] = useState(true)
   const [days, setDays] = useState<string[]>([])
   const [start, setStart] = useState('')
@@ -101,6 +102,23 @@ export function Filtering() {
     [groups],
   )
 
+  const selectedAsns = useMemo(() => {
+    if (kind === 'service') {
+      return (
+        catalog?.services.find((service) => service.id === value)?.asns ?? []
+      )
+    }
+    if (kind === 'category') {
+      return catalog?.categories[value]?.asns ?? []
+    }
+    return []
+  }, [catalog, kind, value])
+  const strictSupported = action === 'block' && selectedAsns.length > 0
+
+  useEffect(() => {
+    if (mode === 'asn' && !strictSupported) setMode('dns')
+  }, [mode, strictSupported])
+
   const targetOptions =
     targetType === 'group'
       ? groups.map((group) => ({ id: group.id, label: group.name }))
@@ -149,6 +167,7 @@ export function Filtering() {
         kind,
         value: value.trim(),
         action,
+        mode,
         enabled,
         schedule:
           days.length && start && end ? { days, start, end } : {},
@@ -176,6 +195,25 @@ export function Filtering() {
       await load()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to update rule')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const applyNow = async (rule: FilteringRule) => {
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      await api.applyFilteringRule(rule.id)
+      setNotice(
+        rule.mode === 'asn'
+          ? 'Applied DNS and ASN rules; active connections were reset.'
+          : 'Applied DNS rule; cache and active connections were reset.',
+      )
+      await load()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to apply rule')
     } finally {
       setBusy(false)
     }
@@ -331,6 +369,32 @@ export function Filtering() {
             </Field>
           </div>
 
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-3">
+            <label className="flex items-start gap-2 text-sm text-[var(--muted)]">
+              <input
+                className="mt-1"
+                type="checkbox"
+                checked={mode === 'asn'}
+                disabled={!strictSupported}
+                onChange={(event) =>
+                  setMode(event.target.checked ? 'asn' : 'dns')
+                }
+              />
+              <span>
+                <span className="font-medium text-[var(--text)]">
+                  Strict ASN block
+                </span>
+                <span className="mt-1 block text-xs">
+                  {strictSupported
+                    ? `Also drop all traffic to AS${selectedAsns.join(', AS')} at the firewall. This covers cached IPs and CDN traffic, but may block related apps from the same company.`
+                    : action === 'allow'
+                      ? 'Strict mode only supports block rules.'
+                      : 'This app has no known ASN mapping. Strict mode is unavailable; use DNS mode or choose Instagram, Facebook, YouTube, TikTok, X, Netflix, Twitch, Steam, PlayStation, Xbox, or Minecraft.'}
+                </span>
+              </span>
+            </label>
+          </div>
+
           <div className="grid gap-3 md:grid-cols-4">
             <Field label="Block from">
               <Input
@@ -411,6 +475,9 @@ export function Filtering() {
                     {rule.enabled ? 'enabled' : 'disabled'}
                   </Badge>
                   <Badge tone="sky">{rule.kind}</Badge>
+                  <Badge tone={rule.mode === 'asn' ? 'amber' : 'slate'}>
+                    {rule.mode === 'asn' ? 'strict ASN' : 'DNS'}
+                  </Badge>
                   <Badge tone={rule.action === 'block' ? 'rose' : 'amber'}>
                     {rule.action}
                   </Badge>
@@ -422,7 +489,10 @@ export function Filtering() {
                   {scheduleLabel(rule)}
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => void applyNow(rule)} disabled={busy}>
+                  Apply now
+                </Button>
                 <Button onClick={() => void toggle(rule)} disabled={busy}>
                   {rule.enabled ? 'Disable' : 'Enable'}
                 </Button>

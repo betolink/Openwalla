@@ -47,6 +47,17 @@ def network_status(
         raise HTTPException(502, str(error)) from error
 
 
+@router.get("/usage")
+def network_usage(
+    request: Request,
+    db: Annotated[ControlDatabase, Depends(control_db)],
+):
+    try:
+        return _source(request, db).network_usage()
+    except RouterDataError as error:
+        raise HTTPException(502, str(error)) from error
+
+
 @router.post("/speedtest")
 def run_speedtest(
     request: Request,

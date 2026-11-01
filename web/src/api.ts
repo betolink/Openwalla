@@ -251,14 +251,35 @@ export interface FilteringRule {
   kind: 'service' | 'category' | 'domain'
   value: string
   action: 'block' | 'allow'
+  mode: 'dns' | 'asn'
   schedule: Schedule
   expires_at: number
   enabled: boolean
 }
 
 export interface FilteringCatalog {
-  services: Array<{ id: string; name: string }>
-  categories: Record<string, { name: string; services: string[] }>
+  services: Array<{ id: string; name: string; asns?: number[] }>
+  categories: Record<
+    string,
+    { name: string; services: string[]; asns?: number[] }
+  >
+}
+
+export interface NetworkUsagePeriod {
+  download: number
+  upload: number
+  total: number
+}
+
+export interface NetworkUsage {
+  interface: string
+  wan_interface?: string
+  source: string
+  month: NetworkUsagePeriod
+  today: NetworkUsagePeriod
+  all_time: NetworkUsagePeriod
+  updated_at?: string | number | { timestamp?: number } | null
+  warning?: string
 }
 
 export interface TopologyDevice {
@@ -483,6 +504,12 @@ export const api = {
       body: JSON.stringify(input),
     }),
 
+  applyFilteringRule: (id: string) =>
+    request<{ applied: boolean; rule_id: string; mode: string }>(
+      `/api/v1/filtering/rules/${id}/apply`,
+      { method: 'POST' },
+    ),
+
   deleteFilteringRule: (id: string) =>
     request<void>(`/api/v1/filtering/rules/${id}`, { method: 'DELETE' }),
 
@@ -555,6 +582,9 @@ export const api = {
     request<DeviceDetails>(`/api/v1/devices/${id}/details${query({ hours })}`),
 
   getNetworkStatus: () => request<NetworkStatus>('/api/v1/network/status'),
+
+  getNetworkUsage: () =>
+    request<NetworkUsage>('/api/v1/network/usage'),
 
   runSpeedtest: () =>
     request<SpeedTestResult>('/api/v1/network/speedtest', { method: 'POST' }),

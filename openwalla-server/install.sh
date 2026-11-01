@@ -65,6 +65,7 @@ for file in \
 	app/processor.py \
 	app/database.py \
 	app/collector.py \
+	app/asn_filter.py \
 	app/main.py \
 	app/static/dashboard.html \
 	app/static/server.css \

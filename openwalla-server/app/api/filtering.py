@@ -8,10 +8,16 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
 from ..adguard import AdGuardClient
 from ..adguard_sync import sync_filtering
+from ..asn_filter import ASNFilterError, sync_app_filter
 from ..control_db import ControlDatabase
 from ..deps import control_db, require_auth
-from ..filtering_catalog import CATEGORIES, SERVICES, SERVICE_IDS
-from ..router_data import RouterData
+from ..filtering_catalog import (
+    CATEGORIES,
+    SERVICES,
+    SERVICE_IDS,
+    asns_for,
+)
+from ..router_data import RouterData, RouterDataError
 
 router = APIRouter(
     prefix="/filtering", tags=["Filtering"], dependencies=[Depends(require_auth)]
@@ -20,6 +26,19 @@ router = APIRouter(
 
 def _source(request: Request) -> AdGuardClient | None:
     return getattr(request.app.state, "adguard", None)
+
+
+def _router_source(request: Request, db: ControlDatabase) -> RouterData | None:
+    source = getattr(request.app.state, "router_data", None)
+    if source is not None:
+        return source
+    routers = db.list_routers()
+    if not routers:
+        return None
+    return RouterData(
+        routers[0]["address"],
+        ssh_key=os.getenv("OPENWALLA_ROUTER_SSH_KEY"),
+    )
 
 
 def _sync(request: Request, db: ControlDatabase) -> None:
@@ -33,6 +52,13 @@ def _sync(request: Request, db: ControlDatabase) -> None:
     # Even when the desired state is unchanged, an explicit rule change should
     # force the device to reconnect so cached DNS/sockets cannot bypass it.
     _reset_device_connections(request, db, result.get("ips", []))
+    source = _router_source(request, db)
+    if source is None:
+        return
+    try:
+        sync_app_filter(db, source)
+    except (ASNFilterError, RouterDataError) as error:
+        raise HTTPException(502, f"Strict ASN apply failed: {error}") from error
 
 
 def _reset_device_connections(
@@ -40,15 +66,9 @@ def _reset_device_connections(
 ) -> None:
     if not addresses:
         return
-    source = getattr(request.app.state, "router_data", None)
+    source = _router_source(request, db)
     if source is None:
-        routers = db.list_routers()
-        if not routers:
-            return
-        source = RouterData(
-            routers[0]["address"],
-            ssh_key=os.getenv("OPENWALLA_ROUTER_SSH_KEY"),
-        )
+        return
     for address in addresses:
         try:
             source.clear_conntrack(address)
@@ -73,6 +93,21 @@ def _validate(payload: dict[str, Any]) -> dict[str, Any]:
     action = str(payload.get("action") or "block")
     if action not in {"block", "allow"}:
         raise HTTPException(422, "action must be block or allow")
+    mode = str(payload.get("mode") or "dns")
+    if mode not in {"dns", "asn"}:
+        raise HTTPException(422, "mode must be dns or asn")
+    if mode == "asn":
+        if action != "block":
+            raise HTTPException(422, "strict ASN mode only supports block rules")
+        if kind not in {"service", "category"}:
+            raise HTTPException(
+                422, "strict ASN mode supports app/service or category rules"
+            )
+        if not asns_for(kind, value):
+            raise HTTPException(
+                422,
+                "this app has no known ASN; use DNS mode or choose another app",
+            )
     target_ids = payload.get("target_ids", [])
     if target_type != "all" and not isinstance(target_ids, list):
         raise HTTPException(422, "target_ids must be a list")
@@ -101,6 +136,7 @@ def _validate(payload: dict[str, Any]) -> dict[str, Any]:
         "kind": kind,
         "value": value,
         "action": action,
+        "mode": mode,
         "schedule": schedule,
         "expires_at": expires_at,
         "enabled": bool(payload.get("enabled", True)),
@@ -145,6 +181,19 @@ def update_rule(
         raise HTTPException(404, "rule not found")
     _sync(request, db)
     return value
+
+
+@router.post("/rules/{rule_id}/apply")
+def apply_rule(
+    rule_id: str,
+    request: Request,
+    db: Annotated[ControlDatabase, Depends(control_db)],
+):
+    rule = db.get_filtering_rule(rule_id)
+    if rule is None:
+        raise HTTPException(404, "rule not found")
+    _sync(request, db)
+    return {"applied": True, "rule_id": rule_id, "mode": rule.get("mode", "dns")}
 
 
 @router.delete("/rules/{rule_id}", status_code=204)

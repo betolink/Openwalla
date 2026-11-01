@@ -6,12 +6,14 @@ import {
   type Device,
   type EventItem,
   type FlowDashboard,
+  type NetworkUsage,
   type Router,
   type TrafficPoint,
 } from '../api'
 import { DeviceCard } from '../components/DeviceCard'
 import { TrafficChart } from '../components/TrafficChart'
 import { Badge, Button, Card, Empty, PageHeader, Stat } from '../components/ui'
+import { formatBytes } from '../utils/format'
 
 function formatTime(value?: string) {
   if (!value) return '—'
@@ -30,6 +32,7 @@ export function Overview({
   const [events, setEvents] = useState<EventItem[]>([])
   const [series, setSeries] = useState<TrafficPoint[]>([])
   const [flows, setFlows] = useState<FlowDashboard | null>(null)
+  const [usage, setUsage] = useState<NetworkUsage | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -45,12 +48,13 @@ export function Overview({
       setRouters(routerList.items)
       setDevices(deviceList.items)
 
-      const [adblockResult, eventResult, seriesResult, flowResult] =
+      const [adblockResult, eventResult, seriesResult, flowResult, usageResult] =
         await Promise.allSettled([
           api.getAdblockStatus(),
           api.listEvents({ limit: 6 }),
           api.getTrafficSeries(24, 300),
           api.getFlowDashboard(24),
+          api.getNetworkUsage(),
         ])
       setAdblock(adblockResult.status === 'fulfilled' ? adblockResult.value : null)
       setEvents(
@@ -62,6 +66,7 @@ export function Overview({
           : [],
       )
       setFlows(flowResult.status === 'fulfilled' ? flowResult.value : null)
+      setUsage(usageResult.status === 'fulfilled' ? usageResult.value : null)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to load')
     } finally {
@@ -184,6 +189,32 @@ export function Overview({
               <p className="mt-1 flex items-center gap-1.5 text-[var(--text)]">
                 <Activity size={14} />
                 {flows?.flows?.flow_count ?? 0}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-[var(--subtle)]">
+                Monthly usage
+              </p>
+              <p className="mt-1 text-[var(--text)]">
+                {usage?.month ? formatBytes(usage.month.total) : '—'}
+              </p>
+              <p className="text-[11px] text-[var(--subtle)]">
+                {usage?.month
+                  ? `↓ ${formatBytes(usage.month.download)} · ↑ ${formatBytes(usage.month.upload)}`
+                  : 'no data yet'}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-[var(--subtle)]">
+                Total transfer
+              </p>
+              <p className="mt-1 text-[var(--text)]">
+                {usage?.all_time ? formatBytes(usage.all_time.total) : '—'}
+              </p>
+              <p className="text-[11px] text-[var(--subtle)]">
+                {usage?.source === 'vnstat-wan'
+                  ? 'WAN since monitoring began'
+                  : 'since monitoring began'}
               </p>
             </div>
             <div>

@@ -278,6 +278,17 @@ enable_restart_service() {
 	fi
 }
 
+detect_wan_interface() {
+	wan="$(uci -q get network.wan.device 2>/dev/null | awk '{print $1}')"
+	[ -n "$wan" ] || wan="$(uci -q get network.wan.ifname 2>/dev/null | awk '{print $1}')"
+	if [ -z "$wan" ]; then
+		wan="$(ip -4 route show default 2>/dev/null | awk '
+			{ for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i + 1); exit } }
+		')"
+	fi
+	printf '%s\n' "$wan"
+}
+
 configure_vnstat_interface() {
 	interface="${1:-br-lan}"
 

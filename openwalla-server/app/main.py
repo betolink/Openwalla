@@ -23,6 +23,7 @@ from .control_db import ControlDatabase
 from .database import FlowDatabase
 from .adguard import AdGuardClient
 from .adguard_sync import sync_parental_profiles
+from .asn_filter import sync_app_filter
 from .notifier import Notifier
 from .router_data import RouterData
 from .runtime_config import RuntimeConfig, RuntimeOptions, public_settings
@@ -124,22 +125,28 @@ def _watch_adguard(adguard: AdGuardClient, stop: threading.Event) -> None:
     while not stop.wait(60):
         try:
             result = sync_parental_profiles(control_db, adguard)
-            if any(
-                result.get(key)
-                for key in ("added", "updated", "removed", "rules_changed")
-            ):
-                routers = control_db.list_routers()
-                if routers:
-                    source = RouterData(
-                        routers[0]["address"],
-                        ssh_key=os.getenv("OPENWALLA_ROUTER_SSH_KEY"),
-                    )
+            routers = control_db.list_routers()
+            if routers:
+                source = RouterData(
+                    routers[0]["address"],
+                    ssh_key=os.getenv("OPENWALLA_ROUTER_SSH_KEY"),
+                )
+                if any(
+                    result.get(key)
+                    for key in ("added", "updated", "removed", "rules_changed")
+                ):
                     for address in result.get("ips", []):
                         try:
                             source.clear_conntrack(address)
                         except Exception:
                             continue
-                logging.info("AdGuard parental sync: %s", result)
+                    logging.info("AdGuard parental sync: %s", result)
+                try:
+                    strict = sync_app_filter(control_db, source)
+                    if strict.get("devices"):
+                        logging.info("Strict ASN filter: %s", strict)
+                except Exception:
+                    logging.exception("Unable to reconcile strict ASN filter")
         except Exception:
             logging.exception("Unable to reconcile AdGuard parental clients")
 
