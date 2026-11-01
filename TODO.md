@@ -121,7 +121,7 @@ Updated: 2026-10-31
 | Notifications | yes | ntfy/webhook + control DB |
 | Topology | basic | inventory + AP hostnames |
 | AdGuard | yes | live on port 53; adblock retired |
-| Suricata | no | not packaged in 25.12 |
+| Suricata | no | removed; use lightweight nftables + Netify DPI enforcement |
 
 ## Next — Web dashboard (primary deliverable)
 
@@ -149,7 +149,8 @@ Updated: 2026-10-31
 - [x] Choose AdGuard Home **or** keep adblock (AdGuard is live; adblock disabled)
 - [ ] Enable banIP and configure SQM on WAN
 - [ ] Agent sync for adblock/parental/device data into the API
-- [ ] Suricata feasibility: not packaged in 25.12 (build/external sensor/later)
+- [x] Suricata/IPS probe rejected: too much overhead; removed Podman/image
+- [ ] Lightweight Netify DPI + nftables app enforcement
 - [ ] Screen-time caveat: counts network-active minutes, not screen-on
 - [ ] Dedicated router API user + minimal ACL
 - [ ] Agent/tunnel for remote routers (outbound only)
